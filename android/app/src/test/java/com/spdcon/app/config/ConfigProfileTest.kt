@@ -106,4 +106,28 @@ class ConfigProfileTest {
         assertTrue(unsafeHost.validate().any { it.contains("Transport Host") })
     }
 
+    @Test
+    fun rejectsUnsafeTlsAndTransportMetadata() {
+        val base = ConfigProfile(
+            name = "Unsafe metadata",
+            protocol = ConfigProtocol.VLESS,
+            server = "example.com",
+            port = 443,
+            credential = "00000000-0000-0000-0000-000000000000",
+            network = "ws",
+            security = "tls",
+            parameters = mapOf("sni" to "https://evil.example/path", "host" to "cdn.example.com")
+        )
+        assertTrue(base.validate().any { it.contains("SNI/serverName") })
+
+        val badAlpn = base.copy(parameters = mapOf("sni" to "cdn.example.com", "alpn" to "h2, bad token"))
+        assertTrue(badAlpn.validate().any { it.contains("ALPN") })
+
+        val badHeader = base.copy(network = "tcp", parameters = mapOf("headerType" to "fake"))
+        assertTrue(badHeader.validate().any { it.contains("TCP header type") })
+
+        val badGrpc = base.copy(network = "grpc", parameters = mapOf("serviceName" to "svc/name"))
+        assertTrue(badGrpc.validate().any { it.contains("gRPC service name") })
+    }
+
 }

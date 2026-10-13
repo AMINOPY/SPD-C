@@ -65,6 +65,27 @@ data class ConfigProfile(
         if (!hostHeader.isNullOrBlank() && hostHeader.any { it.isWhitespace() || it.isISOControl() }) {
             add("Transport Host must not contain whitespace or control characters")
         }
+        val sni = parameters["sni"]
+        if (!sni.isNullOrBlank() &&
+            (sni.any { it.isWhitespace() || it.isISOControl() || it in "/?#@" } ||
+                sni.startsWith(".") || sni.endsWith("."))) {
+            add("TLS SNI/serverName must be a hostname or IP, not a URL")
+        }
+        val alpn = parameters["alpn"]
+        if (!alpn.isNullOrBlank() && alpn.split(",").any { token ->
+                token.trim().isEmpty() || token.trim().any { it.isWhitespace() || it.isISOControl() }
+            }) {
+            add("ALPN must be a comma-separated list of protocol tokens")
+        }
+        val headerType = parameters["headerType"] ?: parameters["type"]
+        if (!headerType.isNullOrBlank() &&
+            headerType.lowercase() !in setOf("none", "tcp", "http")) {
+            add("TCP header type must be none or http")
+        }
+        val serviceName = parameters["serviceName"] ?: parameters["service-name"]
+        if (!serviceName.isNullOrBlank() && serviceName.any { it.isISOControl() || it == '/' || it == '?' || it == '#' }) {
+            add("gRPC service name contains unsupported characters")
+        }
         if (security.equals("reality", ignoreCase = true)) {
             if (protocol != ConfigProtocol.VLESS) add("REALITY is supported here only for VLESS profiles")
             if (parameters["sni"].isNullOrBlank()) add("REALITY requires the server's configured SNI/serverName")
