@@ -101,7 +101,7 @@ class ConfigProfileTest {
         assertTrue(unsafePath.validate().any { it.contains("Transport path") })
 
         val unsafeHost = unsafePath.copy(
-            parameters = mapOf("path" to "/ws", "host" to "cdn.example.com\\r\\nX-Injected: yes")
+            parameters = mapOf("path" to "/ws", "host" to "cdn.example.com\r\nX-Injected: yes")
         )
         assertTrue(unsafeHost.validate().any { it.contains("Transport Host") })
     }
