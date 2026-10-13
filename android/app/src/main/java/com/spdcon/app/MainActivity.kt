@@ -428,7 +428,7 @@ private fun SpdConDashboard() {
                 Card(modifier = Modifier.fillMaxWidth()) {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text("ساخت دستی کانفیگ", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                        Text("بدون لینک آماده هم می‌توانی یک پروفایل بسازی. برای REALITY، فیلدهای تکمیلی را در بخش پایین وارد کن.")
+                        Text("ساخت سریع")
                         OutlinedButton(onClick = { manualProtocolMenuExpanded = true }, modifier = Modifier.fillMaxWidth()) {
                             Text("پروتکل: $manualProtocol")
                         }
@@ -455,12 +455,12 @@ private fun SpdConDashboard() {
                                 DropdownMenuItem(text = { Text(label) }, onClick = { selectedCountry = code; countryMenuExpanded = false })
                             }
                         }
-                        Text("انتخاب IP واقعی از کشور موردنظر به فهرست نودها یا IPهای آزمایش‌شده نیاز دارد.", style = MaterialTheme.typography.bodySmall)
+                        Text("کشور انتخابی، ترجیح اسکن است.", style = MaterialTheme.typography.bodySmall)
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Checkbox(checked = blockAdultSites, onCheckedChange = { blockAdultSites = it })
                             Column {
                                 Text("مسدودکردن سایت‌های بزرگسال")
-                                Text("در خروجی Xray، دامنه‌های دسته‌بندی‌شده به‌عنوان محتوای بزرگسال مسدود می‌شوند.", style = MaterialTheme.typography.bodySmall)
+                                Text("برای خروجی Xray سازگار", style = MaterialTheme.typography.bodySmall)
                             }
                         }
                         if (manualProtocol == ConfigProtocol.TROJAN || manualProtocol == ConfigProtocol.SHADOWSOCKS) {
@@ -472,7 +472,7 @@ private fun SpdConDashboard() {
                                 singleLine = true
                             )
                         } else {
-                            Text("شناسه VLESS/VMess به‌صورت خودکار ساخته می‌شود؛ نیازی به واردکردن UUID نیست.", style = MaterialTheme.typography.bodySmall)
+                            Text("شناسه خودکار ساخته می‌شود.", style = MaterialTheme.typography.bodySmall)
                         }
                         if (manualProtocol == ConfigProtocol.SHADOWSOCKS) {
                             OutlinedTextField(value = manualMethod, onValueChange = { manualMethod = it }, modifier = Modifier.fillMaxWidth(), label = { Text("روش رمزنگاری Shadowsocks") }, singleLine = true)
@@ -482,7 +482,7 @@ private fun SpdConDashboard() {
                             onValueChange = { manualNetwork = it },
                             modifier = Modifier.fillMaxWidth(),
                             label = { Text("انتقال (auto / tcp / ws / grpc / xhttp)") },
-                            supportingText = { Text("auto یک پیش‌فرض سازگار TCP می‌گذارد؛ نوع واقعی از لینک واردشده خوانده می‌شود.") },
+                            supportingText = { Text("نوع انتقال از لینک خوانده می‌شود؛ تشخیص فعال در حال توسعه است.") },
                             singleLine = true
                         )
                         OutlinedTextField(value = manualSecurity, onValueChange = { manualSecurity = it }, modifier = Modifier.fillMaxWidth(), label = { Text("امنیت (none/tls/reality)") }, singleLine = true)
@@ -645,7 +645,7 @@ private fun SpdConDashboard() {
                 Card(modifier = Modifier.fillMaxWidth()) {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text("بهینه‌سازی شبکه (اختیاری)", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                        Text("حالت ساده به‌صورت پیش‌فرض تنظیمات Fragment را خاموش نگه می‌دارد. این گزینه‌ها فقط تنظیمات خروجی‌اند و به‌تنهایی اتصال را تست یا تضمین نمی‌کنند.")
+                        Text("تنظیمات پیشرفته؛ اتصال واقعی نیازمند تست است.")
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Checkbox(checked = showAdvancedNetwork, onCheckedChange = { showAdvancedNetwork = it })
                             Text("نمایش تنظیمات پیشرفته شبکه")
@@ -717,7 +717,7 @@ private fun SpdConDashboard() {
                             },
                             modifier = Modifier.fillMaxWidth(),
                             label = { Text("فقط SNI (مثلاً www.digikala.com)") },
-                            supportingText = { Text("Fingerprint روی chrome و spiderX روی / تنظیم می‌شود. کلید عمومی و shortId باید از همان سرور گرفته شوند.") },
+                            supportingText = { Text("پیش‌فرض‌ها خودکارند؛ کلید و shortId از سرور لازم‌اند.") },
                             singleLine = true
                         )
                         Row(verticalAlignment = Alignment.CenterVertically) {
