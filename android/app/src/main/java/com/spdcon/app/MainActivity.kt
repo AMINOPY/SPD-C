@@ -123,6 +123,9 @@ private fun SpdConDashboard() {
     var multiGenerationKind by remember { mutableStateOf("TLS Relay") }
     var multiGenerationMenuExpanded by remember { mutableStateOf(false) }
     var workerPathDraft by remember { mutableStateOf("/ws/{uuid}") }
+    var proxyHostname by remember { mutableStateOf("") }
+    var proxySecret by remember { mutableStateOf("") }
+    var proxyMessage by remember { mutableStateOf<String?>(null) }
     var multiGenerationMessage by remember { mutableStateOf<String?>(null) }
     var multiGenerationOutput by remember { mutableStateOf<String?>(null) }
     val generationPrefs = remember(context) { context.getSharedPreferences("spdcon-generation", 0) }
@@ -818,6 +821,28 @@ private fun SpdConDashboard() {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Checkbox(checked = manualAllowInsecure, onCheckedChange = { manualAllowInsecure = it })
                                 Text("اجازه گواهی TLS نامعتبر (ناامن)")
+                            }
+                        }
+                        Card(modifier = Modifier.fillMaxWidth()) {
+                            Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Text("لینک Telegram Web Proxy", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                                Text("فقط لینک اتصال به پراکسیِ از قبل راه‌اندازی‌شده ساخته می‌شود؛ این بخش سرور یا secret معتبر تولید نمی‌کند.", style = MaterialTheme.typography.bodySmall)
+                                OutlinedTextField(value = proxyHostname, onValueChange = { proxyHostname = it; proxyMessage = null }, modifier = Modifier.fillMaxWidth(), label = { Text("دامنه پراکسی") }, singleLine = true)
+                                OutlinedTextField(value = proxySecret, onValueChange = { proxySecret = it; proxyMessage = null }, modifier = Modifier.fillMaxWidth(), label = { Text("Secret پراکسیِ نصب‌شده") }, visualTransformation = PasswordVisualTransformation(), singleLine = true)
+                                Button(onClick = {
+                                    TelegramWebProxyLinkBuilder.build(proxyHostname, proxySecret).fold(
+                                        onSuccess = { link ->
+                                            generatedOutput = link
+                                            multiGenerationOutput = link
+                                            shareLink = link
+                                            qrContent = link
+                                            copyContent = link
+                                            proxyMessage = "لینک ساخته شد. اعتبار secret و دسترسی واقعی سرور هنوز باید روی پراکسی بررسی شود."
+                                        },
+                                        onFailure = { proxyMessage = it.message ?: "ورودی پراکسی معتبر نیست." }
+                                    )
+                                }, modifier = Modifier.fillMaxWidth()) { Text("ساخت لینک و QR") }
+                                proxyMessage?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
                             }
                         }
                         Text("تولید چندکانفیگی از اینباند", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
