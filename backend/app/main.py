@@ -91,9 +91,35 @@ def init_db() -> None:
             node_id TEXT NOT NULL, delta_bytes INTEGER NOT NULL CHECK(delta_bytes >= 0),
             reported_at INTEGER NOT NULL
         );
+        CREATE TABLE IF NOT EXISTS connection_policies (
+            user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+            max_distinct_ips INTEGER NOT NULL DEFAULT 0 CHECK(max_distinct_ips >= 0 AND max_distinct_ips <= 256),
+            max_concurrent_connections INTEGER NOT NULL DEFAULT 0
+                CHECK(max_concurrent_connections >= 0 AND max_concurrent_connections <= 1024),
+            action TEXT NOT NULL DEFAULT 'observe_only'
+                CHECK(action IN ('observe_only','alert_only','deny_new_ip')),
+            updated_at INTEGER NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS connection_observations (
+            connection_id TEXT PRIMARY KEY,
+            user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            node_id TEXT NOT NULL,
+            client_ip TEXT NOT NULL,
+            client_label TEXT,
+            state TEXT NOT NULL CHECK(state IN ('active','disconnected')),
+            first_seen_at INTEGER NOT NULL,
+            last_seen_at INTEGER NOT NULL,
+            disconnected_at INTEGER,
+            upload_bytes INTEGER NOT NULL DEFAULT 0 CHECK(upload_bytes >= 0),
+            download_bytes INTEGER NOT NULL DEFAULT 0 CHECK(download_bytes >= 0)
+        );
         CREATE INDEX IF NOT EXISTS idx_configs_owner ON configs(owner_id);
         CREATE INDEX IF NOT EXISTS idx_sessions_expiry ON sessions(expires_at);
         CREATE INDEX IF NOT EXISTS idx_subscriptions_owner ON subscriptions(owner_id);
+        CREATE INDEX IF NOT EXISTS idx_connection_user_last_seen
+            ON connection_observations(user_id, last_seen_at);
+        CREATE INDEX IF NOT EXISTS idx_connection_user_ip
+            ON connection_observations(user_id, client_ip);
         """)
         conn.commit()
 
@@ -196,6 +222,23 @@ class LimitsIn(BaseModel):
 class UsageIn(BaseModel):
     node_id: str = Field(min_length=1, max_length=128)
     delta_bytes: int = Field(ge=0, le=10**13)
+
+
+class ConnectionPolicyIn(BaseModel):
+    # Zero means "monitor only / no limit" for that dimension.
+    max_distinct_ips: int = Field(default=0, ge=0, le=256)
+    max_concurrent_connections: int = Field(default=0, ge=0, le=1024)
+    action: str = Field(default="observe_only", pattern=r"^(observe_only|alert_only|deny_new_ip)$")
+
+
+class ConnectionReportIn(BaseModel):
+    connection_id: str = Field(min_length=8, max_length=128)
+    node_id: str = Field(min_length=1, max_length=128)
+    client_ip: str = Field(min_length=3, max_length=64)
+    client_label: str | None = Field(default=None, max_length=128)
+    state: str = Field(default="active", pattern=r"^(active|disconnected)$")
+    upload_bytes: int = Field(default=0, ge=0, le=10**15)
+    download_bytes: int = Field(default=0, ge=0, le=10**15)
 
 
 def validate_profile(profile: dict[str, Any]) -> str:
@@ -419,3 +462,132 @@ def admin_usage(_: sqlite3.Row = Depends(admin_user)) -> dict[str, Any]:
                               "FROM usage_events").fetchone()
     return {"events": totals["events"], "reported_bytes": totals["bytes"],
             "source": "trusted usage reports"}
+
+
+@app.put("/admin/users/{user_id}/connection-policy", tags=["admin", "connections"])
+def admin_set_connection_policy(user_id: str, payload: ConnectionPolicyIn,
+                                _: sqlite3.Row = Depends(admin_user)) -> dict[str, Any]:
+    """Save desired policy. This API does not itself block traffic; a trusted node agent must enforce it."""
+    timestamp = now()
+    with db() as conn:
+        if not conn.execute("SELECT 1 FROM users WHERE id=?", (user_id,)).fetchone():
+            raise HTTPException(status_code=404, detail="User not found")
+        conn.execute(
+            "INSERT INTO connection_policies(user_id,max_distinct_ips,max_concurrent_connections,action,updated_at) "
+            "VALUES(?,?,?,?,?) ON CONFLICT(user_id) DO UPDATE SET "
+            "max_distinct_ips=excluded.max_distinct_ips, "
+            "max_concurrent_connections=excluded.max_concurrent_connections, "
+            "action=excluded.action, updated_at=excluded.updated_at",
+            (user_id, payload.max_distinct_ips, payload.max_concurrent_connections,
+             payload.action, timestamp),
+        )
+    return {"user_id": user_id, **payload.model_dump(), "updated_at": timestamp,
+            "enforcement": "pending_node_agent"}
+
+
+@app.get("/admin/users/{user_id}/connection-policy", tags=["admin", "connections"])
+def admin_get_connection_policy(user_id: str,
+                                _: sqlite3.Row = Depends(admin_user)) -> dict[str, Any]:
+    with db() as conn:
+        if not conn.execute("SELECT 1 FROM users WHERE id=?", (user_id,)).fetchone():
+            raise HTTPException(status_code=404, detail="User not found")
+        row = conn.execute("SELECT * FROM connection_policies WHERE user_id=?", (user_id,)).fetchone()
+    if row is None:
+        return {"user_id": user_id, "max_distinct_ips": 0,
+                "max_concurrent_connections": 0, "action": "observe_only",
+                "enforcement": "pending_node_agent"}
+    return {"user_id": user_id, "max_distinct_ips": row["max_distinct_ips"],
+            "max_concurrent_connections": row["max_concurrent_connections"],
+            "action": row["action"], "updated_at": row["updated_at"],
+            "enforcement": "pending_node_agent"}
+
+
+@app.post("/admin/users/{user_id}/connections/report", status_code=201,
+          tags=["admin", "connections"])
+def admin_report_connection(user_id: str, payload: ConnectionReportIn,
+                            _: sqlite3.Row = Depends(admin_user)) -> dict[str, Any]:
+    """Record node-reported connection telemetry; reports are not authenticated from nodes yet."""
+    import ipaddress
+
+    try:
+        client_ip = str(ipaddress.ip_address(payload.client_ip))
+    except ValueError:
+        raise HTTPException(status_code=422, detail="client_ip must be a valid IPv4 or IPv6 address")
+
+    timestamp = now()
+    with db() as conn:
+        if not conn.execute("SELECT 1 FROM users WHERE id=?", (user_id,)).fetchone():
+            raise HTTPException(status_code=404, detail="User not found")
+        previous = conn.execute(
+            "SELECT first_seen_at FROM connection_observations WHERE connection_id=?",
+            (payload.connection_id,),
+        ).fetchone()
+        if previous is not None:
+            owner = conn.execute(
+                "SELECT user_id FROM connection_observations WHERE connection_id=?",
+                (payload.connection_id,),
+            ).fetchone()
+            if owner["user_id"] != user_id:
+                raise HTTPException(status_code=409, detail="Connection ID already belongs to another user")
+        first_seen = previous["first_seen_at"] if previous is not None else timestamp
+        disconnected_at = timestamp if payload.state == "disconnected" else None
+        conn.execute(
+            "INSERT INTO connection_observations(connection_id,user_id,node_id,client_ip,client_label,state,"
+            "first_seen_at,last_seen_at,disconnected_at,upload_bytes,download_bytes) "
+            "VALUES(?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(connection_id) DO UPDATE SET "
+            "node_id=excluded.node_id,client_ip=excluded.client_ip,client_label=excluded.client_label,"
+            "state=excluded.state,last_seen_at=excluded.last_seen_at,disconnected_at=excluded.disconnected_at,"
+            "upload_bytes=MAX(connection_observations.upload_bytes,excluded.upload_bytes),"
+            "download_bytes=MAX(connection_observations.download_bytes,excluded.download_bytes)",
+            (payload.connection_id, user_id, payload.node_id, client_ip, payload.client_label,
+             payload.state, first_seen, timestamp, disconnected_at,
+             payload.upload_bytes, payload.download_bytes),
+        )
+        policy = conn.execute("SELECT * FROM connection_policies WHERE user_id=?", (user_id,)).fetchone()
+        distinct_ips = conn.execute(
+            "SELECT COUNT(DISTINCT client_ip) FROM connection_observations "
+            "WHERE user_id=? AND last_seen_at>=?",
+            (user_id, timestamp - 24 * 60 * 60),
+        ).fetchone()[0]
+        active_connections = conn.execute(
+            "SELECT COUNT(*) FROM connection_observations WHERE user_id=? AND state='active' "
+            "AND last_seen_at>=?",
+            (user_id, timestamp - 5 * 60),
+        ).fetchone()[0]
+        row = conn.execute("SELECT * FROM connection_observations WHERE connection_id=?",
+                           (payload.connection_id,)).fetchone()
+
+    alerts: list[str] = []
+    if policy is not None:
+        if policy["max_distinct_ips"] and distinct_ips > policy["max_distinct_ips"]:
+            alerts.append("distinct_ip_limit_exceeded")
+        if policy["max_concurrent_connections"] and active_connections > policy["max_concurrent_connections"]:
+            alerts.append("concurrent_connection_limit_exceeded")
+    requested_action = policy["action"] if policy is not None else "observe_only"
+    return {
+        "connection": {"connection_id": row["connection_id"], "user_id": row["user_id"],
+                       "node_id": row["node_id"], "client_ip": row["client_ip"],
+                       "client_label": row["client_label"], "state": row["state"],
+                       "first_seen_at": row["first_seen_at"], "last_seen_at": row["last_seen_at"],
+                       "upload_bytes": row["upload_bytes"], "download_bytes": row["download_bytes"]},
+        "observed_distinct_ips_24h": distinct_ips,
+        "observed_active_connections_5m": active_connections,
+        "alerts": alerts,
+        "requested_policy_action": requested_action,
+        "enforcement": "not_enforced_node_agent_required",
+    }
+
+
+@app.get("/admin/users/{user_id}/connections", tags=["admin", "connections"])
+def admin_list_connections(user_id: str,
+                           _: sqlite3.Row = Depends(admin_user)) -> dict[str, Any]:
+    with db() as conn:
+        if not conn.execute("SELECT 1 FROM users WHERE id=?", (user_id,)).fetchone():
+            raise HTTPException(status_code=404, detail="User not found")
+        rows = conn.execute(
+            "SELECT connection_id,node_id,client_ip,client_label,state,first_seen_at,last_seen_at,"
+            "disconnected_at,upload_bytes,download_bytes FROM connection_observations "
+            "WHERE user_id=? ORDER BY last_seen_at DESC LIMIT 500", (user_id,)
+        ).fetchall()
+    return {"user_id": user_id, "connections": [dict(row) for row in rows],
+            "privacy_note": "Contains client IP addresses; restrict admin access and define retention."}
