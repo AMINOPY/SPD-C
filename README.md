@@ -35,7 +35,7 @@ See [backend setup and API limitations](backend/README.md). The FastAPI scaffold
 
 - [GitHub Actions](https://github.com/AMINOPY/SPD-C/actions) — open the latest successful run and download `spd-con-debug-apk` under **Artifacts**.
 - **Important for phone users:** commits do not update an already-installed app. Download the APK artifact from the newest successful run and install it; the artifact is a ZIP containing the debug APK. If Android blocks installation, allow installation from the browser/files app you used.
-- The current country field is a preference only; automatic clean-IP scanning is not implemented. VLESS/VMess user IDs are hidden and generated automatically, but the same user must be provisioned on the server. Adult-site filtering is only emitted in the Xray JSON export path; a normal share link does not enforce it.
+- The country field is still a preference only. The Android scanner now has a bounded TLS IP check and an initial DNS resolver compatibility mode (A/TXT/random-subdomain probes, maximum 256 candidates); it does not yet support country-generated ranges, IPv6, pause/resume, speed tests, TCP DNS fallback, or full end-to-end tunnel verification. VLESS/VMess user IDs are hidden and generated automatically, but the same user must be provisioned on the server. Adult-site filtering is only emitted in the Xray JSON export path; a normal share link does not enforce it.
 - [Development pull request](https://github.com/AMINOPY/SPD-C/pull/1)
 - [Development branch](https://github.com/AMINOPY/SPD-C/tree/feat/spd-con-foundation)
 
@@ -46,7 +46,7 @@ After a successful workflow, download **spd-con-debug-apk** under **Artifacts**.
 - The Android app does not currently bundle or run Xray-core, so JSON generation is a preview/export operation, not a live connection test.
 - The Fragment-enabled Freedom outbound is separate from the VLESS outbound. Automatic routing/chaining through Fragment is not implemented.
 - Network-labelled Fragment presets are editable heuristics, not measured ISP profiles and not a guarantee of bypass or connectivity.
-- Full Xray JSON import/export, tested client-specific subscription encodings for v2rayNG/Hiddify/Clash/sing-box/NPV Tunnel, Hysteria2/TUIC runtime support, DoH, file-based import/export and backup/restore, change history, live connectivity checks, and scanner/checker jobs remain incomplete.
+- Full Xray JSON import/export, tested client-specific subscription encodings for v2rayNG/Hiddify/Clash/sing-box/NPV Tunnel, Hysteria2/TUIC runtime support, DoH, file-based import/export and backup/restore, change history, live tunnel connectivity checks, and advanced scanner/checker jobs remain incomplete.
 - The API quota counter uses trusted usage reports. The node agent can submit authenticated connection telemetry and cumulative byte-counter deltas now update API usage totals; however, it still does not automatically collect Xray access logs/StatsService counters or enforce live tunnel quotas.
 - The optional FastAPI backend currently uses SQLite for a single instance. The Cloudflare Worker uses D1 but still needs production rate limiting, audit logging, integration tests, Android API integration and trusted node telemetry. Remote node enrollment and cross-device sync remain incomplete.
 - Upstream repositories have not been merged or copied into this project. Review licenses, versions, notices, and APIs before adapting code.
