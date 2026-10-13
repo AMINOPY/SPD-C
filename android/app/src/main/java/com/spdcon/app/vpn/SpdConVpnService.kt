@@ -14,6 +14,8 @@ import libXray.DialerController
 import libXray.LibXray
 import org.json.JSONArray
 import org.json.JSONObject
+import java.net.HttpURLConnection
+import java.net.URL
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -157,7 +159,14 @@ class SpdConVpnService : VpnService() {
                 response.optString("error").ifBlank { "Xray-core failed to start the tunnel" }
             }
             running = true
-            publishStatus("running", "Xray-core started; remote reachability is not yet verified")
+            val probeStarted = System.nanoTime()
+            val reachable = probeThroughVpn()
+            val probeMs = (System.nanoTime() - probeStarted) / 1_000_000L
+            if (reachable) {
+                publishStatus("connected", "Xray tunnel is running; HTTPS probe succeeded in ${probeMs} ms")
+            } else {
+                publishStatus("running-unverified", "Xray started, but the HTTPS probe failed. Check node parameters, DNS and UDP support.")
+            }
         } catch (failure: Throwable) {
             runCatching { invoke("stopXray", JSONObject()) }
             runCatching { LibXray.resetDNS() }
@@ -201,6 +210,21 @@ class SpdConVpnService : VpnService() {
         worker.shutdownNow()
         super.onDestroy()
     }
+
+    /** Tests the app's own HTTPS traffic after the system TUN route is active. */
+    private fun probeThroughVpn(): Boolean = runCatching {
+        val connection = URL("https://cp.cloudflare.com/").openConnection() as HttpURLConnection
+        connection.connectTimeout = 7_000
+        connection.readTimeout = 7_000
+        connection.requestMethod = "HEAD"
+        connection.instanceFollowRedirects = false
+        try {
+            connection.connect()
+            connection.responseCode in 200..499
+        } finally {
+            connection.disconnect()
+        }
+    }.getOrDefault(false)
 
     private fun buildLegacyVmessOutbound(link: String): JSONObject {
         val encoded = link.removePrefix("vmess://").trim()
@@ -279,6 +303,8 @@ class SpdConVpnService : VpnService() {
             .putString("profile", activeName)
             .apply()
         updateNotification(when (status) {
+            "connected" -> "Connected • $activeName"
+            "running-unverified" -> "Engine running; internet check failed • $activeName"
             "running" -> "Tunnel engine is running • $activeName"
             "error" -> "Connection failed • ${detail.take(80)}"
             else -> detail.take(100)
