@@ -25,15 +25,21 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.spdcon.app.config.ConfigLinkParser
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -51,13 +57,17 @@ class MainActivity : ComponentActivity() {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun SpdConDashboard() {
+    var shareLink by remember { mutableStateOf("") }
+    var parseResult by remember { mutableStateOf<String?>(null) }
+    var parsedSummary by remember { mutableStateOf<String?>(null) }
+
     Scaffold(
         topBar = {
             TopAppBar(
                 title = {
                     Column {
                         Text("Spd con", fontWeight = FontWeight.Bold)
-                        Text("Configuration workspace", style = MaterialTheme.typography.labelMedium)
+                        Text("ساخت و مدیریت کانفیگ", style = MaterialTheme.typography.labelMedium)
                     }
                 }
             )
@@ -74,50 +84,93 @@ private fun SpdConDashboard() {
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Column(Modifier.padding(18.dp)) {
-                        Text("Build. Organize. Check.", style = MaterialTheme.typography.headlineSmall)
+                        Text("ساخت، سازمان‌دهی، بررسی", style = MaterialTheme.typography.headlineSmall)
                         Spacer(Modifier.height(6.dp))
-                        Text("Your configuration toolkit, growing feature by feature.")
+                        Text("نسخه آغازین: وارد کردن لینک اشتراک کانفیگ و اعتبارسنجی اولیه.")
                         Spacer(Modifier.height(14.dp))
-                        Button(onClick = { /* Config builder is implemented in a later phase. */ }) {
+                        OutlinedTextField(
+                            value = shareLink,
+                            onValueChange = {
+                                shareLink = it
+                                parseResult = null
+                                parsedSummary = null
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            label = { Text("لینک VLESS / VMess / Trojan") },
+                            placeholder = { Text("vless://…") },
+                            minLines = 2,
+                            maxLines = 4
+                        )
+                        Spacer(Modifier.height(10.dp))
+                        Button(
+                            onClick = {
+                                val result = ConfigLinkParser.parse(shareLink)
+                                if (result.isSuccess) {
+                                    val profile = result.getOrThrow()
+                                    parseResult = "کانفیگ با موفقیت خوانده شد. این فقط اعتبارسنجی ساختاری است؛ اتصال را تأیید نمی‌کند."
+                                    parsedSummary = listOf(
+                                        "نام: ${profile.name}",
+                                        "پروتکل: ${profile.protocol}",
+                                        "سرور: ${profile.server}:${profile.port}",
+                                        "انتقال: ${profile.network}",
+                                        "امنیت: ${profile.security}"
+                                    ).joinToString("\n")
+                                } else {
+                                    parseResult = result.exceptionOrNull()?.message ?: "لینک قابل خواندن نیست."
+                                    parsedSummary = null
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
                             Icon(Icons.Default.Add, contentDescription = null)
-                            Text("  Create configuration")
+                            Text("  خواندن و اعتبارسنجی لینک")
+                        }
+                        parseResult?.let { message ->
+                            Spacer(Modifier.height(10.dp))
+                            Text(message, style = MaterialTheme.typography.bodyMedium)
+                        }
+                        parsedSummary?.let { summary ->
+                            Spacer(Modifier.height(8.dp))
+                            Card(modifier = Modifier.fillMaxWidth()) {
+                                Text(summary, modifier = Modifier.padding(12.dp), style = MaterialTheme.typography.bodyMedium)
+                            }
                         }
                     }
                 }
             }
             item {
-                Text("Workspace", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
+                Text("بخش‌های برنامه", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
             }
             item {
                 FeatureCard(
                     icon = { Icon(Icons.Default.QrCode, contentDescription = null) },
-                    title = "Config library",
-                    description = "Create, import, organize, export and share profiles."
+                    title = "کتابخانه کانفیگ",
+                    description = "ذخیره محلی، جست‌وجو، برچسب‌گذاری، خروجی و QR در مراحل بعد."
                 )
             }
             item {
                 FeatureCard(
                     icon = { Icon(Icons.Default.Dns, contentDescription = null) },
-                    title = "Nodes",
-                    description = "Node inventory, health and synchronization (planned)."
+                    title = "نودها",
+                    description = "وضعیت، سلامت و همگام‌سازی نودها؛ نیازمند بک‌اند و دسترسی مجاز."
                 )
             }
             item {
                 FeatureCard(
                     icon = { Icon(Icons.Default.Group, contentDescription = null) },
-                    title = "Users & subscriptions",
-                    description = "User assignments, limits and subscription links (planned)."
+                    title = "کاربران و اشتراک‌ها",
+                    description = "مدیریت کاربر، محدودیت، انقضا و لینک اشتراک در مراحل بعد."
                 )
             }
             item {
                 FeatureCard(
                     icon = { Icon(Icons.Default.Security, contentDescription = null) },
-                    title = "Scanner & checker",
-                    description = "Batch checks and diagnostics with safe, explicit controls (planned)."
+                    title = "Scanner و Checker",
+                    description = "بررسی ساختاری و تست‌های کنترل‌شده برای نودهای مجاز؛ در حال توسعه."
                 )
             }
             item {
-                Text("Foundation build • v0.1.0", style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(top = 8.dp))
+                Text("نسخه 0.1.0 • توسعه مرحله‌ای", style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(top = 8.dp))
             }
         }
     }
