@@ -595,6 +595,7 @@ def admin_report_connection(user_id: str, payload: ConnectionReportIn,
                        "upload_bytes": row["upload_bytes"], "download_bytes": row["download_bytes"]},
         "observed_distinct_ips_24h": distinct_ips,
         "observed_active_connections_5m": active_connections,
+        "usage_delta_bytes": usage_delta,
         "alerts": alerts,
         "requested_policy_action": requested_action,
         "enforcement": "not_enforced_node_agent_required",
@@ -687,12 +688,21 @@ def node_report_connection(node_id: str, payload: NodeConnectionReportIn,
         if payload.node_id != node_id:
             raise HTTPException(status_code=422, detail="Payload node_id must match authenticated node")
         previous = conn.execute(
-            "SELECT user_id,first_seen_at FROM connection_observations WHERE connection_id=?",
+            "SELECT user_id,first_seen_at,upload_bytes,download_bytes "
+            "FROM connection_observations WHERE connection_id=?",
             (payload.connection_id,),
         ).fetchone()
         if previous is not None and previous["user_id"] != payload.user_id:
             raise HTTPException(status_code=409, detail="Connection ID already belongs to another user")
         first_seen = previous["first_seen_at"] if previous else timestamp
+        previous_upload = previous["upload_bytes"] if previous else 0
+        previous_download = previous["download_bytes"] if previous else 0
+        # Runtime counters are cumulative per connection. Count only positive deltas so
+        # repeated snapshots never charge the same bytes twice. A runtime restart should
+        # issue a new connection_id rather than reset counters for an existing connection.
+        usage_delta = max(0, payload.upload_bytes - previous_upload) + max(
+            0, payload.download_bytes - previous_download
+        )
         disconnected_at = timestamp if payload.state == "disconnected" else None
         conn.execute(
             "INSERT INTO connection_observations(connection_id,user_id,node_id,client_ip,client_label,state,"
@@ -708,6 +718,12 @@ def node_report_connection(node_id: str, payload: NodeConnectionReportIn,
         )
         conn.execute("INSERT INTO node_events(event_id,node_id,received_at) VALUES(?,?,?)",
                      (payload.event_id, node_id, timestamp))
+        if usage_delta > 0:
+            conn.execute("INSERT INTO usage_events(id,user_id,node_id,delta_bytes,reported_at) "
+                         "VALUES(?,?,?,?,?)",
+                         (payload.event_id, payload.user_id, node_id, usage_delta, timestamp))
+            conn.execute("UPDATE users SET used_bytes=used_bytes+? WHERE id=?",
+                         (usage_delta, payload.user_id))
         conn.execute("UPDATE nodes SET last_seen_at=? WHERE id=?", (timestamp, node_id))
         policy = conn.execute("SELECT * FROM connection_policies WHERE user_id=?",
                               (payload.user_id,)).fetchone()
