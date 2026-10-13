@@ -46,7 +46,6 @@ class XrayConfigGeneratorTest {
         assertTrue(!root.has("routing"))
         assertEquals(1, root.getJSONArray("outbounds").length())
     }
-}
 
     @Test
     fun realityOutboundUsesCurrentPublicKeyFieldAndNormalizesTcpToRaw() {
