@@ -22,7 +22,8 @@ object ConfigLinkParser {
             input.startsWith("vless://", ignoreCase = true) -> parseUri(input, ConfigProtocol.VLESS)
             input.startsWith("trojan://", ignoreCase = true) -> parseUri(input, ConfigProtocol.TROJAN)
             input.startsWith("vmess://", ignoreCase = true) -> parseVmess(input)
-            else -> throw IllegalArgumentException("Unsupported link scheme. Supported now: VLESS, VMess and Trojan")
+            input.startsWith("ss://", ignoreCase = true) -> parseShadowsocks(input)
+            else -> throw IllegalArgumentException("Unsupported link scheme. Supported now: VLESS, VMess, Trojan and Shadowsocks")
         }
     }
 
@@ -58,6 +59,50 @@ object ConfigLinkParser {
             val errors = profile.validate()
             require(errors.isEmpty()) { errors.joinToString("; ") }
         }
+    }
+
+    private fun parseShadowsocks(input: String): ConfigProfile {
+        val withoutScheme = input.substring(5)
+        val payload = withoutScheme.substringBefore("#").substringBefore("?")
+        require(payload.isNotBlank()) { "Shadowsocks credentials are missing" }
+        val decoded = runCatching {
+            String(Base64.getUrlDecoder().decode(payload), StandardCharsets.UTF_8)
+        }.getOrNull() ?: runCatching {
+            String(Base64.getDecoder().decode(payload), StandardCharsets.UTF_8)
+        }.getOrNull()
+        val authority = decoded ?: payload
+        val at = authority.lastIndexOf('@')
+        require(at > 0 && at < authority.lastIndex) {
+            "Shadowsocks link must contain method:password@host:port"
+        }
+        val methodPassword = authority.substring(0, at)
+        val serverPart = authority.substring(at + 1)
+        val colon = serverPart.lastIndexOf(':')
+        require(colon > 0) { "Shadowsocks server port is missing" }
+        val server = serverPart.substring(0, colon).removePrefix("[").removeSuffix("]")
+        val port = serverPart.substring(colon + 1).toIntOrNull() ?: -1
+        val methodColon = methodPassword.indexOf(':')
+        require(methodColon > 0 && methodColon < methodPassword.lastIndex) {
+            "Shadowsocks method or password is missing"
+        }
+        val method = methodPassword.substring(0, methodColon)
+        val password = methodPassword.substring(methodColon + 1)
+        val remark = withoutScheme.substringAfter("#", "").takeIf { it.isNotBlank() }
+            ?.let { URLDecoder.decode(it, StandardCharsets.UTF_8.name()) }
+        val profile = ConfigProfile(
+            name = remark ?: "Shadowsocks • $server",
+            protocol = ConfigProtocol.SHADOWSOCKS,
+            server = server,
+            port = port,
+            credential = password,
+            network = "tcp",
+            security = "none",
+            remark = remark,
+            parameters = mapOf("method" to method)
+        )
+        val errors = profile.validate()
+        require(errors.isEmpty()) { errors.joinToString("; ") }
+        return profile
     }
 
     private fun parseVmess(input: String): ConfigProfile {
