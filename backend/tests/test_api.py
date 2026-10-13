@@ -73,6 +73,27 @@ class ConfigHubApiTests(unittest.TestCase):
         self.assertEqual(revoked.status_code, 200, revoked.text)
         self.assertEqual(self.client.get(url).status_code, 404)
 
+
+    def test_subscription_is_blocked_when_reported_quota_is_exhausted(self):
+        user = self.register()
+        token = self.login()
+        self.client.post("/configs", headers=token, json={
+            "name": "Quota profile", "protocol": "vless", "profile": {"server": "example.org"}
+        })
+        subscription = self.client.post("/subscriptions", headers=token, json={}).json()
+        bootstrap = self.client.post("/admin/bootstrap", headers={
+            "X-Bootstrap-Token": api.BOOTSTRAP_ADMIN_TOKEN
+        })
+        self.assertEqual(bootstrap.status_code, 201, bootstrap.text)
+        admin_token = self.login()
+        limits = self.client.patch(f"/admin/users/{user['id']}/limits", headers=admin_token,
+            json={"quota_bytes": 100, "expires_at": None, "enabled": True})
+        self.assertEqual(limits.status_code, 200, limits.text)
+        usage = self.client.post(f"/admin/users/{user['id']}/usage", headers=admin_token,
+            json={"node_id": "test-node", "delta_bytes": 100})
+        self.assertEqual(usage.status_code, 201, usage.text)
+        self.assertEqual(self.client.get(subscription["url"]).status_code, 404)
+
     def test_admin_bootstrap_and_server_side_limits(self):
         user = self.register()
         bootstrap = self.client.post("/admin/bootstrap", headers={
