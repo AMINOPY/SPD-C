@@ -67,7 +67,7 @@ object XrayConfigGenerator {
                 )
             }
             "grpc" -> {
-                val serviceName = profile.parameters["serviceName"] ?: profile.parameters["serviceName".lowercase()] ?: ""
+                val serviceName = profile.parameters["serviceName"] ?: profile.parameters["service-name"] ?: ""
                 streamSettings.put("grpcSettings", JSONObject().put("serviceName", serviceName))
             }
         }
