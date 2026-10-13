@@ -47,3 +47,45 @@ class XrayConfigGeneratorTest {
         assertEquals(1, root.getJSONArray("outbounds").length())
     }
 }
+
+    @Test
+    fun realityOutboundUsesCurrentPublicKeyFieldAndNormalizesTcpToRaw() {
+        val root = JSONObject(
+            XrayConfigGenerator.generateVlessRealityOutbound(profile(false), reality).getOrThrow()
+        )
+        val outbound = root.getJSONArray("outbounds").getJSONObject(0)
+        val stream = outbound.getJSONObject("streamSettings")
+        val settings = stream.getJSONObject("realitySettings")
+
+        assertEquals("vless", outbound.getString("protocol"))
+        assertEquals("raw", stream.getString("network"))
+        assertEquals("reality", stream.getString("security"))
+        assertEquals("public-key", settings.getString("password"))
+        assertEquals("example.com", settings.getString("serverName"))
+        assertEquals("abcd", settings.getString("shortId"))
+        assertEquals("chrome", settings.getString("fingerprint"))
+    }
+
+    @Test
+    fun realityOutboundRejectsUnsupportedTransportInsteadOfGuessing() {
+        val unsupported = profile(false).copy(network = "ws")
+        val result = XrayConfigGenerator.generateVlessRealityOutbound(unsupported, reality)
+        assertTrue(result.isFailure)
+    }
+
+    @Test
+    fun realityOutboundIncludesFlowOnlyWhenConfigured() {
+        val vision = reality.copy(flow = "xtls-rprx-vision")
+        val root = JSONObject(
+            XrayConfigGenerator.generateVlessRealityOutbound(profile(false), vision).getOrThrow()
+        )
+        val user = root.getJSONArray("outbounds")
+            .getJSONObject(0)
+            .getJSONObject("settings")
+            .getJSONArray("vnext")
+            .getJSONObject(0)
+            .getJSONArray("users")
+            .getJSONObject(0)
+        assertEquals("xtls-rprx-vision", user.getString("flow"))
+    }
+}
