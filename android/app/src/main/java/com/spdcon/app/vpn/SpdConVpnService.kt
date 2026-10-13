@@ -72,8 +72,17 @@ class SpdConVpnService : VpnService() {
     }
 
     private fun startTunnel(link: String) {
-        check(!running) { "A VPN tunnel is already running. Disconnect it before connecting another profile." }
         stopping.set(false)
+        if (running) {
+            publishStatus("disconnecting", "Switching to the selected configuration")
+            runCatching { invoke("stopXray", JSONObject()) }
+            runCatching { LibXray.resetDNS() }
+            runCatching { LibXray.registerDialerController(DialerController { false }) }
+            runCatching { LibXray.registerListenerController(DialerController { false }) }
+            runCatching { tun?.close() }
+            tun = null
+            running = false
+        }
         publishStatus("connecting", "Preparing Android VPN interface")
 
         val conversion = invoke("convertShareLinksToXrayJson", JSONObject().put("text", link))
