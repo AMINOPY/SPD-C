@@ -136,6 +136,7 @@ private fun SpdConDashboard() {
     var manualEncryption by remember { mutableStateOf("none") }
     var manualMode by remember { mutableStateOf("") }
     var manualAllowInsecure by remember { mutableStateOf(false) }
+    var manualCdnEnabled by remember { mutableStateOf(false) }
     var showAdvancedBuilder by remember { mutableStateOf(false) }
     var shareLink by remember { mutableStateOf("") }
     var parseResult by remember { mutableStateOf<String?>(null) }
@@ -444,6 +445,23 @@ private fun SpdConDashboard() {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text("ساخت دستی کانفیگ", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                         Text("ساخت سریع")
+                        SmartConfigWizard { choice ->
+                            manualProtocol = ConfigProtocol.valueOf(choice.protocol)
+                            manualNetwork = choice.transport
+                            manualSecurity = choice.security
+                            manualPort = choice.port
+                            manualAlpn = choice.alpn
+                            if (choice.goal == SmartGoal.CLOUDFLARE) {
+                                manualCdnEnabled = true
+                                manualPath = manualPath.ifBlank { "/" }
+                                if (manualServer.isNotBlank()) {
+                                    manualHost = manualServer.trim()
+                                    manualSni = manualServer.trim()
+                                }
+                            } else {
+                                manualCdnEnabled = false
+                            }
+                        }
                         OutlinedButton(onClick = { manualProtocolMenuExpanded = true }, modifier = Modifier.fillMaxWidth()) {
                             Text("پروتکل: $manualProtocol")
                         }
@@ -456,8 +474,42 @@ private fun SpdConDashboard() {
                             }
                         }
                         OutlinedTextField(value = manualName, onValueChange = { manualName = it }, modifier = Modifier.fillMaxWidth(), label = { Text("نام کانفیگ") }, singleLine = true)
-                        OutlinedTextField(value = manualServer, onValueChange = { manualServer = it }, modifier = Modifier.fillMaxWidth(), label = { Text("دامنه یا IP سرور") }, singleLine = true)
+                        OutlinedTextField(
+                            value = manualServer,
+                            onValueChange = {
+                                manualServer = it
+                                if (manualCdnEnabled) {
+                                    manualHost = it.trim()
+                                    manualSni = it.trim()
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            label = { Text("دامنه یا IP سرور") },
+                            supportingText = { Text(if (manualCdnEnabled) "در حالت CDN، دامنه‌ای وارد کن که واقعاً در Cloudflare روی Proxy باشد." else "دامنه یا IP واقعی نود را وارد کن.") },
+                            singleLine = true
+                        )
                         OutlinedTextField(value = manualPort, onValueChange = { manualPort = it }, modifier = Modifier.fillMaxWidth(), label = { Text("پورت") }, singleLine = true)
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Checkbox(
+                                checked = manualCdnEnabled,
+                                onCheckedChange = { enabled ->
+                                    manualCdnEnabled = enabled
+                                    if (enabled) {
+                                        manualProtocol = ConfigProtocol.VLESS
+                                        manualNetwork = "ws"
+                                        manualSecurity = "tls"
+                                        manualPort = "443"
+                                        manualPath = manualPath.ifBlank { "/" }
+                                        manualHost = manualServer.trim()
+                                        manualSni = manualServer.trim()
+                                    }
+                                }
+                            )
+                            Column {
+                                Text("استفاده اختیاری از CDN کلودفلر")
+                                Text("دامنه، Host و SNI هماهنگ می‌شوند؛ خود دامنه باید Proxy شده و مبدأ سازگار باشد.", style = MaterialTheme.typography.bodySmall)
+                            }
+                        }
                         OutlinedButton(onClick = { countryMenuExpanded = true }, modifier = Modifier.fillMaxWidth()) {
                             Text("کشور هدف: " + when (selectedCountry) {
                                 "US" -> "آمریکا"; "DE" -> "آلمان"; "NL" -> "هلند"; "FR" -> "فرانسه"
@@ -570,19 +622,28 @@ private fun SpdConDashboard() {
                                         put("spx", realitySpiderX.trim())
                                         put("flow", realityFlow.trim())
                                     }
-                                }.filterValues { it.isNotBlank() }
+                                }.filterValues { it.isNotBlank() }.toMutableMap().apply {
+                                    if (manualCdnEnabled) {
+                                        put("host", manualServer.trim())
+                                        put("sni", manualServer.trim())
+                                        put("path", manualPath.trim().ifBlank { "/" })
+                                    }
+                                }
                                 val profile = ConfigProfile(
                                     name = manualName.trim(),
                                     protocol = manualProtocol,
                                     server = manualServer.trim(),
                                     port = manualPort.toIntOrNull() ?: -1,
                                     credential = if (manualProtocol == ConfigProtocol.VLESS || manualProtocol == ConfigProtocol.VMESS || manualProtocol == ConfigProtocol.TUIC) java.util.UUID.randomUUID().toString() else manualCredential.trim(),
-                                    network = if (manualProtocol == ConfigProtocol.HYSTERIA2 || manualProtocol == ConfigProtocol.TUIC) "udp" else if (manualNetwork.isBlank() || manualNetwork.equals("auto", true)) "tcp" else manualNetwork.trim(),
-                                    security = if (manualProtocol == ConfigProtocol.HYSTERIA2 || manualProtocol == ConfigProtocol.TUIC) "tls" else manualSecurity.trim().lowercase(),
+                                    network = if (manualProtocol == ConfigProtocol.HYSTERIA2 || manualProtocol == ConfigProtocol.TUIC) "udp" else if (manualCdnEnabled) "ws" else if (manualNetwork.isBlank() || manualNetwork.equals("auto", true)) "tcp" else manualNetwork.trim(),
+                                    security = if (manualProtocol == ConfigProtocol.HYSTERIA2 || manualProtocol == ConfigProtocol.TUIC || manualCdnEnabled) "tls" else manualSecurity.trim().lowercase(),
                                     remark = manualName.trim(),
                                     parameters = parameters
                                 )
-                                val errors = profile.validate() + if (manualSecurity.equals("reality", true) && (realityPublicKey.isBlank() || realityShortId.isBlank())) listOf("برای REALITY معتبر، کلید عمومی و shortId مخصوص همان سرور لازم است؛ SNI به‌تنهایی این مقادیر را نمی‌سازد.") else emptyList()
+                                val cdnErrors = if (manualCdnEnabled && !com.spdcon.app.config.SmartConfigAdvisor.looksLikeHostname(manualServer)) {
+                                    listOf("برای CDN، دامنه معتبر وارد کن؛ IP خام به‌تنهایی Host/SNI و تنظیم DNS پروکسی‌شده را تأمین نمی‌کند.")
+                                } else emptyList()
+                                val errors = profile.validate() + cdnErrors + if (manualSecurity.equals("reality", true) && (realityPublicKey.isBlank() || realityShortId.isBlank())) listOf("برای REALITY معتبر، کلید عمومی و shortId مخصوص همان سرور لازم است؛ SNI به‌تنهایی این مقادیر را نمی‌سازد.") else emptyList()
                                 if (errors.isNotEmpty()) {
                                     parsedProfile = null
                                     parsedSummary = null
