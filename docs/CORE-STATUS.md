@@ -6,7 +6,7 @@ This file separates configuration-generation support from a real running core. A
 
 | Engine / component | Present in repository | What works today | What is still missing |
 |---|---|---|---|
-| Xray-core | Config generator and JSON tests only | VLESS + REALITY outbound preview/export and protocol diagnostics | No bundled/running Xray binary in the Android APK; no runtime config test against a pinned Xray release; no live API adapter, session enforcement or traffic accounting |
+| Xray-core | Pinned CI validator plus config generator | VLESS + REALITY outbound preview/export, protocol diagnostics, and fixture validation against Xray-core v26.3.27 in CI | No bundled/running Xray binary in the Android APK; no live connection test from the app; no Xray StatsService/access-log adapter, session enforcement or independent traffic accounting |
 | Hysteria2 | Profile and share-link handling | Basic profile/URI generation and parsing | No Hysteria2 runtime, server install/enrollment, live handshake test or traffic policy enforcement |
 | TUIC | Profile and share-link handling | Basic profile/URI generation and parsing | No TUIC runtime, server install/enrollment, live handshake test or traffic policy enforcement |
 | Backhaul | TOML generator | Role-specific server/client templates for documented fields | No installed tunnel process, service supervisor, end-to-end tunnel test, reconnect/health monitor or production secret management |
@@ -16,7 +16,7 @@ This file separates configuration-generation support from a real running core. A
 ## What “complete the cores” means in implementation terms
 
 1. **Runtime contract:** define start/stop, version, health, config validation, logs, traffic stats and capability reporting for each supported engine.
-2. **Xray first:** pin an exact Xray-core release and license; validate generated JSON with that release in CI; implement a node-side adapter for Xray API and access logs; use a loopback-only API listener and authenticated management channel.
+2. **Xray first:** CI now pins Xray-core v26.3.27 and validates a REALITY fixture using the upstream binary. Next, add an Xray API/access-log adapter with a loopback-only API listener and authenticated management channel; add generated-output fixtures before claiming the Android generator is fully compatible.
 3. **Other engines behind adapters:** add Hysteria2 and TUIC only after their installed versions, configuration schemas, health checks and per-user stats/enforcement capabilities are tested. Keep Backhaul as a tunnel service adapter, not a client-protocol substitute.
 4. **Android runtime decision:** decide whether the APK embeds a native core (ABI packaging, foreground service, VPNService/TUN integration, lifecycle and battery handling) or manages remote nodes only. Current code is a configuration builder and does not yet provide a working on-device VPN connection.
 5. **Policy enforcement:** translate admin policy into core-supported actions only where the runtime supports them. If an engine cannot block a new source IP or disconnect a specific session safely, expose monitoring/alerting rather than claiming enforcement.
