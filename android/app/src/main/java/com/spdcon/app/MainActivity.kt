@@ -527,7 +527,7 @@ private fun SpdConDashboard() {
                                     if (manualSni.isNotBlank()) put("sni", manualSni.trim())
                                     if (manualAlpn.isNotBlank()) put("alpn", manualAlpn.split(",").map { it.trim() }.filter { it.isNotBlank() }.joinToString(","))
                                     if (manualHeaderType.isNotBlank()) put("headerType", manualHeaderType.trim())
-                                    if (manualEncryption.isNotBlank()) put("encryption", manualEncryption.trim())
+                                    if (manualProtocol == ConfigProtocol.VLESS && manualEncryption.isNotBlank()) put("encryption", manualEncryption.trim())
                                     if (manualMode.isNotBlank()) put("mode", manualMode.trim())
                                     if (manualAllowInsecure) put("allowInsecure", "1")
                                     if (manualSecurity.equals("reality", true)) {
