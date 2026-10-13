@@ -123,7 +123,6 @@ object SmartConfigAdvisor {
     }
 }
 
-@Composable
 fun detectSmartNetworkContext(context: Context): SmartNetworkContext {
     val connectivity = context.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
         ?: return SmartNetworkContext.AUTO
