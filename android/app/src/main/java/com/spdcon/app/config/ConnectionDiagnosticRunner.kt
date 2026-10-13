@@ -24,6 +24,9 @@ data class ConnectionDiagnosticReport(
     val coreVersion: String?,
     val diagnosis: ClassifiedConnectionFailure?
 ) {
+    val dpiAssessment: DpiEvidenceAssessment
+        get() = DpiResistanceAssessor.assess(this)
+
     val tunnelVerified: Boolean get() = stages.any {
         it.name == "tunnel" && it.state == DiagnosticStageState.PASS
     }
