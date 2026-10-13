@@ -59,6 +59,29 @@ object XrayConfigGenerator {
             .put("log", JSONObject().put("loglevel", "warning"))
             .put("outbounds", JSONArray().put(vlessOutbound))
 
+        if (profile.parameters["blockAdult"].equals("true", ignoreCase = true)) {
+            root.getJSONArray("outbounds").put(
+                JSONObject()
+                    .put("tag", "block")
+                    .put("protocol", "blackhole")
+                    .put("settings", JSONObject())
+            )
+            root.put(
+                "routing",
+                JSONObject()
+                    .put("domainStrategy", "AsIs")
+                    .put(
+                        "rules",
+                        JSONArray().put(
+                            JSONObject()
+                                .put("type", "field")
+                                .put("domain", JSONArray().put("geosite:category-porn"))
+                                .put("outboundTag", "block")
+                        )
+                    )
+            )
+        }
+
         val fragmentSettings = fragment.toXrayFreedomSettings()
         if (fragmentSettings != null) {
             val fragmentObject = JSONObject()
