@@ -52,7 +52,7 @@ class ConfigHubApiTests(unittest.TestCase):
         self.assertEqual(created.status_code, 201, created.text)
         self.assertEqual(len(self.client.get("/configs", headers=token).json()), 1)
         other = self.client.post("/auth/register", json={
-            "username": "other_user", "password": "another-long-test-password"
+            "username": "other_user", "password": "a-very-long-test-password"
         })
         self.assertEqual(other.status_code, 201)
         self.assertEqual(self.client.get("/configs", headers=self.login("other_user")).json(), [])
