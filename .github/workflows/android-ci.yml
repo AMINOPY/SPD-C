@@ -12,6 +12,7 @@ on:
     paths:
       - "android/**"
       - "backend/**"
+      - "cloudflare/**"
       - ".github/workflows/android-ci.yml"
   workflow_dispatch:
 
@@ -33,7 +34,9 @@ jobs:
         with:
           node-version: "22"
       - name: Check Worker JavaScript syntax
-        run: node --check src/index.js
+        run: npm run check
+      - name: Run Worker API tests
+        run: npm test
 
   backend-tests:
     runs-on: ubuntu-latest
