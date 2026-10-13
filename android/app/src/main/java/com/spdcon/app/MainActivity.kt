@@ -102,6 +102,7 @@ private fun SpdConDashboard() {
     var parsedProfile by remember { mutableStateOf<ConfigProfile?>(null) }
     var generatedOutput by remember { mutableStateOf<String?>(null) }
     var qrContent by remember { mutableStateOf<String?>(null) }
+    var copyContent by remember { mutableStateOf<String?>(null) }
     val qrImage = remember(qrContent) { qrContent?.let { createQrBitmap(it)?.asImageBitmap() } }
     var presetMenuExpanded by remember { mutableStateOf(false) }
     var selectedPreset by remember { mutableStateOf(NetworkPreset.MANUAL) }
@@ -152,6 +153,7 @@ private fun SpdConDashboard() {
                                 parsedProfile = null
                                 generatedOutput = null
                                 qrContent = null
+                                copyContent = null
                             },
                             modifier = Modifier.fillMaxWidth(),
                             label = { Text("لینک کانفیگ") },
@@ -276,6 +278,7 @@ private fun SpdConDashboard() {
                                     shareLink = ConfigLinkSerializer.serialize(profile).getOrDefault("")
                                     generatedOutput = null
                                     qrContent = null
+                                    copyContent = null
                                 }
                             },
                             modifier = Modifier.fillMaxWidth()
@@ -427,10 +430,12 @@ private fun SpdConDashboard() {
                                     generatedOutput = result.fold(
                                         onSuccess = {
                                             qrContent = it
+                                            copyContent = it
                                             "لینک خروجی:\n$it"
                                         },
                                         onFailure = {
                                             qrContent = null
+                                            copyContent = null
                                             "خطا: ${it.message}"
                                         }
                                     )
@@ -446,6 +451,7 @@ private fun SpdConDashboard() {
                                     generatedOutput = "ابتدا یک لینک VLESS + REALITY را بخوان."
                                 } else {
                                     qrContent = null
+                                    copyContent = null
                                     val reality = RealitySettings(
                                         serverName = realityServerName.trim(),
                                         publicKey = realityPublicKey.trim(),
@@ -462,8 +468,14 @@ private fun SpdConDashboard() {
                                     )
                                     val result = XrayConfigGenerator.generateVlessRealityOutbound(profile, reality, fragment)
                                     generatedOutput = result.fold(
-                                        onSuccess = { "خروجی JSON برای بازبینی:\n$it\n\nتوجه: خروجی Fragment یک Freedom outbound جداگانه دارد و routing/chaining کامل هنوز تولید نمی‌شود." },
-                                        onFailure = { "خطا: ${it.message}" }
+                                        onSuccess = {
+                                            copyContent = it
+                                            "خروجی JSON برای بازبینی:\n$it\n\nتوجه: خروجی Fragment یک Freedom outbound جداگانه دارد و routing/chaining کامل هنوز تولید نمی‌شود."
+                                        },
+                                        onFailure = {
+                                            copyContent = null
+                                            "خطا: ${it.message}"
+                                        }
                                     )
                                 }
                             },
@@ -481,7 +493,7 @@ private fun SpdConDashboard() {
                                 maxLines = 14
                             )
                             OutlinedButton(
-                                onClick = { clipboardManager.setText(AnnotatedString(it)) },
+                                onClick = { clipboardManager.setText(AnnotatedString(copyContent ?: it)) },
                                 modifier = Modifier.fillMaxWidth()
                             ) { Text("کپی خروجی") }
                         }
