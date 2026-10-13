@@ -27,11 +27,15 @@ Do not expose the development API to the public internet without TLS termination
 - `POST /subscriptions`, `GET /subscriptions/{token}`, `DELETE /subscriptions/{subscription_id}` — high-entropy token shown once, stored as a keyed hash, revocable and optionally expiring
 - `GET /admin/users`, `PATCH /admin/users/{user_id}/limits`
 - `POST /admin/users/{user_id}/usage`, `GET /admin/usage`
+- `GET/PUT /admin/users/{user_id}/connection-policy` — store per-user IP/concurrency policy preferences
+- `POST /admin/users/{user_id}/connections/report`, `GET /admin/users/{user_id}/connections` — record node-reported source IP, connection state and byte counters; admin-only in this scaffold
 
 ## Current limitations and safety boundaries
 
 - SQLite with a persistent Docker volume is used for this first single-instance scaffold. The existing PostgreSQL/Redis services are not yet wired into the API. Do not scale multiple API replicas against this SQLite file.
-- The quota counter accepts trusted admin/node usage reports; no node agent currently authenticates or sends reports, so it is not yet independent live traffic accounting. This API alone cannot enforce a real tunnel's traffic cap.
+- The quota counter and connection-observation endpoints accept reports through admin-authenticated API routes. No dedicated node enrollment/credential flow or node agent currently authenticates and sends telemetry; reports are not yet independent live traffic accounting.
+- Connection policies (maximum distinct IPs, concurrent connections and requested action) are stored and evaluated against reported observations to produce alerts. They are **not enforced** by this API: `deny_new_ip` is a policy intent, not a live block, until a trusted node agent checks/enforces it at connection time.
+- Connection records include source IP addresses and byte counters. Restrict admin access, define retention/deletion policy, and avoid collecting client labels unless needed. IPs may change due to mobile networks, carrier NAT, VPNs and IPv6 privacy addressing, so IP count is not a reliable unique-device identity.
 - Subscription payloads currently return the service's normalized JSON profile list, not client-specific v2rayNG, Hiddify, Clash/Mihomo, sing-box or NPV Tunnel subscription formats.
 - Registration/login rate limiting, email verification, password reset, session management UI, audit-log policy, database migrations and production deployment hardening remain to be implemented.
 - No remote node enrollment, Xray-core runtime, live scanner/checker, web admin UI, Hysteria2/TUIC runtime or cross-device sync is implemented by this API scaffold yet.
@@ -44,4 +48,4 @@ Install `requirements.txt`, then run:
 python -m unittest discover -s tests -v
 ```
 
-The test suite covers password hashing, account isolation, config persistence, subscription revocation and admin quota metadata.
+The test suite covers password hashing, account isolation, config persistence, subscription revocation, admin quota metadata, connection policy evaluation, IP validation and admin-only connection history.
