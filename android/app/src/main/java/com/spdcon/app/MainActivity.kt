@@ -748,21 +748,10 @@ private fun SpdConDashboard() {
                                 Text("فقط در خروجی JSON سازگار با Xray؛ لینک معمولی این فیلتر را اعمال نمی‌کند.", style = MaterialTheme.typography.bodySmall)
                             }
                         }
-                        if (manualProtocol == ConfigProtocol.TROJAN || manualProtocol == ConfigProtocol.SHADOWSOCKS || manualProtocol == ConfigProtocol.HYSTERIA2) {
-                            OutlinedTextField(
-                                value = manualCredential,
-                                onValueChange = { manualCredential = it },
-                                modifier = Modifier.fillMaxWidth(),
-                                label = { Text(when (manualProtocol) { ConfigProtocol.SHADOWSOCKS -> "رمز Shadowsocks"; ConfigProtocol.HYSTERIA2 -> "رمز Hysteria2"; else -> "رمز Trojan" }) },
-                                visualTransformation = PasswordVisualTransformation(),
-                                singleLine = true
-                            )
-                        } else {
-                            Text("شناسه به‌صورت خودکار و مخفی ساخته می‌شود؛ برای اتصال باید همان کاربر روی نود سرور ثبت شود.", style = MaterialTheme.typography.bodySmall)
-                        }
-                        if (manualProtocol == ConfigProtocol.TUIC) {
-                            OutlinedTextField(value = manualTuicPassword, onValueChange = { manualTuicPassword = it }, modifier = Modifier.fillMaxWidth(), label = { Text("رمز عبور TUIC") }, visualTransformation = PasswordVisualTransformation(), singleLine = true)
-                        }
+                        Text(
+                            "اطلاعات ورود به‌صورت خودکار ساخته و داخل کانفیگ ذخیره می‌شود؛ لازم نیست UUID یا رمز را دستی وارد کنی. برای اتصال واقعی، این اطلاعات باید از طریق پنل روی نود سرور هم ثبت شوند.",
+                            style = MaterialTheme.typography.bodySmall
+                        )
                         if (manualProtocol == ConfigProtocol.SHADOWSOCKS) {
                             OutlinedTextField(value = manualMethod, onValueChange = { manualMethod = it }, modifier = Modifier.fillMaxWidth(), label = { Text("روش رمزنگاری Shadowsocks") }, singleLine = true)
                         }
@@ -818,6 +807,7 @@ private fun SpdConDashboard() {
                         }
                         Button(
                             onClick = {
+                                val generatedPassword = java.util.UUID.randomUUID().toString().replace("-", "")
                                 val parameters = buildMap {
                                     if (manualProtocol == ConfigProtocol.SHADOWSOCKS) put("method", manualMethod.trim())
                                     if (selectedCountry != "auto") put("country", selectedCountry)
@@ -827,7 +817,7 @@ private fun SpdConDashboard() {
                                     if (manualProtocol == ConfigProtocol.HYSTERIA2 && manualObfs.isNotBlank()) put("obfs", manualObfs.trim())
                                     if (manualProtocol == ConfigProtocol.HYSTERIA2 && manualObfsPassword.isNotBlank()) put("obfs-password", manualObfsPassword.trim())
                                     if (manualProtocol == ConfigProtocol.TUIC) {
-                                        put("password", manualTuicPassword.trim())
+                                        put("password", generatedPassword)
                                         put("congestion_control", manualCongestionControl.trim())
                                         put("udp_relay_mode", manualUdpRelayMode.trim())
                                     }
@@ -862,7 +852,7 @@ private fun SpdConDashboard() {
                                     protocol = manualProtocol,
                                     server = manualServer.trim(),
                                     port = manualPort.toIntOrNull() ?: -1,
-                                    credential = if (manualProtocol == ConfigProtocol.VLESS || manualProtocol == ConfigProtocol.VMESS || manualProtocol == ConfigProtocol.TUIC) java.util.UUID.randomUUID().toString() else manualCredential.trim(),
+                                    credential = if (manualProtocol == ConfigProtocol.VLESS || manualProtocol == ConfigProtocol.VMESS) java.util.UUID.randomUUID().toString() else generatedPassword,
                                     network = if (manualProtocol == ConfigProtocol.HYSTERIA2 || manualProtocol == ConfigProtocol.TUIC) "udp" else if (manualCdnEnabled) "ws" else if (manualNetwork.isBlank() || manualNetwork.equals("auto", true)) "tcp" else manualNetwork.trim(),
                                     security = if (manualProtocol == ConfigProtocol.HYSTERIA2 || manualProtocol == ConfigProtocol.TUIC || manualCdnEnabled) "tls" else manualSecurity.trim().lowercase(),
                                     remark = manualName.trim(),
