@@ -1,11 +1,14 @@
 package com.spdcon.app.ui
 
+import android.Manifest
 import android.app.Activity
 import android.content.Context
+import android.content.pm.PackageManager
 import android.content.Intent
 import android.net.VpnService
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -485,6 +488,61 @@ private fun AiConPage(
     var progress by remember { mutableStateOf<String?>(null) }
     var result by remember { mutableStateOf<String?>(null) }
 
+    val radioPermissions = arrayOf(
+        Manifest.permission.READ_PHONE_STATE,
+        Manifest.permission.ACCESS_FINE_LOCATION
+    )
+    val startBuild: () -> Unit = {
+        if (!running) {
+            running = true
+            result = null
+            scope.launch {
+                try {
+                    val network = withContext(Dispatchers.IO) { AiConEngine.inspectNetwork(context) }
+                    snapshot = network
+                    progress = "در حال اندازه‌گیری کوتاه سرعت اینترنت…"
+                    downloadMbps = withContext(Dispatchers.IO) { AiConEngine.measureDownloadMbps() }
+                    val candidates = ConnectionStrategySelector.rankForLiveTesting(
+                        profiles,
+                        goal = if (network.transport == "cellular") TunnelSelectionGoal.RESTRICTED_NETWORK else TunnelSelectionGoal.STANDARD,
+                        limit = 5
+                    )
+                    if (candidates.isEmpty()) {
+                        result = "هیچ نود سازگار با هستهٔ داخلی پیدا نشد. ابتدا یک پروفایل با اطلاعات واقعی و کامل سرور تنظیم کن."
+                    } else {
+                        val reports = linkedMapOf<String, com.spdcon.app.config.ConnectionDiagnosticReport>()
+                        candidates.forEachIndexed { index, candidate ->
+                            progress = "آزمایش تونل واقعی ${index + 1}/${candidates.size}: ${candidate.name}"
+                            val report = withContext(Dispatchers.IO) {
+                                runCatching { ConnectionDiagnosticRunner.run(candidate) }.getOrNull()
+                            }
+                            if (report != null) reports[candidate.name] = report
+                        }
+                        val best = AiConEngine.rankCandidates(profiles, reports, network, downloadMbps).firstOrNull()
+                        if (best == null) {
+                            result = "هیچ تونلی در این بررسی تأیید نشد؛ برای جلوگیری از ساخت کانفیگِ ظاهراً آماده اما خراب، AI_CON چیزی را به‌عنوان کانفیگِ کارا ذخیره نکرد."
+                        } else {
+                            val generated = AiConEngine.createAiProfile(best.sourceProfile)
+                            progress = "اتصال تأیید شد؛ در حال ذخیرهٔ AI_CON و رفتن به اتصال…"
+                            onBuild(generated)
+                        }
+                    }
+                } catch (error: Throwable) {
+                    result = "بررسی AI_CON کامل نشد: ${error.message ?: error.javaClass.simpleName}"
+                } finally {
+                    progress = null
+                    running = false
+                }
+            }
+        }
+    }
+    val radioPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) {
+        // Continue even if denied; AI_CON will use whatever network details Android exposes.
+        startBuild()
+    }
+
     LaunchedEffect(Unit) {
         snapshot = withContext(Dispatchers.IO) { AiConEngine.inspectNetwork(context) }
     }
@@ -530,46 +588,11 @@ private fun AiConPage(
         Button(
             onClick = {
                 if (!running) {
-                    running = true
-                    result = null
-                    scope.launch {
-                        try {
-                            val network = withContext(Dispatchers.IO) { AiConEngine.inspectNetwork(context) }
-                            snapshot = network
-                            progress = "در حال اندازه‌گیری کوتاه سرعت اینترنت…"
-                            downloadMbps = withContext(Dispatchers.IO) { AiConEngine.measureDownloadMbps() }
-                            val candidates = ConnectionStrategySelector.rankForLiveTesting(
-                                profiles,
-                                goal = if (network.transport == "cellular") TunnelSelectionGoal.RESTRICTED_NETWORK else TunnelSelectionGoal.STANDARD,
-                                limit = 5
-                            )
-                            if (candidates.isEmpty()) {
-                                result = "هیچ نود سازگار با هستهٔ داخلی پیدا نشد. ابتدا یک پروفایل با اطلاعات واقعی و کامل سرور تنظیم کن."
-                            } else {
-                                val reports = linkedMapOf<String, com.spdcon.app.config.ConnectionDiagnosticReport>()
-                                candidates.forEachIndexed { index, candidate ->
-                                    progress = "آزمایش تونل واقعی ${index + 1}/${candidates.size}: ${candidate.name}"
-                                    val report = withContext(Dispatchers.IO) {
-                                        runCatching { ConnectionDiagnosticRunner.run(candidate) }.getOrNull()
-                                    }
-                                    if (report != null) reports[candidate.name] = report
-                                }
-                                val best = AiConEngine.rankCandidates(profiles, reports, network, downloadMbps).firstOrNull()
-                                if (best == null) {
-                                    result = "هیچ تونلی در این بررسی تأیید نشد؛ برای جلوگیری از ساخت کانفیگِ ظاهراً آماده اما خراب، AI_CON چیزی را به‌عنوان کانفیگِ کارا ذخیره نکرد."
-                                } else {
-                                    val generated = AiConEngine.createAiProfile(best.sourceProfile)
-                                    progress = "اتصال تأیید شد؛ در حال ذخیرهٔ AI_CON و رفتن به اتصال…"
-                                    onBuild(generated)
-                                }
-                            }
-                        } catch (error: Throwable) {
-                            result = "بررسی AI_CON کامل نشد: ${error.message ?: error.javaClass.simpleName}"
-                        } finally {
-                            progress = null
-                            running = false
-                        }
+                    val missing = radioPermissions.filter {
+                        ContextCompat.checkSelfPermission(context, it) != PackageManager.PERMISSION_GRANTED
                     }
+                    if (missing.isNotEmpty()) radioPermissionLauncher.launch(missing.toTypedArray())
+                    else startBuild()
                 }
             },
             enabled = !running && profiles.isNotEmpty(),
