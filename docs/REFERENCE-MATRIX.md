@@ -64,3 +64,9 @@ Spd con stays Android-first with an optional Cloudflare Worker web panel. The An
 - Shade: MIT.
 - For SpiderPanel, Blue-Knight-Panel and other sources, inspect the exact LICENSE file and dependencies before reusing code. Missing/unclear license metadata means do not copy source code yet.
 - An API integration is not the same as copying a codebase, but its authentication, data model and version compatibility still need tests.
+
+
+## Backhaul and Telegram proxy references
+- **Musixal/Backhaul** (AGPL-3.0): use as the reference for role-specific TOML settings and supported transports. The app currently generates configuration text only; it does not install the daemon, create a working tunnel, or verify traffic.
+- **ArasTey/TWP-CF**: the repository describes a single-file Cloudflare Worker deployer for TWP-CF and Cloudflare API diagnostics. GitHub repository metadata does not identify an SPDX license, so Spd con links to the project and does not copy its source. Never collect Cloudflare API tokens in the Android client; a later deploy integration must use least-privilege credentials and server-side secret handling.
+- **Cloudflare CDN constraints**: do not promise that all Backhaul transports or UDP traffic work through the orange-cloud proxy. Keep Cloudflare compatibility warnings visible and require a live tunnel test before marking a route healthy.

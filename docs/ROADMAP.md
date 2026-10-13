@@ -22,7 +22,7 @@ This roadmap is the acceptance checklist for evolving the current Android config
 - [x] QR generation, clipboard and Android share-sheet sharing for supported output.
 - [x] Local SQLite configuration library.
 - [x] Encrypt saved credentials with Android Keystore AES-GCM; migrate plaintext credentials from database v1.
-- [ ] Full manual builder coverage for each supported protocol and transport/security combination.
+- [ ] Full manual builder coverage for each supported protocol and transport/security combination.\n- [x] Add initial Backhaul server/client TOML generator for numeric forwarded ports and documented transports (ws/wsmux/wss/wssmux plus other upstream-supported transports); generate separate role-specific files.\n- [ ] Verify generated Backhaul TOML against pinned releases and add advanced port mapping, WSS certificate, and version-aware fields.\n- [x] Add a TWP-CF reference card with upstream links and HTTPS URL-format validation; no Cloudflare API token is collected or stored in the Android app.\n- [ ] Add a secure, user-owned Cloudflare deployment workflow for Telegram Web Proxy after reviewing upstream source and license.
 - [x] Simplify VLESS/VMess creation by generating UUID automatically; keep password input only for Trojan/Shadowsocks.
 - [x] Add a simple country target and adult-filter checkbox to the manual builder.
 - [x] Add optional Xray geosite-category-porn routing to a blackhole outbound in VLESS+REALITY JSON export when the adult filter is selected.
@@ -34,7 +34,7 @@ This roadmap is the acceptance checklist for evolving the current Android config
 - [ ] Navigation, accessibility, polished RTL layouts and selectable themes.
 
 ## Phase 2 — protocol engine and interoperability
-- [ ] Define a shared internal profile model for all supported protocols and transport options.
+- [ ] Define a shared internal profile model for all supported protocols and transport options.\n- [ ] Add a versioned Backhaul capability profile so unsupported transports (including uwsmux unless a compatible implementation is confirmed) cannot be generated silently.
 - [ ] Expand Shadowsocks method/plugin compatibility and add comprehensive import/export fixtures.
 - [ ] Add tested Xray JSON import/export and protocol-specific validation.
 - [ ] Add correct, explicitly validated Fragment routing/chaining rather than presenting a standalone outbound as connected Fragment support.
@@ -101,3 +101,10 @@ This roadmap is the acceptance checklist for evolving the current Android config
 - Network-labelled Fragment presets are editable heuristics, not measured ISP profiles and do not guarantee connectivity or bypass.
 - Local credentials are encrypted at rest using Android Keystore AES-GCM; other SQLite metadata is not encrypted.
 - Remote nodes, real traffic enforcement, live scanner/checker, production admin workflows and conflict-safe multi-device sync remain incomplete. The Cloudflare panel is a starter UI, not a full Blue-Knight-Panel replacement.
+
+
+## Backhaul and Telegram Cloudflare scope (initial)
+- Backhaul TOML generation is local-only and emits distinct server/client templates. The first version accepts numeric forwarding ports only; advanced port mappings and runtime install/health tests are not implemented.
+- The upstream `Musixal/Backhaul` README lists tcp, tcpmux, ws, wss, wsmux and wssmux. `uwsmux` is deliberately rejected until an exact compatible implementation/version is identified.
+- Cloudflare-proxied WebSocket requires a supported port, a proxied DNS record, a compatible origin and matching transport configuration. A generated TOML file does not prove that the CDN path works; verify current Cloudflare port/transport rules and run a real connection test.
+- TWP-CF is linked as an external deployment helper. The Android app does not ask for Cloudflare API tokens; the upstream repository has no SPDX license metadata in the repository response, so its source is not copied into Spd con.

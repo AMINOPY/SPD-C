@@ -835,6 +835,9 @@ private fun SpdConDashboard() {
                 }
             }
 
+            item { BackhaulTunnelCard() }
+            item { TelegramCloudflareProxyCard() }
+
             item { Text("بخش‌های برنامه", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold) }
             item { FeatureCard(icon = { Icon(Icons.Default.QrCode, contentDescription = null) }, title = "کتابخانه کانفیگ", description = "ذخیره محلی، جست‌وجو، برچسب‌گذاری، QR و خروجی فایل در مراحل بعد.") }
             item { FeatureCard(icon = { Icon(Icons.Default.Dns, contentDescription = null) }, title = "نودها", description = "وضعیت و همگام‌سازی نودها؛ نیازمند بک‌اند و دسترسی مجاز.") }
