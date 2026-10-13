@@ -103,6 +103,8 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import com.spdcon.app.config.ConnectionDiagnosticRunner
+import com.spdcon.app.config.ConnectionStrategySelector
+import com.spdcon.app.config.SetupGoal
 import com.spdcon.app.vpn.SpdConVpnService
 
 private val screenItems = listOf(
@@ -812,6 +814,10 @@ private fun LibraryPage(
     var testingProfileName by remember { mutableStateOf<String?>(null) }
     var useTlsFragment by remember { mutableStateOf(true) }
     var testMessage by remember { mutableStateOf<String?>(null) }
+    var autoSelecting by remember { mutableStateOf(false) }
+    var autoSelectionProgress by remember { mutableStateOf<String?>(null) }
+    var selectionStatus by remember { mutableStateOf<String?>(null) }
+    var recommendedProfile by remember { mutableStateOf<ConfigProfile?>(null) }
     var exportProfile by remember { mutableStateOf<ConfigProfile?>(null) }
     var exportError by remember { mutableStateOf<String?>(null) }
     val clipboard = LocalClipboardManager.current
@@ -848,6 +854,70 @@ private fun LibraryPage(
         GlassCard(modifier = Modifier.fillMaxWidth(), cornerRadius = 16.dp) {
             Text(tr("VPN status"), fontWeight = FontWeight.SemiBold)
             Text(vpnStatus, color = if (vpnStatus.startsWith("connected")) NeonCyan else TextSecondary, fontSize = 12.sp)
+        }
+        Spacer(Modifier.height(8.dp))
+        GlassCard(modifier = Modifier.fillMaxWidth(), cornerRadius = 16.dp) {
+            Text(tr("Smart connection selection"), fontWeight = FontWeight.SemiBold)
+            Text(
+                tr("Tests up to five saved profiles with the bundled Xray core and ranks real tunnel success above ping or TLS-only results."),
+                color = TextSecondary, fontSize = 11.sp
+            )
+            OutlinedButton(
+                onClick = {
+                    if (!autoSelecting) {
+                        autoSelecting = true
+                        recommendedProfile = null
+                        selectionStatus = null
+                        val candidates = ConnectionStrategySelector.rankForLiveTesting(
+                            profiles, goal = SetupGoal.STANDARD, limit = 5
+                        )
+                        scope.launch {
+                            val reports = linkedMapOf<String, com.spdcon.app.config.ConnectionDiagnosticReport>()
+                            if (candidates.isEmpty()) {
+                                selectionStatus = tr("No saved profile is compatible with the bundled Xray core.")
+                            } else {
+                                candidates.forEachIndexed { index, candidate ->
+                                    autoSelectionProgress = "${index + 1}/${candidates.size} • ${candidate.name}"
+                                    val result = withContext(Dispatchers.IO) {
+                                        runCatching { ConnectionDiagnosticRunner.run(candidate) }
+                                    }
+                                    result.getOrNull()?.let { reports[candidate.name] = it }
+                                }
+                                val best = ConnectionStrategySelector.rank(candidates, reports, SetupGoal.STANDARD)
+                                    .firstOrNull { it.compatibility.supported }
+                                recommendedProfile = best?.profile
+                                selectionStatus = when {
+                                    best == null -> tr("No compatible profile could be selected.")
+                                    best.report?.tunnelConnected == true ->
+                                        tr("Verified on this network: {name}. This does not prove DPI resistance on other networks.")
+                                            .replace("{name}", best.profile.name)
+                                    else ->
+                                        tr("No tunnel was verified. Suggested compatible profile: {name}; test result is unverified.")
+                                            .replace("{name}", best.profile.name)
+                                }
+                            }
+                            autoSelectionProgress = null
+                            autoSelecting = false
+                        }
+                    }
+                },
+                enabled = !autoSelecting && profiles.isNotEmpty(),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(if (autoSelecting) tr("Testing saved profiles…") else tr("Find best working config"))
+            }
+            autoSelectionProgress?.let { Text(it, color = TextSecondary, fontSize = 11.sp) }
+            selectionStatus?.let { Text(it, color = if (it.contains("Verified on this network")) NeonCyan else TextSecondary, fontSize = 12.sp) }
+            recommendedProfile?.let { candidate ->
+                Text(
+                    "${candidate.name} • ${candidate.server}:${candidate.port} • ${candidate.protocol.name}/${candidate.network.uppercase()}",
+                    color = NeonCyan, fontSize = 11.sp
+                )
+                OutlinedButton(
+                    onClick = { onConnect(candidate, useTlsFragment) },
+                    modifier = Modifier.fillMaxWidth()
+                ) { Text(tr("Connect recommended profile")) }
+            }
         }
         Spacer(Modifier.height(12.dp))
         GlassField(search, { search = it }, tr("Search configs, servers, tags"))
