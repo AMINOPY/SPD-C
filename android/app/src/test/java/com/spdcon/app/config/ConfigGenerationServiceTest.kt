@@ -52,7 +52,8 @@ class ConfigGenerationServiceTest {
                     kind = ConfigInboundKind.TLS_RELAY,
                     endpoint = "panel.example.com",
                     sni = "panel.example.com",
-                    alternateAddresses = listOf("203.0.113.10")
+                    alternateAddresses = listOf("203.0.113.10"),
+                    path = "/incorrect-shared-path"
                 )
             )
         ).getOrThrow()
@@ -61,6 +62,7 @@ class ConfigGenerationServiceTest {
         val ipVariant = report.configs.first { it.profile.server == "203.0.113.10" }
         assertEquals("panel.example.com", ipVariant.profile.parameters["sni"])
         assertEquals("panel.example.com", ipVariant.profile.parameters["host"])
+        assertEquals("/ws/$userId", report.configs.first { it.profile.network == "ws" }.profile.parameters["path"])
         assertTrue(ipVariant.profile.parameters["path"]!!.contains(userId))
         assertTrue(report.configs.any { it.profile.network == "ws" })
         assertTrue(report.configs.any { it.profile.network == "xhttp" })
