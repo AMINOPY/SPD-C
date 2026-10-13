@@ -33,13 +33,13 @@ object ConfigLinkParser {
         val port = uri.port
         require(port in 1..65535) { "A valid server port is required" }
         val credential = uri.rawUserInfo
-            ?.let { URLDecoder.decode(it, StandardCharsets.UTF_8.name()) }
+            ?.let { decodePercentEncoded(it) }
             ?.takeIf { it.isNotBlank() }
             ?: throw IllegalArgumentException("Credential is missing")
 
         val params = parseQuery(uri.rawQuery)
         val name = uri.rawFragment
-            ?.let { URLDecoder.decode(it, StandardCharsets.UTF_8.name()) }
+            ?.let { decodePercentEncoded(it) }
             ?.ifBlank { null }
             ?: "$protocol • $server"
         val network = params["type"] ?: params["network"] ?: "tcp"
@@ -113,7 +113,7 @@ object ConfigLinkParser {
         val method = methodPassword.substring(0, methodColon)
         val password = methodPassword.substring(methodColon + 1)
         val remark = withoutScheme.substringAfter("#", "").takeIf { it.isNotBlank() }
-            ?.let { URLDecoder.decode(it, StandardCharsets.UTF_8.name()) }
+            ?.let { decodePercentEncoded(it) }
         val parameters = buildMap {
             put("method", method)
             parseQuery(query).forEach { (key, value) -> put(key, value) }
@@ -134,11 +134,20 @@ object ConfigLinkParser {
         return profile
     }
 
+    private fun decodePercentEncoded(value: String): String =
+        URLDecoder.decode(value.replace("+", "%2B"), StandardCharsets.UTF_8.name())
+
+    private fun decodeBase64Payload(value: String): ByteArray {
+        val normalized = value.replace('-', '+').replace('_', '/')
+        val padded = normalized + "=".repeat((4 - normalized.length % 4) % 4)
+        return Base64.getDecoder().decode(padded)
+    }
+
     private fun parseVmess(input: String): ConfigProfile {
         val encoded = input.substringAfter("vmess://", missingDelimiterValue = "")
         require(encoded.isNotBlank()) { "VMess payload is missing" }
         val decoded = try {
-            String(Base64.getDecoder().decode(encoded), StandardCharsets.UTF_8)
+            String(decodeBase64Payload(encoded), StandardCharsets.UTF_8)
         } catch (_: IllegalArgumentException) {
             throw IllegalArgumentException("VMess payload is not valid Base64")
         }
