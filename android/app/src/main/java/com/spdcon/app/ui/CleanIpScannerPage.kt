@@ -25,16 +25,20 @@ fun CleanIpScannerPage(onBack: () -> Unit, onUseIp: (ip: String, sni: String) ->
     val clipboard = LocalClipboardManager.current
     val scope = rememberCoroutineScope()
     val prefs = remember(context) { context.getSharedPreferences("spdcon-clean-ip-scanner", 0) }
+    var mode by remember { mutableStateOf("tls") }
     var source by remember { mutableStateOf("default") }
     var input by remember { mutableStateOf("") }
     var sni by remember { mutableStateOf("") }
+    var dnsDomain by remember { mutableStateOf("example.com") }
     var port by remember { mutableStateOf("443") }
     var workers by remember { mutableFloatStateOf(8f) }
     var scanning by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     var status by remember { mutableStateOf<String?>(null) }
     var results by remember { mutableStateOf(emptyList<CleanIpResult>()) }
+    var dnsResults by remember { mutableStateOf(emptyList<DnsResolverResult>()) }
     var recentIps by remember { mutableStateOf((prefs.getString("last_good_ips", "") ?: "").lines().filter(String::isNotBlank)) }
+    var recentDnsIps by remember { mutableStateOf((prefs.getString("last_dns_ips", "") ?: "").lines().filter(String::isNotBlank)) }
     val scanningStatus = tr("Scanning candidates…")
     val noCandidatesError = tr("No IP candidates to scan")
     val scanFailedMessage = tr("Scan failed")
@@ -52,6 +56,17 @@ fun CleanIpScannerPage(onBack: () -> Unit, onUseIp: (ip: String, sni: String) ->
             }
             TextButton(onClick = onBack) { Text(tr("Back")) }
         }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            FilterChip(selected = mode == "tls", onClick = { mode = "tls"; port = "443" },
+                label = { Text(tr("Clean TLS IP")) })
+            FilterChip(selected = mode == "dns", onClick = { mode = "dns"; port = "53" },
+                label = { Text(tr("DNS Resolver (SlipNet-style)")) })
+        }
+        Text(
+            if (mode == "dns") tr("Checks DNS A, TXT and random-subdomain/NXDOMAIN behaviour.")
+            else tr("Checks TLS reachability with your real domain; this is not a full tunnel test."),
+            color = TextSecondary, fontSize = 12.sp
+        )
         Card(shape = RoundedCornerShape(18.dp)) {
             Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(tr("IP source"), fontWeight = FontWeight.SemiBold)
@@ -71,7 +86,7 @@ fun CleanIpScannerPage(onBack: () -> Unit, onUseIp: (ip: String, sni: String) ->
                     }
                     "recent" -> Text(
                         if (recentIps.isEmpty()) tr("No successful results saved yet")
-                        else tr("{count} previous successful IPs").replace("{count}", recentIps.size.toString()),
+                        else tr("{count} previous successful IPs").replace("{count}", if (mode == "dns") recentDnsIps.size.toString() else recentIps.size.toString()),
                         color = TextSecondary, fontSize = 12.sp
                     )
                     else -> Text(tr("Small built-in Cloudflare edge sample; use your own domain below."),
@@ -79,11 +94,19 @@ fun CleanIpScannerPage(onBack: () -> Unit, onUseIp: (ip: String, sni: String) ->
                 }
             }
         }
-        OutlinedTextField(
-            value = sni, onValueChange = { sni = it.trim() }, modifier = Modifier.fillMaxWidth(),
-            singleLine = true, label = { Text(tr("Your TLS / Cloudflare domain (SNI)")) },
-            placeholder = { Text("subdomain.example.com") }
-        )
+        if (mode == "tls") {
+            OutlinedTextField(
+                value = sni, onValueChange = { sni = it.trim() }, modifier = Modifier.fillMaxWidth(),
+                singleLine = true, label = { Text(tr("Your TLS / Cloudflare domain (SNI)")) },
+                placeholder = { Text("subdomain.example.com") }
+            )
+        } else {
+            OutlinedTextField(
+                value = dnsDomain, onValueChange = { dnsDomain = it.trim() }, modifier = Modifier.fillMaxWidth(),
+                singleLine = true, label = { Text(tr("DNS test domain")) },
+                placeholder = { Text("example.com") }
+            )
+        }
         OutlinedTextField(
             value = port, onValueChange = { port = it.filter(Char::isDigit).take(5) },
             modifier = Modifier.fillMaxWidth(), singleLine = true, label = { Text(tr("HTTPS port")) }
@@ -100,32 +123,69 @@ fun CleanIpScannerPage(onBack: () -> Unit, onUseIp: (ip: String, sni: String) ->
                         val candidates = withContext(Dispatchers.Default) {
                             when (source) {
                                 "custom" -> CleanIpScanner.parseCandidates(input)
-                                "recent" -> recentIps.take(CleanIpScanner.MAX_CANDIDATES)
-                                else -> CleanIpScanner.DEFAULT_CLOUDFLARE_CANDIDATES
+                                "recent" -> (if (mode == "dns") recentDnsIps else recentIps).take(CleanIpScanner.MAX_CANDIDATES)
+                                else -> if (mode == "dns") DnsResolverScanner.DEFAULT_RESOLVERS else CleanIpScanner.DEFAULT_CLOUDFLARE_CANDIDATES
                             }
                         }
                         require(candidates.isNotEmpty()) { noCandidatesError }
                         val selectedPort = port.toIntOrNull() ?: 0
-                        val scanned = withContext(Dispatchers.IO) {
-                            CleanIpScanner.scan(candidates, selectedPort, sni.trim(), workers = workers.toInt())
+                        if (mode == "dns") {
+                            val scanned = withContext(Dispatchers.IO) {
+                                DnsResolverScanner.scan(candidates, dnsDomain.trim(), selectedPort, workers = workers.toInt())
+                            }
+                            dnsResults = scanned
+                            results = emptyList()
+                            val good = scanned.filter { it.score >= 2 }.map { it.ip }.distinct()
+                            recentDnsIps = good
+                            prefs.edit().putString("last_dns_ips", good.joinToString("\n")).apply()
+                            status = tr("Finished: {good} DNS-compatible resolvers from {total} candidates")
+                                .replace("{good}", good.size.toString()).replace("{total}", scanned.size.toString())
+                        } else {
+                            val scanned = withContext(Dispatchers.IO) {
+                                CleanIpScanner.scan(candidates, selectedPort, sni.trim(), workers = workers.toInt())
+                            }
+                            results = scanned
+                            dnsResults = emptyList()
+                            val good = scanned.filter { it.tlsOk }.map { it.ip }.distinct()
+                            recentIps = good
+                            prefs.edit().putString("last_good_ips", good.joinToString("\n")).apply()
+                            status = finishedTemplate
+                                .replace("{good}", good.size.toString()).replace("{total}", scanned.size.toString())
                         }
-                        results = scanned
-                        val good = scanned.filter { it.tlsOk }.map { it.ip }.distinct()
-                        recentIps = good
-                        prefs.edit().putString("last_good_ips", good.joinToString("\n")).apply()
-                        status = finishedTemplate
-                            .replace("{good}", good.size.toString()).replace("{total}", scanned.size.toString())
                     } catch (e: Exception) {
                         error = e.message ?: scanFailedMessage; status = null
                     } finally { scanning = false }
                 }
             },
-            enabled = !scanning && CleanIpScanner.isValidSni(sni.trim()),
+            enabled = !scanning && if (mode == "dns") DnsResolverScanner.isValidDomain(dnsDomain.trim()) else CleanIpScanner.isValidSni(sni.trim()),
             modifier = Modifier.fillMaxWidth()
         ) { Text(if (scanning) tr("Scanning…") else tr("Find clean IPs")) }
         if (scanning) LinearProgressIndicator(Modifier.fillMaxWidth())
         status?.let { Text(it, color = NeonCyan, fontSize = 12.sp) }
         error?.let { Text(it, color = MaterialTheme.colorScheme.error, fontSize = 12.sp) }
+        if (dnsResults.isNotEmpty()) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text(tr("DNS resolver results"), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                TextButton(onClick = { clipboard.setText(AnnotatedString(dnsResults.filter { it.score >= 2 }.joinToString("\n") { it.ip })) }) {
+                    Text(tr("Copy compatible IPs"))
+                }
+            }
+            Text(tr("Score counts successful A, TXT and random-subdomain/NXDOMAIN probes. This is a DNS compatibility check, not proof of end-to-end tunnel connectivity."),
+                color = TextSecondary, fontSize = 11.sp)
+            dnsResults.forEach { result ->
+                Card(shape = RoundedCornerShape(14.dp), modifier = Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text(result.ip, fontWeight = FontWeight.SemiBold)
+                            Text(result.score.toString() + "/" + result.maxScore + " • " + result.latencyMs + " ms",
+                                color = if (result.score >= 2) NeonCyan else MaterialTheme.colorScheme.error, fontSize = 12.sp)
+                        }
+                        Text(tr(result.status), color = TextSecondary, fontSize = 11.sp)
+                        TextButton(onClick = { clipboard.setText(AnnotatedString(result.ip)) }) { Text(tr("Copy IP")) }
+                    }
+                }
+            }
+        }
         if (results.isNotEmpty()) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Text(tr("Results"), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
