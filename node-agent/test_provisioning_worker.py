@@ -1,7 +1,12 @@
 import json
+import pathlib
+import sys
 import unittest
 from unittest.mock import MagicMock, patch
 
+# The directory name contains a hyphen, so unittest discovery may not add it
+# to sys.path when importing tests as top-level modules.
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 import provisioning_worker as worker
 
 
