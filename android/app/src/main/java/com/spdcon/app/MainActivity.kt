@@ -912,7 +912,7 @@ private fun SpdConDashboard() {
                                         val combined = links.joinToString("\n")
                                         shareLink = links.firstOrNull().orEmpty()
                                         parsedProfile = profiles.firstOrNull()
-                                        qrContent = if (links.size == 1) links.first() else null
+                                        qrContent = links.firstOrNull()
                                         copyContent = combined
                                         generatedOutput = links.mapIndexed { index, link ->
                                             "${index + 1}. ${report.configs[index].label}\n$link"
@@ -1387,7 +1387,7 @@ private fun SpdConDashboard() {
                             ) { Text("اشتراک‌گذاری لینک یا JSON") }
                         }
                         if (qrImage != null) {
-                            Text("QR لینک کانفیگ")
+                            Text("QR لینک کانفیگ (در حالت چندخروجی، لینک اول)")
                             Image(
                                 bitmap = qrImage,
                                 contentDescription = "QR code for configuration link",
