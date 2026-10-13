@@ -793,6 +793,14 @@ def node_report_connection(node_id: str, payload: NodeConnectionReportIn,
         ).fetchone()
         if previous is not None and previous["user_id"] != payload.user_id:
             raise HTTPException(status_code=409, detail="Connection ID already belongs to another user")
+        # Determine whether this is a genuinely new client IP before recording the event.
+        # A runtime that wants hard deny semantics must consult an authorization decision
+        # before admitting a session; telemetry arriving after connection is observational.
+        known_ip = conn.execute(
+            "SELECT 1 FROM connection_observations WHERE user_id=? AND client_ip=? "
+            "AND last_seen_at>=? AND connection_id<>? LIMIT 1",
+            (payload.user_id, client_ip, timestamp - 24 * 60 * 60, payload.connection_id),
+        ).fetchone() is not None
         first_seen = previous["first_seen_at"] if previous else timestamp
         previous_upload = previous["upload_bytes"] if previous else 0
         previous_download = previous["download_bytes"] if previous else 0
@@ -838,11 +846,19 @@ def node_report_connection(node_id: str, payload: NodeConnectionReportIn,
         ).fetchone()[0]
 
     alerts: list[str] = []
+    requested_action = policy["action"] if policy is not None else "observe_only"
     if policy is not None:
         if policy["max_distinct_ips"] and distinct_ips > policy["max_distinct_ips"]:
             alerts.append("distinct_ip_limit_exceeded")
         if policy["max_concurrent_connections"] and active_connections > policy["max_concurrent_connections"]:
             alerts.append("concurrent_connection_limit_exceeded")
+    deny_new_ip = bool(
+        policy is not None
+        and requested_action == "deny_new_ip"
+        and policy["max_distinct_ips"] > 0
+        and not known_ip
+        and distinct_ips > policy["max_distinct_ips"]
+    )
     return {
         "accepted": True, "event_id": payload.event_id, "node_id": node_id,
         "user_id": payload.user_id, "client_ip": client_ip,
@@ -850,6 +866,7 @@ def node_report_connection(node_id: str, payload: NodeConnectionReportIn,
         "observed_active_connections_5m": active_connections,
         "usage_delta_bytes": usage_delta,
         "alerts": alerts,
-        "requested_policy_action": policy["action"] if policy is not None else "observe_only",
-        "enforcement": "telemetry_only_node_runtime_enforcement_not_implemented",
+        "requested_policy_action": requested_action,
+        "decision": "deny_new_ip" if deny_new_ip else "allow",
+        "enforcement": "decision_signal_only_runtime_must_enforce_before_session_admission",
     }
