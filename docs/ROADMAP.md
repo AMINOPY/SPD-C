@@ -14,13 +14,13 @@
 - [x] Fragment settings model, range validation and editable network-labelled starting presets.
 - [x] REALITY fields, validation, share-link mapping and VLESS + REALITY JSON preview.
 - [x] UI controls for importing, inspecting and generating preview output.
-- [ ] Confirm GitHub Actions build and unit tests pass.
-- [ ] Add full local library persistence, navigation, accessibility and polished RTL layouts.
+- [x] Confirm GitHub Actions build and unit tests pass for CI run 38372318614.
+- [x] Add local SQLite library persistence and credential encryption with Android Keystore AES-GCM.\n- [ ] Add navigation, accessibility, and polished RTL layouts.
 
 ## Phase 2 — complete configuration engine
-- Add full Shadowsocks URI dialect support and protocol-specific transport/security validation.
+- [ ] Add broader Shadowsocks URI dialect support and protocol-specific transport/security validation.
 - Add tested Xray JSON import/export and explicit routing/chaining generation for Fragment.
-- Add QR generation, clipboard, share sheet, file import/export, tags, search, duplicate detection and history.
+- [x] Add QR generation, clipboard and Android share sheet for link/JSON output.\n- [ ] Add file import/export, tags, search, duplicate detection and history.
 - Add malformed-input tests, compatibility fixtures and version-pinned Xray validation.
 
 ## Phase 3 — scanner and checker
