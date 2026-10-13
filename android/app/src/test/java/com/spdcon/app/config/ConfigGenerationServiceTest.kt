@@ -159,6 +159,25 @@ class ConfigGenerationServiceTest {
     }
 
     @Test
+    fun rejectsEndpointContainingUrlPathOrQuery() {
+        val result = ConfigGenerationService.generateForUser(
+            userId,
+            "Amin",
+            listOf(
+                ConfigInboundSpec(
+                    id = "bad-endpoint",
+                    name = "Bad endpoint",
+                    kind = ConfigInboundKind.CLOUDFLARE_WORKER,
+                    endpoint = "https://worker.example.com/path?token=1",
+                    host = "worker.example.com",
+                    workerRoutes = listOf(WorkerRoute("default", "/ws/{uuid}"))
+                )
+            )
+        )
+        assertTrue(result.isFailure)
+    }
+
+    @Test
     fun rejectsRealityWithInvalidShortIdAndDoesNotInventKeys() {
         val result = ConfigGenerationService.generateForUser(
             userId,

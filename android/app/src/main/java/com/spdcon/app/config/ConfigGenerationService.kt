@@ -76,7 +76,8 @@ object ConfigGenerationService {
         val warnings = mutableListOf<String>()
         inbounds.forEach { inbound ->
             require(inbound.id.isNotBlank()) { "Inbound ID is required" }
-            require(inbound.endpoint.isNotBlank() && !inbound.endpoint.any { it.isWhitespace() }) {
+            require(inbound.endpoint.isNotBlank() && !inbound.endpoint.any { it.isWhitespace() || it.isISOControl() } &&
+                inbound.endpoint.none { it in "/?#@&=%" }) {
                 "Inbound ${inbound.name}: endpoint is invalid"
             }
             require(inbound.port in 1..65535) { "Inbound ${inbound.name}: port is invalid" }
@@ -178,6 +179,9 @@ object ConfigGenerationService {
         )
         val endpoints = (listOf(inbound.endpoint) + inbound.alternateAddresses)
             .map(String::trim).filter(String::isNotBlank).distinct()
+        require(endpoints.all { endpoint ->
+            endpoint.none { it.isWhitespace() || it.isISOControl() || it in "/?#@&=%" }
+        }) { "${inbound.name}: alternate addresses must be bare hostnames or IP addresses" }
         return endpoints.flatMap { endpoint ->
             paths.map { (transport, path) ->
                 val network = transport.lowercase()

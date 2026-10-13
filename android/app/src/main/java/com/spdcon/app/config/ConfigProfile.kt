@@ -17,7 +17,12 @@ data class ConfigProfile(
 ) {
     fun validate(): List<String> = buildList {
         if (name.isBlank()) add("Name is required")
-        if (server.isBlank() || server.any { it.isWhitespace() }) add("Server must be a hostname or IP address")
+        if (server.isBlank() ||
+            server.any { it.isWhitespace() || it.isISOControl() || it in "/?#@&=%" } ||
+            (server.startsWith("[") != server.endsWith("]")) ||
+            (server.contains(":") && !server.startsWith("[") && server.count { it == ':' } < 2)) {
+            add("Server must be a hostname or IP address, without URL paths, credentials or query parameters")
+        }
         if (port !in 1..65535) add("Port must be between 1 and 65535")
         if (credential.isBlank()) add("Credential is required")
         if (network.isBlank()) add("Network type is required")
