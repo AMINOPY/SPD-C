@@ -136,7 +136,7 @@ fun CleanIpScannerPage(onBack: () -> Unit, onUseIp: (ip: String, sni: String) ->
                     Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                             Text(result.ip, fontWeight = FontWeight.SemiBold)
-                            Text(if (result.tlsOk) "\${result.latencyMs} ms" else tr("Failed"),
+                            Text(if (result.tlsOk) "${result.latencyMs} ms" else tr("Failed"),
                                 color = if (result.tlsOk) NeonCyan else MaterialTheme.colorScheme.error, fontSize = 12.sp)
                         }
                         Text(tr(result.detail), color = TextSecondary, fontSize = 11.sp)

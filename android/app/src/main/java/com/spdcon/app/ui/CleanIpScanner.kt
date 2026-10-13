@@ -75,7 +75,7 @@ object CleanIpScanner {
     }
 
     fun scan(ips: List<String>, port: Int, sni: String, timeoutMs: Int = 1800, workers: Int = 8): List<CleanIpResult> {
-        require(port in SUPPORTED_TLS_PORTS) { "Choose a supported HTTPS port: \${SUPPORTED_TLS_PORTS.sorted().joinToString()}" }
+        require(port in SUPPORTED_TLS_PORTS) { "Choose a supported HTTPS port: ${SUPPORTED_TLS_PORTS.sorted().joinToString()}" }
         require(isValidSni(sni)) { "Enter the hostname of your actual TLS/Cloudflare domain" }
         require(timeoutMs in 500..5000) { "Timeout must be between 500 and 5000 ms" }
         val candidates = ips.distinct().take(MAX_CANDIDATES)
