@@ -21,9 +21,12 @@ object ConfigLinkParser {
         when {
             input.startsWith("vless://", ignoreCase = true) -> parseUri(input, ConfigProtocol.VLESS)
             input.startsWith("trojan://", ignoreCase = true) -> parseUri(input, ConfigProtocol.TROJAN)
+            input.startsWith("hysteria2://", ignoreCase = true) -> parseUri(input, ConfigProtocol.HYSTERIA2)
+            input.startsWith("hy2://", ignoreCase = true) -> parseUri(input.replaceFirst(Regex("^hy2://", RegexOption.IGNORE_CASE), "hysteria2://"), ConfigProtocol.HYSTERIA2)
+            input.startsWith("tuic://", ignoreCase = true) -> parseTuic(input)
             input.startsWith("vmess://", ignoreCase = true) -> parseVmess(input)
             input.startsWith("ss://", ignoreCase = true) -> parseShadowsocks(input)
-            else -> throw IllegalArgumentException("Unsupported link scheme. Supported now: VLESS, VMess, Trojan and Shadowsocks")
+            else -> throw IllegalArgumentException("Supported links: VLESS, VMess, Trojan, Shadowsocks, Hysteria2 and TUIC")
         }
     }
 
@@ -42,8 +45,10 @@ object ConfigLinkParser {
             ?.let { decodePercentEncoded(it) }
             ?.ifBlank { null }
             ?: "$protocol • $server"
-        val network = params["type"] ?: params["network"] ?: "tcp"
-        val security = params["security"] ?: "none"
+        val network = params["type"] ?: params["network"]
+            ?: if (protocol == ConfigProtocol.HYSTERIA2 || protocol == ConfigProtocol.TUIC) "udp" else "tcp"
+        val security = params["security"]
+            ?: if (protocol == ConfigProtocol.HYSTERIA2 || protocol == ConfigProtocol.TUIC) "tls" else "none"
 
         return ConfigProfile(
             name = name,
@@ -59,6 +64,37 @@ object ConfigLinkParser {
             val errors = profile.validate()
             require(errors.isEmpty()) { errors.joinToString("; ") }
         }
+    }
+
+    private fun parseTuic(input: String): ConfigProfile {
+        val uri = URI(input)
+        val server = uri.host ?: throw IllegalArgumentException("TUIC server hostname is missing")
+        val port = uri.port
+        require(port in 1..65535) { "A valid TUIC server port is required" }
+        val rawUserInfo = uri.rawUserInfo ?: throw IllegalArgumentException("TUIC UUID and password are missing")
+        val separator = rawUserInfo.indexOf(':')
+        require(separator > 0 && separator < rawUserInfo.lastIndex) { "TUIC link must contain uuid:password" }
+        val uuid = decodePercentEncoded(rawUserInfo.substring(0, separator))
+        val password = decodePercentEncoded(rawUserInfo.substring(separator + 1))
+        val params = parseQuery(uri.rawQuery) + ("password" to password)
+        val name = uri.rawFragment
+            ?.let { decodePercentEncoded(it) }
+            ?.ifBlank { null }
+            ?: "TUIC • $server"
+        val profile = ConfigProfile(
+            name = name,
+            protocol = ConfigProtocol.TUIC,
+            server = server,
+            port = port,
+            credential = uuid,
+            network = "udp",
+            security = "tls",
+            remark = name,
+            parameters = params
+        )
+        val errors = profile.validate()
+        require(errors.isEmpty()) { errors.joinToString("; ") }
+        return profile
     }
 
     private fun parseShadowsocks(input: String): ConfigProfile {
