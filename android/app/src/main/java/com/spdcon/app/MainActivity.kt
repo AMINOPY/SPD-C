@@ -1,5 +1,6 @@
 package com.spdcon.app
 
+import android.graphics.Bitmap
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -11,6 +12,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
@@ -46,6 +48,8 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import com.spdcon.app.config.ConfigLibraryStore
 import com.spdcon.app.config.ConfigLinkParser
@@ -57,6 +61,10 @@ import com.spdcon.app.config.NetworkPreset
 import com.spdcon.app.config.RealitySettings
 import com.spdcon.app.config.XrayConfigGenerator
 import com.spdcon.app.config.toRealitySettings
+import com.google.zxing.BarcodeFormat
+import com.google.zxing.EncodeHintType
+import com.google.zxing.MultiFormatWriter
+import com.google.zxing.qrcode.decoder.ErrorCorrectionLevel
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -84,6 +92,8 @@ private fun SpdConDashboard() {
     var parsedSummary by remember { mutableStateOf<String?>(null) }
     var parsedProfile by remember { mutableStateOf<ConfigProfile?>(null) }
     var generatedOutput by remember { mutableStateOf<String?>(null) }
+    var qrContent by remember { mutableStateOf<String?>(null) }
+    val qrImage = remember(qrContent) { qrContent?.let { createQrBitmap(it)?.asImageBitmap() } }
     var presetMenuExpanded by remember { mutableStateOf(false) }
     var selectedPreset by remember { mutableStateOf(NetworkPreset.MANUAL) }
     var fragmentEnabled by remember { mutableStateOf(false) }
@@ -132,6 +142,7 @@ private fun SpdConDashboard() {
                                 parsedSummary = null
                                 parsedProfile = null
                                 generatedOutput = null
+                                qrContent = null
                             },
                             modifier = Modifier.fillMaxWidth(),
                             label = { Text("لینک کانفیگ") },
@@ -326,8 +337,14 @@ private fun SpdConDashboard() {
                                 } else {
                                     val result = ConfigLinkSerializer.serialize(profile)
                                     generatedOutput = result.fold(
-                                        onSuccess = { "لینک خروجی:\n$it" },
-                                        onFailure = { "خطا: ${it.message}" }
+                                        onSuccess = {
+                                            qrContent = it
+                                            "لینک خروجی:\n$it"
+                                        },
+                                        onFailure = {
+                                            qrContent = null
+                                            "خطا: ${it.message}"
+                                        }
                                     )
                                 }
                             },
@@ -340,6 +357,7 @@ private fun SpdConDashboard() {
                                 if (profile == null) {
                                     generatedOutput = "ابتدا یک لینک VLESS + REALITY را بخوان."
                                 } else {
+                                    qrContent = null
                                     val reality = RealitySettings(
                                         serverName = realityServerName.trim(),
                                         publicKey = realityPublicKey.trim(),
@@ -379,6 +397,15 @@ private fun SpdConDashboard() {
                                 modifier = Modifier.fillMaxWidth()
                             ) { Text("کپی خروجی") }
                         }
+                        if (qrImage != null) {
+                            Text("QR لینک کانفیگ")
+                            Image(
+                                bitmap = qrImage,
+                                contentDescription = "QR code for configuration link",
+                                modifier = Modifier.fillMaxWidth().height(220.dp),
+                                contentScale = ContentScale.Fit
+                            )
+                        }
                     }
                 }
             }
@@ -392,6 +419,28 @@ private fun SpdConDashboard() {
         }
     }
 }
+
+private fun createQrBitmap(content: String): Bitmap? = runCatching {
+    require(content.length <= 8_000) { "QR content is too long" }
+    val size = 640
+    val matrix = MultiFormatWriter().encode(
+        content,
+        BarcodeFormat.QR_CODE,
+        size,
+        size,
+        mapOf(
+            EncodeHintType.ERROR_CORRECTION to ErrorCorrectionLevel.M,
+            EncodeHintType.MARGIN to 1
+        )
+    )
+    Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888).apply {
+        for (x in 0 until size) {
+            for (y in 0 until size) {
+                setPixel(x, y, if (matrix[x, y]) android.graphics.Color.BLACK else android.graphics.Color.WHITE)
+            }
+        }
+    }
+}.getOrNull()
 
 @Composable
 private fun FeatureCard(icon: @Composable () -> Unit, title: String, description: String) {
