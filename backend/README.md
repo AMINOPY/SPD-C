@@ -8,7 +8,7 @@ This is an initial, testable API foundation. It is not yet the production contro
 2. Generate separate long random values for `APP_SECRET` and `BOOTSTRAP_ADMIN_TOKEN` (at least 32 characters for the app secret).
 3. Optionally set `PUBLIC_BASE_URL` to the externally reachable HTTPS API origin. Leave it blank for local development.
 4. Run `docker compose up --build` from this directory.
-5. Open `http://127.0.0.1:8000/docs` to explore the API.
+5. Open `http://127.0.0.1:8000/panel/` for the initial web dashboard, or `http://127.0.0.1:8000/docs` to explore the API.
 
 Do not expose the development API to the public internet without TLS termination, rate limiting, secure secret management, monitoring and a production review. Do not commit `.env`.
 
@@ -19,7 +19,7 @@ Do not expose the development API to the public internet without TLS termination
 3. Sign in with `POST /auth/login`, then use the returned bearer token for admin routes.
 4. Remove `BOOTSTRAP_ADMIN_TOKEN` from the runtime environment after bootstrap. Keep `APP_SECRET` stable; changing it invalidates existing session and subscription tokens.
 
-## Implemented endpoints
+## Initial web dashboard\n\nThe responsive `/panel/` UI supports account registration/login, config create/list/delete, subscription creation, and basic admin user enable/quota controls. It is a first prototype, not a polished production admin panel; config profiles are entered as JSON, and client-specific export formats are not implemented yet.\n\n## Implemented endpoints
 
 - `GET /health/live`, `GET /health/ready`
 - `POST /auth/register`, `POST /auth/login`, `POST /auth/logout`, `GET /users/me`
