@@ -104,5 +104,7 @@ data class ConfigProfile(
         if (protocol == ConfigProtocol.TUIC && parameters["password"].isNullOrBlank()) {
             add("TUIC requires its separate password")
         }
+
+        addAll(ConfigCompatibilityValidator.validate(this))
     }
 }
