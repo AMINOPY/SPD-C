@@ -407,7 +407,9 @@ private fun SpdConDashboard() {
                                         "پروتکل: ${profile.protocol}",
                                         "سرور: ${profile.server}:${profile.port}",
                                         "انتقال: ${profile.network}",
-                                        "امنیت: ${profile.security}"
+                                        "امنیت: ${profile.security}",
+                                        "بررسی اولیه:",
+                                        com.spdcon.app.config.ConfigDiagnostics.format(profile)
                                     ).joinToString("\n")
                                     if (profile.security.equals("reality", true)) {
                                         val reality = profile.toRealitySettings()
@@ -658,7 +660,9 @@ private fun SpdConDashboard() {
                                         "پروتکل: ${profile.protocol}",
                                         "سرور: ${profile.server}:${profile.port}",
                                         "انتقال: ${profile.network}",
-                                        "امنیت: ${profile.security}"
+                                        "امنیت: ${profile.security}",
+                                        "بررسی اولیه:",
+                                        com.spdcon.app.config.ConfigDiagnostics.format(profile, cdnEnabled = manualCdnEnabled)
                                     ).joinToString("\\n")
                                     parseResult = "پروفایل دستی ساخته شد؛ اتصال واقعی هنوز آزمایش نشده است."
                                     shareLink = ConfigLinkSerializer.serialize(profile).getOrDefault("")
