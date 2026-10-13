@@ -49,6 +49,19 @@ class BackhaulConfigGeneratorTest {
     }
 
     @Test
+    fun unsupportedCloudflarePortIsRejected() {
+        val settings = BackhaulSettings(
+            role = BackhaulRole.CLIENT,
+            transport = "wsmux",
+            remoteHost = "tunnel.example.com",
+            remotePort = 12345,
+            token = "0123456789abcdef",
+            cloudflareProxy = true
+        )
+        assertTrue(BackhaulConfigGenerator.validate(settings).any { it.contains("Cloudflare") || it.contains("Port") })
+    }
+
+    @Test
     fun unsupportedExperimentalTransportIsRejected() {
         val settings = BackhaulSettings(
             role = BackhaulRole.SERVER,
