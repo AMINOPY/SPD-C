@@ -1,5 +1,10 @@
 package com.spdcon.app
 
+import android.content.Context
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
+import androidx.compose.ui.platform.LocalContext
+
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -21,7 +26,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 
 enum class SmartNetworkContext(val title: String) {
-    AUTO("تشخیص خودکار نوع اتصال"),
+    AUTO("نوع شبکه نامشخص"),
+    CELLULAR("داده همراه (اپراتور نامشخص)"),
     MCI("همراه اول"),
     IRANCELL("ایرانسل"),
     NATIONAL("اینترنت ملی / محدود"),
@@ -94,7 +100,8 @@ object SmartConfigAdvisor {
         }
 
         val contextNote = when (context) {
-            SmartNetworkContext.AUTO -> "نوع اتصال دستگاه را می‌توان جداگانه دید؛ نام اپراتور و کیفیت مسیر بدون مجوز/تست فعال قطعی نیست."
+            SmartNetworkContext.AUTO -> "نوع شبکه مشخص نشد؛ تنظیمات پیشنهادی عمومی هستند."
+            SmartNetworkContext.CELLULAR -> "داده همراه شناسایی شد؛ اپراتور و کیفیت مسیر از نوع اتصال به‌تنهایی قابل تشخیص قطعی نیست."
             SmartNetworkContext.MCI -> "پروفایل همراه اول یک راهنمای قابل‌ویرایش است، نه نتیجه تست زنده اپراتور."
             SmartNetworkContext.IRANCELL -> "پروفایل ایرانسل یک راهنمای قابل‌ویرایش است، نه نتیجه تست زنده اپراتور."
             SmartNetworkContext.NATIONAL -> "برای اینترنت ملی/محدود، فقط گزینه‌های محلی و سرورهای در دسترس همان شبکه را می‌توان ارزیابی کرد."
@@ -117,8 +124,22 @@ object SmartConfigAdvisor {
 }
 
 @Composable
+fun detectSmartNetworkContext(context: Context): SmartNetworkContext {
+    val connectivity = context.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
+        ?: return SmartNetworkContext.AUTO
+    val network = connectivity.activeNetwork ?: return SmartNetworkContext.AUTO
+    val capabilities = connectivity.getNetworkCapabilities(network) ?: return SmartNetworkContext.AUTO
+    return when {
+        capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) -> SmartNetworkContext.WIFI
+        capabilities.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) -> SmartNetworkContext.CELLULAR
+        else -> SmartNetworkContext.AUTO
+    }
+}
+
+@Composable
 fun SmartConfigWizard(onApply: (SmartConfigChoice) -> Unit) {
-    var context by remember { mutableStateOf(SmartNetworkContext.AUTO) }
+    val appContext = LocalContext.current
+    var context by remember(appContext) { mutableStateOf(detectSmartNetworkContext(appContext)) }
     var goal by remember { mutableStateOf(SmartGoal.BALANCED) }
     var contextMenu by remember { mutableStateOf(false) }
     var goalMenu by remember { mutableStateOf(false) }
@@ -127,7 +148,7 @@ fun SmartConfigWizard(onApply: (SmartConfigChoice) -> Unit) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("ساخت هوشمند کانفیگ", style = MaterialTheme.typography.titleLarge)
-            Text("دو انتخاب کوتاه؛ بقیه فیلدها پیشنهاد می‌شوند. تنظیمات پیشرفته برای مواقع ضروری در بخش دستی می‌مانند.")
+            Text("نوع اتصال Wi‑Fi یا داده همراه به‌صورت محلی تشخیص داده می‌شود؛ اپراتور، DPI و سلامت نود بدون تست واقعی حدس زده نمی‌شوند. دو انتخاب کوتاه برای پیشنهاد اولیه کافی است.")
             OutlinedButton(onClick = { contextMenu = true }, modifier = Modifier.fillMaxWidth()) {
                 Text("شبکه: ${context.title}")
             }
