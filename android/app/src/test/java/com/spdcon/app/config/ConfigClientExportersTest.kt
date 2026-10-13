@@ -68,6 +68,8 @@ class ConfigClientExportersTest {
     @Test fun deduplicatesRepeatedProfilesAndRejectsEmptyInput() {
         val one = profile(ConfigProtocol.VLESS)
         assertEquals(1, ConfigClientExporters.export(ConfigExportTarget.HIDDIFY, listOf(one, one)).getOrThrow().profileCount)
+        val otherSettings = one.copy(parameters = mapOf("sni" to "different.example.com"))
+        assertEquals(2, ConfigClientExporters.export(ConfigExportTarget.HIDDIFY, listOf(one, otherSettings)).getOrThrow().profileCount)
         assertTrue(ConfigClientExporters.export(ConfigExportTarget.HIDDIFY, emptyList()).isFailure)
     }
 }
