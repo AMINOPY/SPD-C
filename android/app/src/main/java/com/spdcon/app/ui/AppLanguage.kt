@@ -49,7 +49,7 @@ private val persian = mapOf(
     "Credentials are stored by the existing encrypted local library. Cloud sync remains optional." to "اطلاعات ورود در کتابخانهٔ محلی رمزگذاری‌شده ذخیره می‌شود. همگام‌سازی ابری اختیاری است.",
     "Language" to "زبان", "Choose the app language. Persian and Arabic use right-to-left layout." to "زبان برنامه را انتخاب کنید. فارسی و عربی با چینش راست‌به‌چپ نمایش داده می‌شوند.",
     "Appearance" to "ظاهر", "SPD-C Neon Glass • dark navy • cyan glow" to "SPD-C نئون گلس • سرمه‌ای تیره • درخشش فیروزه‌ای",
-    "Advanced / legacy panel" to "پنل پیشرفته / قدیمی", "Nodes, Cloud sync, Backhaul, Telegram proxy and extended settings" to "نودها، همگام‌سازی ابری، Backhaul، پروکسی تلگرام و تنظیمات بیشتر"
+    "Advanced / legacy panel" to "پنل پیشرفته / قدیمی", "Nodes, Cloud sync, Backhaul, Telegram proxy and extended settings" to "نودها، همگام‌سازی ابری، Backhaul، پروکسی تلگرام و تنظیمات بیشتر",
     "Storage" to "ذخیره‌سازی", "Builder" to "سازنده", "By default" to "به‌صورت پیش‌فرض",
     "Step {step} of 3" to "مرحلهٔ {step} از ۳", "SELECTED" to "انتخاب‌شده",
     "Continue" to "ادامه", "Configuration name" to "نام کانفیگ", "Server hostname / IP" to "دامنه یا IP سرور",
@@ -89,7 +89,7 @@ private val arabic = mapOf(
     "Credentials are stored by the existing encrypted local library. Cloud sync remains optional." to "تُخزّن بيانات الاعتماد في المكتبة المحلية المشفرة. تظل المزامنة السحابية اختيارية.",
     "Language" to "اللغة", "Choose the app language. Persian and Arabic use right-to-left layout." to "اختر لغة التطبيق. تستخدم الفارسية والعربية تخطيطًا من اليمين إلى اليسار.",
     "Appearance" to "المظهر", "SPD-C Neon Glass • dark navy • cyan glow" to "SPD-C نيون زجاجي • كحلي داكن • توهج سماوي",
-    "Advanced / legacy panel" to "اللوحة المتقدمة / القديمة", "Nodes, Cloud sync, Backhaul, Telegram proxy and extended settings" to "العقد ومزامنة السحابة وBackhaul ووكيل Telegram والإعدادات الموسعة"
+    "Advanced / legacy panel" to "اللوحة المتقدمة / القديمة", "Nodes, Cloud sync, Backhaul, Telegram proxy and extended settings" to "العقد ومزامنة السحابة وBackhaul ووكيل Telegram والإعدادات الموسعة",
     "Storage" to "التخزين", "Builder" to "المنشئ", "By default" to "افتراضيًا",
     "Step {step} of 3" to "الخطوة {step} من ٣", "SELECTED" to "محدد",
     "Continue" to "متابعة", "Configuration name" to "اسم الإعداد", "Server hostname / IP" to "اسم المضيف أو IP للخادم",

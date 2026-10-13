@@ -386,7 +386,7 @@ private fun CreatePage(onGenerate: (ConfigProfile) -> Unit) {
                             modifier = Modifier.fillMaxWidth()) {
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(option, fontWeight = FontWeight.SemiBold)
-                                Text(protocolHint(option), color = TextSecondary, fontSize = 12.sp)
+                                Text(tr(protocolHint(option)), color = TextSecondary, fontSize = 12.sp)
                             }
                             if (selectedProtocol == option) Text(tr("SELECTED"), color = NeonCyan, fontSize = 10.sp, fontWeight = FontWeight.Bold)
                         }
@@ -416,7 +416,7 @@ private fun CreatePage(onGenerate: (ConfigProfile) -> Unit) {
             else -> {
                 GlassCard(modifier = Modifier.fillMaxWidth()) {
                     ReviewLine(tr("Protocol"), tr(selectedProtocol))
-                    ReviewLine(tr("Name"), name.ifBlank { "Spd con config" })
+                    ReviewLine(tr("Name"), name.ifBlank { tr("Spd con config") })
                     ReviewLine(tr("Server"), "${server.ifBlank { "—" }}:${port.ifBlank { "443" }}")
                     ReviewLine(tr("Credential"), tr(if (credential.isBlank()) "Generated automatically" else "Provided manually"))
                     if (selectedProtocol == "VLESS + Reality") {
