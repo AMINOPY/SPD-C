@@ -18,8 +18,38 @@ import uuid
 from typing import Any
 
 
-def normalize_event(event: dict[str, Any], node_id: str) -> dict[str, Any]:
-    user_id = str(event.get("user_id", "")).strip()
+def load_identity_map(path: str) -> dict[str, str]:
+    """Load a case-insensitive mapping from authenticated core email to Spd con user ID."""
+    with open(path, "r", encoding="utf-8") as source:
+        raw = json.load(source)
+    if not isinstance(raw, dict) or not raw:
+        raise ValueError("identity map must be a non-empty JSON object")
+    mapping: dict[str, str] = {}
+    for email, user_id in raw.items():
+        key = str(email).strip().casefold()
+        value = str(user_id).strip()
+        if not key or "@" not in key or not value or len(value) > 128:
+            raise ValueError("identity map entries must map a core email address to a Spd con user ID")
+        if key in mapping:
+            raise ValueError("identity map contains duplicate emails after case normalization")
+        mapping[key] = value
+    return mapping
+
+
+def normalize_event(event: dict[str, Any], node_id: str,
+                    identity_map: dict[str, str] | None = None) -> dict[str, Any]:
+    if identity_map is not None:
+        core_email = str(event.get("core_email", "")).strip().casefold()
+        if not core_email:
+            raise ValueError("core_email is required when an identity map is configured")
+        user_id = identity_map.get(core_email, "")
+        if not user_id:
+            raise ValueError("core_email is not mapped to a Spd con account")
+        claimed_user_id = str(event.get("user_id", "")).strip()
+        if claimed_user_id and claimed_user_id != user_id:
+            raise ValueError("event user_id conflicts with the configured core identity mapping")
+    else:
+        user_id = str(event.get("user_id", "")).strip()
     connection_id = str(event.get("connection_id", "")).strip()
     if not user_id or len(user_id) > 128:
         raise ValueError("user_id is required (map the runtime identity to a Spd con user id)")
@@ -89,6 +119,18 @@ def main() -> int:
         print("Set SPD_CON_API_BASE_URL, SPD_CON_NODE_ID and SPD_CON_NODE_SECRET.", file=sys.stderr)
         return 2
 
+    identity_map_path = os.environ.get("SPD_CON_IDENTITY_MAP_PATH", "").strip()
+    identity_map = None
+    if identity_map_path:
+        try:
+            identity_map = load_identity_map(identity_map_path)
+        except (OSError, ValueError, json.JSONDecodeError) as exc:
+            print(f"Could not load SPD_CON_IDENTITY_MAP_PATH: {exc}", file=sys.stderr)
+            return 2
+    else:
+        print("WARNING: SPD_CON_IDENTITY_MAP_PATH is unset; accepting trusted local user_id fields. "
+              "Configure the map to bind core_email to a Spd con account.", file=sys.stderr)
+
     failures = 0
     for line_number, line in enumerate(sys.stdin, start=1):
         if not line.strip():
@@ -97,7 +139,7 @@ def main() -> int:
             source = json.loads(line)
             if not isinstance(source, dict):
                 raise ValueError("each JSONL line must be an object")
-            event = normalize_event(source, node_id)
+            event = normalize_event(source, node_id, identity_map)
             result = post_event(api_base, node_id, node_secret, event)
             print(json.dumps({"line": line_number, "accepted": result.get("accepted"),
                               "alerts": result.get("alerts", []),
