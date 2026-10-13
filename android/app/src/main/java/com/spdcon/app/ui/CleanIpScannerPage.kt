@@ -46,6 +46,7 @@ fun CleanIpScannerPage(onBack: () -> Unit, onUseIp: (ip: String, sni: String) ->
     var recentDnsIps by remember { mutableStateOf((prefs.getString("last_dns_ips", "") ?: "").lines().filter(String::isNotBlank)) }
     var history by remember { mutableStateOf(ScanHistoryStore.load(prefs)) }
     val scanningStatus = tr("Scanning candidates…")
+    val downloadingCountryStatus = tr("Downloading country ranges and scanning…")
     val noCandidatesError = tr("No IP candidates to scan")
     val scanFailedMessage = tr("Scan failed")
     val finishedTemplate = tr("Finished: {good} verified TLS IPs from {total} candidates")
@@ -166,7 +167,7 @@ fun CleanIpScannerPage(onBack: () -> Unit, onUseIp: (ip: String, sni: String) ->
         Button(
             onClick = {
                 scanning = true; scanPaused = false; scanControl.paused = false; scanControl.cancelled = false
-                error = null; status = if (source == "country") tr("Downloading country ranges and scanning…") else scanningStatus
+                error = null; status = if (source == "country") downloadingCountryStatus else scanningStatus
                 results = emptyList(); dnsResults = emptyList()
                 scope.launch {
                     val outcome = executeCleanIpScan(
