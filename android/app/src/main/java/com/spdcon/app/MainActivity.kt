@@ -84,10 +84,20 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            MaterialTheme {
-                Surface(modifier = Modifier.fillMaxSize()) {
-                    SpdConDashboard()
+            var showAdvancedPanel by remember { mutableStateOf(false) }
+            androidx.activity.compose.BackHandler(enabled = showAdvancedPanel) {
+                showAdvancedPanel = false
+            }
+            if (showAdvancedPanel) {
+                com.spdcon.app.ui.theme.SpdConTheme {
+                    Surface(modifier = Modifier.fillMaxSize()) {
+                        SpdConDashboard()
+                    }
                 }
+            } else {
+                com.spdcon.app.ui.SpdConApp(
+                    onOpenAdvancedPanel = { showAdvancedPanel = true }
+                )
             }
         }
     }

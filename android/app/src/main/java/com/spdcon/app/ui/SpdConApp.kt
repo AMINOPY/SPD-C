@@ -1,0 +1,664 @@
+package com.spdcon.app.ui
+
+import android.content.Context
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.AddCircle
+import androidx.compose.material.icons.filled.Analytics
+import androidx.compose.material.icons.filled.Build
+import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.MoreHoriz
+import androidx.compose.material.icons.filled.QrCodeScanner
+import androidx.compose.material.icons.filled.Security
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.outlined.AddCircle
+import androidx.compose.material.icons.outlined.Build
+import androidx.compose.material.icons.outlined.Folder
+import androidx.compose.material.icons.outlined.Home
+import androidx.compose.material.icons.outlined.MoreHoriz
+import androidx.compose.material.icons.outlined.StarBorder
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.spdcon.app.config.ConfigLibraryStore
+import com.spdcon.app.config.ConfigLinkSerializer
+import com.spdcon.app.config.ConfigProfile
+import com.spdcon.app.config.ConfigProtocol
+import com.spdcon.app.ui.theme.DeepNavy
+import com.spdcon.app.ui.theme.NeonBlue
+import com.spdcon.app.ui.theme.NeonCyan
+import com.spdcon.app.ui.theme.SpdConTheme
+import com.spdcon.app.ui.theme.SuccessGreen
+import com.spdcon.app.ui.theme.SurfaceGlass
+import com.spdcon.app.ui.theme.SurfaceGlassLight
+import com.spdcon.app.ui.theme.TextSecondary
+import java.util.UUID
+
+private val screenItems = listOf(
+    Triple("home", "Home", Icons.Outlined.Home to Icons.Filled.Home),
+    Triple("library", "Library", Icons.Outlined.Folder to Icons.Filled.Folder),
+    Triple("create", "Create", Icons.Outlined.AddCircle to Icons.Filled.AddCircle),
+    Triple("tools", "Tools", Icons.Outlined.Build to Icons.Filled.Build),
+    Triple("more", "More", Icons.Outlined.MoreHoriz to Icons.Filled.MoreHoriz)
+)
+
+@Composable
+fun SpdConApp(onOpenAdvancedPanel: () -> Unit = {}) {
+    val context = LocalContext.current
+    val clipboard = LocalClipboardManager.current
+    val store = remember(context) { ConfigLibraryStore(context) }
+    var profiles by remember { mutableStateOf(store.loadAll()) }
+    var selected by remember { mutableStateOf("home") }
+    var generatedLink by remember { mutableStateOf<String?>(null) }
+    var dialogMessage by remember { mutableStateOf<String?>(null) }
+    var selectedProfileName by remember { mutableStateOf<String?>(null) }
+
+    fun reloadProfiles() { profiles = store.loadAll() }
+    fun openProfile(profile: ConfigProfile) {
+        ConfigLinkSerializer.serialize(profile).fold(
+            onSuccess = { generatedLink = it },
+            onFailure = { dialogMessage = it.message ?: "Could not serialize this configuration." }
+        )
+    }
+
+    SpdConTheme {
+        Box(
+            modifier = Modifier.fillMaxSize().background(
+                Brush.verticalGradient(listOf(Color(0xFF071226), DeepNavy, Color(0xFF020611)))
+            )
+        ) {
+            Column(modifier = Modifier.fillMaxSize()) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 22.dp, vertical = 18.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Column {
+                        Text("SPD-C", fontSize = 25.sp, fontWeight = FontWeight.ExtraBold, color = Color.White)
+                        Text("Secure • Private • Connected", fontSize = 12.sp, color = TextSecondary)
+                    }
+                    Row(
+                        modifier = Modifier.clip(CircleShape).background(Color(0xFF0C2A2B)).padding(horizontal = 12.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(Modifier.size(7.dp).clip(CircleShape).background(SuccessGreen))
+                        Spacer(Modifier.width(7.dp))
+                        Text("VPN off", color = SuccessGreen, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                    }
+                }
+
+                Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
+                    when (selected) {
+                        "home" -> HomePage(
+                            configCount = profiles.size,
+                            favoriteCount = profiles.count { it.favorite },
+                            onCreate = { selected = "create" },
+                            onLibrary = { selected = "library" },
+                            onScan = onOpenAdvancedPanel,
+                            onTools = { selected = "tools" }
+                        )
+                        "library" -> LibraryPage(
+                            profiles = profiles,
+                            onFavorite = { profile ->
+                                store.setFavorite(profile, !profile.favorite)
+                                reloadProfiles()
+                            },
+                            onOpen = ::openProfile,
+                            onDelete = { profile ->
+                                store.delete(profile)
+                                reloadProfiles()
+                            }
+                        )
+                        "create" -> CreatePage(
+                            onGenerate = { profile ->
+                                val validation = profile.validate()
+                                if (validation.isNotEmpty()) {
+                                    dialogMessage = validation.joinToString("\n")
+                                } else {
+                                    val serialized = ConfigLinkSerializer.serialize(profile)
+                                    serialized.fold(
+                                        onSuccess = { link ->
+                                            store.save(profile).fold(
+                                                onSuccess = {
+                                                    reloadProfiles()
+                                                    generatedLink = link
+                                                    selected = "library"
+                                                },
+                                                onFailure = { dialogMessage = it.message ?: "Could not save configuration." }
+                                            )
+                                        },
+                                        onFailure = { dialogMessage = it.message ?: "Could not generate the link." }
+                                    )
+                                }
+                            }
+                        )
+                        "tools" -> ToolsPage(onOpenAdvancedPanel)
+                        else -> MorePage(onOpenAdvancedPanel)
+                    }
+                }
+            }
+
+            Row(
+                modifier = Modifier.align(Alignment.BottomCenter)
+                    .padding(horizontal = 18.dp, vertical = 18.dp)
+                    .fillMaxWidth()
+                    .height(72.dp)
+                    .shadow(20.dp, RoundedCornerShape(27.dp), ambientColor = NeonBlue.copy(alpha = 0.25f))
+                    .clip(RoundedCornerShape(27.dp))
+                    .background(Brush.verticalGradient(listOf(SurfaceGlassLight, SurfaceGlass)))
+                    .border(1.dp, NeonCyan.copy(alpha = 0.24f), RoundedCornerShape(27.dp))
+                    .padding(horizontal = 5.dp),
+                horizontalArrangement = Arrangement.SpaceEvenly,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                screenItems.forEach { (route, label, icons) ->
+                    val active = selected == route
+                    Column(
+                        modifier = Modifier.clip(RoundedCornerShape(17.dp))
+                            .background(if (active) NeonBlue.copy(alpha = 0.20f) else Color.Transparent)
+                            .clickable { selected = route }
+                            .padding(horizontal = 13.dp, vertical = 8.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        Icon(if (active) icons.second else icons.first, contentDescription = label,
+                            tint = if (active) NeonCyan else TextSecondary, modifier = Modifier.size(22.dp))
+                        Text(label, color = if (active) NeonCyan else TextSecondary, fontSize = 10.sp)
+                    }
+                }
+            }
+        }
+    }
+
+    if (generatedLink != null) {
+        AlertDialog(
+            onDismissRequest = { generatedLink = null },
+            title = { Text("Configuration ready") },
+            text = {
+                Column(
+                    modifier = Modifier.fillMaxWidth().height(170.dp).verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text("Saved locally. Copy this share link into your VPN client:", color = TextSecondary)
+                    Text(generatedLink.orEmpty(), fontSize = 12.sp)
+                }
+            },
+            confirmButton = {
+                Button(onClick = {
+                    clipboard.setText(AnnotatedString(generatedLink.orEmpty()))
+                    generatedLink = null
+                }) {
+                    Icon(Icons.Filled.ContentCopy, contentDescription = null)
+                    Spacer(Modifier.width(7.dp))
+                    Text("Copy link")
+                }
+            },
+            dismissButton = { TextButton(onClick = { generatedLink = null }) { Text("Close") } }
+        )
+    }
+    if (dialogMessage != null) {
+        AlertDialog(
+            onDismissRequest = { dialogMessage = null },
+            title = { Text("Spd con") },
+            text = { Text(dialogMessage.orEmpty()) },
+            confirmButton = { TextButton(onClick = { dialogMessage = null }) { Text("OK") } }
+        )
+    }
+    if (selectedProfileName != null) {
+        AlertDialog(
+            onDismissRequest = { selectedProfileName = null },
+            title = { Text(selectedProfileName.orEmpty()) },
+            text = { Text("Configuration details") },
+            confirmButton = { TextButton(onClick = { selectedProfileName = null }) { Text("Close") } }
+        )
+    }
+}
+
+@Composable
+private fun HomePage(
+    configCount: Int,
+    favoriteCount: Int,
+    onCreate: () -> Unit,
+    onLibrary: () -> Unit,
+    onScan: () -> Unit,
+    onTools: () -> Unit
+) {
+    Column(
+        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState())
+            .padding(horizontal = 20.dp).padding(bottom = 112.dp),
+        verticalArrangement = Arrangement.spacedBy(17.dp)
+    ) {
+        GlassCard(modifier = Modifier.fillMaxWidth()) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
+                Box(Modifier.size(78.dp).clip(CircleShape).background(Color(0xFF0C2743)), contentAlignment = Alignment.Center) {
+                    Icon(Icons.Filled.Security, contentDescription = null, tint = NeonCyan, modifier = Modifier.size(43.dp))
+                }
+                Spacer(Modifier.height(12.dp))
+                Text("VPN not connected", fontSize = 21.sp, fontWeight = FontWeight.Bold)
+                Text("Your configurations stay on this device until you export or sync them.",
+                    color = TextSecondary, fontSize = 12.sp)
+                Spacer(Modifier.height(18.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(24.dp)) {
+                    MiniStat("Local", "Storage", Icons.Filled.Folder)
+                    MiniStat("Ready", "Builder", Icons.Filled.AddCircle)
+                    MiniStat("Private", "By default", Icons.Filled.Security)
+                }
+            }
+        }
+
+        Text("Quick Actions", color = TextSecondary, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
+            ActionCard("New Config", Icons.Filled.Add, Modifier.weight(1f), onCreate)
+            ActionCard("Library", Icons.Filled.Folder, Modifier.weight(1f), onLibrary)
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
+            ActionCard("QR / Import", Icons.Filled.QrCodeScanner, Modifier.weight(1f), onScan)
+            ActionCard("Diagnostics", Icons.Filled.Analytics, Modifier.weight(1f), onTools)
+        }
+
+        Text("Overview", color = TextSecondary, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+            StatCard("$configCount", "Configs", Modifier.weight(1f))
+            StatCard("$favoriteCount", "Favorites", Modifier.weight(1f))
+            StatCard("Local", "Sync", Modifier.weight(1f))
+        }
+    }
+}
+
+@Composable
+private fun CreatePage(onGenerate: (ConfigProfile) -> Unit) {
+    var step by remember { mutableStateOf(1) }
+    var selectedProtocol by remember { mutableStateOf("VLESS + TLS") }
+    var name by remember { mutableStateOf("") }
+    var server by remember { mutableStateOf("") }
+    var port by remember { mutableStateOf("443") }
+    var credential by remember { mutableStateOf("") }
+    var sni by remember { mutableStateOf("") }
+    var publicKey by remember { mutableStateOf("") }
+    var shortId by remember { mutableStateOf("") }
+
+    Column(
+        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState())
+            .padding(horizontal = 20.dp).padding(top = 8.dp, bottom = 112.dp),
+        verticalArrangement = Arrangement.spacedBy(13.dp)
+    ) {
+        Text("Create Config", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+        Text("Build a valid share link and save it to your local library.", color = TextSecondary, fontSize = 13.sp)
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            (1..3).forEach { n ->
+                Box(Modifier.weight(1f).height(4.dp).clip(CircleShape)
+                    .background(if (n <= step) NeonCyan else Color(0xFF203149)))
+            }
+        }
+        Text("Step $step of 3", color = TextSecondary, fontSize = 12.sp)
+
+        when (step) {
+            1 -> {
+                Text("Choose protocol", style = MaterialTheme.typography.titleMedium)
+                listOf("VLESS + TLS", "VLESS + Reality", "Trojan", "Shadowsocks", "Hysteria2", "TUIC").forEach { option ->
+                    GlassCard(
+                        modifier = Modifier.fillMaxWidth(),
+                        onClick = { selectedProtocol = option },
+                        cornerRadius = 16.dp
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween,
+                            modifier = Modifier.fillMaxWidth()) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(option, fontWeight = FontWeight.SemiBold)
+                                Text(protocolHint(option), color = TextSecondary, fontSize = 12.sp)
+                            }
+                            if (selectedProtocol == option) Text("SELECTED", color = NeonCyan, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+                NeonButton("Continue", { step = 2 }, Modifier.fillMaxWidth())
+            }
+            2 -> {
+                GlassField(name, { name = it }, "Configuration name")
+                GlassField(server, { server = it }, "Server hostname / IP")
+                GlassField(port, { port = it.filter(Char::isDigit).take(5) }, "Port", numeric = true)
+                GlassField(credential, { credential = it }, "Credential (leave blank to generate)")
+                if (selectedProtocol != "Shadowsocks") {
+                    GlassField(sni, { sni = it }, if (selectedProtocol == "VLESS + Reality") "REALITY SNI / serverName" else "TLS SNI (optional)")
+                }
+                if (selectedProtocol == "VLESS + Reality") {
+                    GlassField(publicKey, { publicKey = it }, "REALITY public key (pbk)")
+                    GlassField(shortId, { shortId = it }, "REALITY short ID (0–16 hex chars; may be empty)")
+                    Text("Use the public key and short ID configured on your server. They cannot be guessed by the app.",
+                        color = TextSecondary, fontSize = 12.sp)
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+                    OutlinedButton(onClick = { step = 1 }, modifier = Modifier.weight(1f)) { Text("Back") }
+                    NeonButton("Review", { step = 3 }, Modifier.weight(1f))
+                }
+            }
+            else -> {
+                GlassCard(modifier = Modifier.fillMaxWidth()) {
+                    ReviewLine("Protocol", selectedProtocol)
+                    ReviewLine("Name", name.ifBlank { "Spd con config" })
+                    ReviewLine("Server", "${server.ifBlank { "—" }}:${port.ifBlank { "443" }}")
+                    ReviewLine("Credential", if (credential.isBlank()) "Generated automatically" else "Provided manually")
+                    if (selectedProtocol == "VLESS + Reality") {
+                        ReviewLine("SNI", sni)
+                        ReviewLine("Public key", if (publicKey.isBlank()) "Required" else "Provided")
+                        ReviewLine("Short ID", if (shortId.isBlank()) "(empty)" else shortId)
+                    }
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+                    OutlinedButton(onClick = { step = 2 }, modifier = Modifier.weight(1f)) { Text("Back") }
+                    NeonButton("Generate & Save", {
+                        val protocol = when (selectedProtocol) {
+                            "Trojan" -> ConfigProtocol.TROJAN
+                            "Shadowsocks" -> ConfigProtocol.SHADOWSOCKS
+                            "Hysteria2" -> ConfigProtocol.HYSTERIA2
+                            "TUIC" -> ConfigProtocol.TUIC
+                            else -> ConfigProtocol.VLESS
+                        }
+                        val generatedCredential = credential.trim().ifBlank {
+                            if (protocol == ConfigProtocol.VLESS || protocol == ConfigProtocol.VMESS || protocol == ConfigProtocol.TUIC) {
+                                UUID.randomUUID().toString()
+                            } else UUID.randomUUID().toString().replace("-", "")
+                        }
+                        val reality = selectedProtocol == "VLESS + Reality"
+                        val security = when (selectedProtocol) {
+                            "Shadowsocks" -> "none"
+                            "Hysteria2", "TUIC" -> "tls"
+                            "VLESS + Reality" -> "reality"
+                            else -> "tls"
+                        }
+                        val parameters = buildMap {
+                            if (selectedProtocol != "Shadowsocks" && sni.isNotBlank()) put("sni", sni.trim())
+                            if (reality) {
+                                put("sni", sni.trim())
+                                put("pbk", publicKey.trim())
+                                put("sid", shortId.trim())
+                            }
+                            if (protocol == ConfigProtocol.SHADOWSOCKS) put("method", "chacha20-ietf-poly1305")
+                            if (protocol == ConfigProtocol.TUIC) put("password", generatedCredential)
+                        }
+                        onGenerate(
+                            ConfigProfile(
+                                name = name.trim().ifBlank { "Spd con config" },
+                                protocol = protocol,
+                                server = server.trim(),
+                                port = port.toIntOrNull() ?: 0,
+                                credential = generatedCredential,
+                                network = if (protocol == ConfigProtocol.HYSTERIA2 || protocol == ConfigProtocol.TUIC) "udp" else "tcp",
+                                security = security,
+                                parameters = parameters,
+                                remark = name.trim().ifBlank { "Spd con config" }
+                            )
+                        )
+                    }, Modifier.weight(1f))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun LibraryPage(
+    profiles: List<ConfigProfile>,
+    onFavorite: (ConfigProfile) -> Unit,
+    onOpen: (ConfigProfile) -> Unit,
+    onDelete: (ConfigProfile) -> Unit
+) {
+    var search by remember { mutableStateOf("") }
+    val filtered = profiles.filter { profile ->
+        search.isBlank() || profile.name.contains(search, true) ||
+            profile.server.contains(search, true) || profile.protocol.name.contains(search, true) ||
+            profile.tags.any { it.contains(search, true) }
+    }
+    Column(modifier = Modifier.fillMaxSize().padding(horizontal = 20.dp).padding(top = 8.dp, bottom = 112.dp)) {
+        Text("Library", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+        Text("Saved configurations on this device", color = TextSecondary, fontSize = 13.sp)
+        Spacer(Modifier.height(12.dp))
+        GlassField(search, { search = it }, "Search configs, servers, tags")
+        Spacer(Modifier.height(10.dp))
+        if (filtered.isEmpty()) {
+            GlassCard(modifier = Modifier.fillMaxWidth()) {
+                Text(if (profiles.isEmpty()) "No configurations yet" else "No matches found",
+                    fontWeight = FontWeight.SemiBold)
+                Text("Create a config to see it here. Nothing is prefilled with fake servers.",
+                    color = TextSecondary, fontSize = 12.sp)
+            }
+        } else {
+            LazyColumn(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(11.dp)) {
+                items(filtered, key = { profileId(it) }) { profile ->
+                    GlassCard(modifier = Modifier.fillMaxWidth(), cornerRadius = 19.dp) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Column(modifier = Modifier.weight(1f).clickable { onOpen(profile) }) {
+                                Text(profile.name, fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
+                                Spacer(Modifier.height(3.dp))
+                                Text("${profile.server}:${profile.port}", color = TextSecondary, fontSize = 12.sp)
+                                Spacer(Modifier.height(5.dp))
+                                Text("${profile.protocol.name} • ${profile.network.uppercase()} • ${profile.security.uppercase()}",
+                                    color = NeonCyan, fontSize = 11.sp)
+                            }
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                androidx.compose.material3.IconButton(onClick = { onFavorite(profile) }) {
+                                    Icon(if (profile.favorite) Icons.Filled.Star else Icons.Outlined.StarBorder,
+                                        contentDescription = "Toggle favorite",
+                                        tint = if (profile.favorite) NeonCyan else TextSecondary)
+                                }
+                                TextButton(onClick = { onDelete(profile) }) { Text("Delete", color = Color(0xFFFF6C82), fontSize = 11.sp) }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ToolsPage(onOpenAdvancedPanel: () -> Unit) {
+    Column(
+        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState())
+            .padding(horizontal = 20.dp).padding(top = 8.dp, bottom = 112.dp),
+        verticalArrangement = Arrangement.spacedBy(13.dp)
+    ) {
+        Text("Tools", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+        Text("Advanced utilities and server-side helpers", color = TextSecondary, fontSize = 13.sp)
+        ToolCard("Backhaul Generator", "Build tunnel server / client configuration", Icons.Filled.Build, onOpenAdvancedPanel)
+        ToolCard("REALITY & node settings", "Open the full configuration panel", Icons.Filled.Security, onOpenAdvancedPanel)
+        ToolCard("Cloudflare / Telegram proxy", "Open existing proxy tools", Icons.Filled.Settings, onOpenAdvancedPanel)
+        ToolCard("QR import & diagnostics", "Use the full import and diagnostic panel", Icons.Filled.QrCodeScanner, onOpenAdvancedPanel)
+    }
+}
+
+@Composable
+private fun MorePage(onOpenAdvancedPanel: () -> Unit) {
+    Column(
+        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState())
+            .padding(horizontal = 20.dp).padding(top = 8.dp, bottom = 112.dp),
+        verticalArrangement = Arrangement.spacedBy(13.dp)
+    ) {
+        Text("More", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+        Text("Settings and advanced features", color = TextSecondary, fontSize = 13.sp)
+        GlassCard(modifier = Modifier.fillMaxWidth()) {
+            Text("Local-first storage", fontWeight = FontWeight.SemiBold)
+            Text("Credentials are stored by the existing encrypted local library. Cloud sync remains optional.",
+                color = TextSecondary, fontSize = 12.sp)
+        }
+        GlassCard(modifier = Modifier.fillMaxWidth()) {
+            Text("Appearance", fontWeight = FontWeight.SemiBold)
+            Text("SPD-C Neon Glass • dark navy • cyan glow", color = TextSecondary, fontSize = 12.sp)
+        }
+        GlassCard(modifier = Modifier.fillMaxWidth(), onClick = onOpenAdvancedPanel) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Filled.Settings, contentDescription = null, tint = NeonCyan, modifier = Modifier.size(26.dp))
+                Spacer(Modifier.width(12.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Advanced / legacy panel", fontWeight = FontWeight.SemiBold)
+                    Text("Nodes, Cloud sync, Backhaul, Telegram proxy and extended settings",
+                        color = TextSecondary, fontSize = 12.sp)
+                }
+            }
+        }
+        Text("SPD-C 0.2.0", color = TextSecondary, fontSize = 12.sp)
+    }
+}
+
+@Composable
+private fun MiniStat(value: String, label: String, icon: ImageVector) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Icon(icon, contentDescription = null, tint = NeonCyan, modifier = Modifier.size(18.dp))
+        Spacer(Modifier.height(4.dp))
+        Text(value, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+        Text(label, color = TextSecondary, fontSize = 11.sp)
+    }
+}
+
+@Composable
+private fun ActionCard(title: String, icon: ImageVector, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    GlassCard(modifier = modifier.height(96.dp), cornerRadius = 20.dp, onClick = onClick) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center,
+            modifier = Modifier.fillMaxSize()) {
+            Icon(icon, contentDescription = null, tint = NeonCyan, modifier = Modifier.size(26.dp))
+            Spacer(Modifier.height(8.dp))
+            Text(title, fontWeight = FontWeight.Medium, fontSize = 13.sp)
+        }
+    }
+}
+
+@Composable
+private fun StatCard(value: String, label: String, modifier: Modifier = Modifier) {
+    GlassCard(modifier = modifier, cornerRadius = 18.dp) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(value, fontWeight = FontWeight.Bold, fontSize = 18.sp, color = NeonCyan)
+            Text(label, color = TextSecondary, fontSize = 12.sp)
+        }
+    }
+}
+
+@Composable
+private fun ToolCard(title: String, subtitle: String, icon: ImageVector, onClick: () -> Unit) {
+    GlassCard(modifier = Modifier.fillMaxWidth(), cornerRadius = 20.dp, onClick = onClick) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(icon, contentDescription = null, tint = NeonCyan, modifier = Modifier.size(30.dp))
+            Spacer(Modifier.width(14.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(title, fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
+                Text(subtitle, color = TextSecondary, fontSize = 12.sp)
+            }
+        }
+    }
+}
+
+@Composable
+private fun GlassField(value: String, onValueChange: (String) -> Unit, label: String, numeric: Boolean = false) {
+    OutlinedTextField(
+        value = value, onValueChange = onValueChange, label = { Text(label) },
+        modifier = Modifier.fillMaxWidth(), singleLine = true, shape = RoundedCornerShape(14.dp),
+        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+            keyboardType = if (numeric) androidx.compose.ui.text.input.KeyboardType.Number else androidx.compose.ui.text.input.KeyboardType.Text
+        ),
+        colors = OutlinedTextFieldDefaults.colors(
+            focusedBorderColor = NeonCyan, unfocusedBorderColor = Color(0x5900B4FF),
+            focusedContainerColor = SurfaceGlass, unfocusedContainerColor = SurfaceGlass,
+            cursorColor = NeonCyan
+        )
+    )
+}
+
+@Composable
+private fun ReviewLine(label: String, value: String) {
+    Column(verticalArrangement = Arrangement.spacedBy(2.dp), modifier = Modifier.padding(bottom = 8.dp)) {
+        Text(label, color = TextSecondary, fontSize = 11.sp)
+        Text(value.ifBlank { "—" }, fontWeight = FontWeight.Medium, fontSize = 14.sp)
+    }
+}
+
+@Composable
+private fun GlassCard(
+    modifier: Modifier = Modifier,
+    cornerRadius: androidx.compose.ui.unit.Dp = 24.dp,
+    onClick: (() -> Unit)? = null,
+    content: @Composable androidx.compose.foundation.layout.ColumnScope.() -> Unit
+) {
+    val shape = RoundedCornerShape(cornerRadius)
+    Column(
+        modifier = modifier.shadow(17.dp, shape, ambientColor = NeonBlue.copy(alpha = 0.16f), spotColor = NeonBlue.copy(alpha = 0.28f))
+            .clip(shape)
+            .background(Brush.verticalGradient(listOf(SurfaceGlassLight, SurfaceGlass)))
+            .border(1.dp, Brush.linearGradient(listOf(NeonCyan.copy(alpha = 0.35f), NeonBlue.copy(alpha = 0.12f), Color.Transparent)), shape)
+            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
+            .padding(17.dp),
+        content = content
+    )
+}
+
+@Composable
+private fun NeonButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true) {
+    Button(
+        onClick = onClick, enabled = enabled, modifier = modifier.height(52.dp)
+            .shadow(if (enabled) 12.dp else 0.dp, RoundedCornerShape(16.dp), ambientColor = NeonBlue.copy(alpha = 0.3f)),
+        shape = RoundedCornerShape(16.dp),
+        colors = ButtonDefaults.buttonColors(containerColor = NeonBlue, contentColor = Color.Black)
+    ) { Text(text, fontWeight = FontWeight.Bold, fontSize = 14.sp) }
+}
+
+private fun protocolHint(protocol: String): String = when (protocol) {
+    "VLESS + TLS" -> "TLS transport security"
+    "VLESS + Reality" -> "Requires the server public key and SNI"
+    "Trojan" -> "Password-based TLS proxy"
+    "Shadowsocks" -> "Encrypted proxy with a cipher method"
+    "Hysteria2" -> "QUIC-based UDP transport"
+    "TUIC" -> "QUIC transport with a separate password"
+    else -> "VPN configuration"
+}
+
+private fun profileId(profile: ConfigProfile): String =
+    "${profile.protocol.name}|${profile.server}|${profile.port}|${profile.name}"
