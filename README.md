@@ -33,7 +33,9 @@ See [backend setup and API limitations](backend/README.md). The FastAPI scaffold
 
 ## Build status and APK
 
-- [GitHub Actions](https://github.com/AMINOPY/SPD-C/actions) — inspect the latest run for Android build, API tests and the debug APK artifact.
+- [GitHub Actions](https://github.com/AMINOPY/SPD-C/actions) — open the latest successful run and download `spd-con-debug-apk` under **Artifacts**.
+- **Important for phone users:** commits do not update an already-installed app. Download the APK artifact from the newest successful run and install it; the artifact is a ZIP containing the debug APK. If Android blocks installation, allow installation from the browser/files app you used.
+- The current country field is a preference only; automatic clean-IP scanning is not implemented. VLESS/VMess user IDs are hidden and generated automatically, but the same user must be provisioned on the server. Adult-site filtering is only emitted in the Xray JSON export path; a normal share link does not enforce it.
 - [Development pull request](https://github.com/AMINOPY/SPD-C/pull/1)
 - [Development branch](https://github.com/AMINOPY/SPD-C/tree/feat/spd-con-foundation)
 
