@@ -104,7 +104,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import com.spdcon.app.config.ConnectionDiagnosticRunner
 import com.spdcon.app.config.ConnectionStrategySelector
-import com.spdcon.app.config.SetupGoal
+import com.spdcon.app.config.TunnelSelectionGoal
+import com.spdcon.app.config.TunnelMethodAdvisor
 import com.spdcon.app.vpn.SpdConVpnService
 
 private val screenItems = listOf(
@@ -869,7 +870,7 @@ private fun LibraryPage(
                         recommendedProfile = null
                         selectionStatus = null
                         val candidates = ConnectionStrategySelector.rankForLiveTesting(
-                            profiles, goal = SetupGoal.STANDARD, limit = 5
+                            profiles, goal = TunnelSelectionGoal.STANDARD, limit = 5
                         )
                         scope.launch {
                             val reports = linkedMapOf<String, com.spdcon.app.config.ConnectionDiagnosticReport>()
@@ -883,17 +884,20 @@ private fun LibraryPage(
                                     }
                                     result.getOrNull()?.let { reports[candidate.name] = it }
                                 }
-                                val best = ConnectionStrategySelector.rank(candidates, reports, SetupGoal.STANDARD)
-                                    .firstOrNull { it.compatibility.supported }
-                                recommendedProfile = best?.profile
+                                val best = TunnelMethodAdvisor.rankSavedProfiles(
+                                    candidates, TunnelSelectionGoal.STANDARD, reports
+                                ).firstOrNull { it.selectableInBundledApp }
+                                recommendedProfile = best?.let { candidate ->
+                                    candidates.firstOrNull { it.name == candidate.profileName }
+                                }
                                 selectionStatus = when {
                                     best == null -> tr("No compatible profile could be selected.")
-                                    best.report?.tunnelConnected == true ->
-                                        tr("Verified on this network: {name}. This does not prove DPI resistance on other networks.")
-                                            .replace("{name}", best.profile.name)
+                                    best.confidence == com.spdcon.app.config.TunnelSelectionConfidence.LIVE_VERIFIED ->
+                                        tr("Verified on this network: {name}. DPI resistance is not proven.")
+                                            .replace("{name}", best.profileName)
                                     else ->
                                         tr("No tunnel was verified. Suggested compatible profile: {name}; test result is unverified.")
-                                            .replace("{name}", best.profile.name)
+                                            .replace("{name}", best.profileName)
                                 }
                             }
                             autoSelectionProgress = null
@@ -1021,11 +1025,12 @@ private fun LibraryPage(
                                                     val time = stage.latencyMs?.let { " • ${it} ms" }.orEmpty()
                                                     "$state $label$time: ${stage.detail}"
                                                 }
+                                                val dpi = report.dpiAssessment
                                                 if (report.tunnelConnected) {
-                                                    "تونل واقعی تأیید شد • ${report.coreVersion.orEmpty()}\n$stages\nتوجه: این تست موفقیت همین مسیر را نشان می‌دهد، نه تضمین عبور از DPI در همهٔ شبکه‌ها."
+                                                    "تونل واقعی تأیید شد • ${report.coreVersion.orEmpty()}\nوضعیت DPI: ${dpi.titleFa}\n${dpi.explanationFa}\nگام بعدی: ${dpi.nextStepFa}\n$stages"
                                                 } else {
                                                     val diagnosis = report.diagnosis
-                                                    "${diagnosis?.titleFa ?: "اتصال تأیید نشد"}\n${diagnosis?.nextStepFa.orEmpty()}\n$stages"
+                                                    "${diagnosis?.titleFa ?: "اتصال تأیید نشد"}\nوضعیت DPI: ${dpi.titleFa}\n${dpi.explanationFa}\nگام بعدی: ${dpi.nextStepFa}\n$stages"
                                                 }
                                             },
                                             onFailure = { failure ->
