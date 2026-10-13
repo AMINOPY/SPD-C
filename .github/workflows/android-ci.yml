@@ -106,7 +106,7 @@ jobs:
       - name: Set up Android SDK
         uses: android-actions/setup-android@v4
       - name: Install required SDK packages
-        run: sdkmanager "platforms;android-36" "build-tools;36.0.0"
+        run: sdkmanager "platforms;android-37"
       - name: Run unit tests
         working-directory: android
         run: gradle testDebugUnitTest
