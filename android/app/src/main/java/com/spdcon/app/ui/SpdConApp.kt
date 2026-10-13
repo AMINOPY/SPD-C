@@ -841,10 +841,18 @@ private fun LibraryPage(
                                     }
                                 }
                             },
-                            enabled = testingProfileName == null,
+                            enabled = testingProfileName == null &&
+                                profile.protocol != ConfigProtocol.HYSTERIA2 &&
+                                profile.protocol != ConfigProtocol.TUIC,
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            Text(if (testingProfileName == profile.name) tr("Testing with Xray-core…") else tr("Test with real Xray-core"))
+                            Text(
+                                when {
+                                    testingProfileName == profile.name -> tr("Testing with Xray-core…")
+                                    profile.protocol == ConfigProtocol.HYSTERIA2 || profile.protocol == ConfigProtocol.TUIC -> tr("Needs a compatible core")
+                                    else -> tr("Test with real Xray-core")
+                                }
+                            )
                         }
                     }
                 }
