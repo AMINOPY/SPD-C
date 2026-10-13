@@ -103,6 +103,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import com.spdcon.app.config.XrayCoreTester
+import com.spdcon.app.config.ConnectionFailureClassifier
 import com.spdcon.app.vpn.SpdConVpnService
 
 private val screenItems = listOf(
@@ -940,7 +941,9 @@ private fun LibraryPage(
                                                 }
                                             },
                                             onFailure = { failure ->
-                                                "Xray test failed: ${failure.message ?: failure.javaClass.simpleName}"
+                                                val detail = failure.message ?: failure.javaClass.simpleName
+                                                val diagnosis = ConnectionFailureClassifier.classify(detail)
+                                                "${diagnosis.titleFa}\n${diagnosis.nextStepFa}\nجزئیات: ${detail}"
                                             }
                                         )
                                     }
