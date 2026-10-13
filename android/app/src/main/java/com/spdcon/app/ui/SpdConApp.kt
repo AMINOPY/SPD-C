@@ -850,6 +850,39 @@ private fun LibraryPage(
         }
         Spacer(Modifier.height(12.dp))
         GlassField(search, { search = it }, tr("Search configs, servers, tags"))
+        Spacer(Modifier.height(8.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            OutlinedButton(
+                onClick = {
+                    exportError = null
+                    ConfigClientExporters.export(ConfigExportTarget.V2RAYNG, profiles).fold(
+                        onSuccess = { clipboard.setText(AnnotatedString(it.text)) },
+                        onFailure = { exportError = it.message ?: "Could not export configurations for v2rayNG." }
+                    )
+                },
+                enabled = profiles.isNotEmpty(),
+                modifier = Modifier.weight(1f)
+            ) { Text(tr("Copy all for v2rayNG"), fontSize = 11.sp) }
+            OutlinedButton(
+                onClick = {
+                    exportError = null
+                    ConfigClientExporters.export(ConfigExportTarget.HIDDIFY, profiles).fold(
+                        onSuccess = { clipboard.setText(AnnotatedString(it.text)) },
+                        onFailure = { exportError = it.message ?: "Could not export configurations for Hiddify." }
+                    )
+                },
+                enabled = profiles.isNotEmpty(),
+                modifier = Modifier.weight(1f)
+            ) { Text(tr("Copy all for Hiddify"), fontSize = 11.sp) }
+        }
+        Text(
+            tr("Copies all saved profiles as newline-separated client links. Unsupported profiles are reported instead of silently skipped."),
+            color = TextSecondary,
+            fontSize = 11.sp
+        )
         Spacer(Modifier.height(10.dp))
         if (filtered.isEmpty()) {
             GlassCard(modifier = Modifier.fillMaxWidth()) {
