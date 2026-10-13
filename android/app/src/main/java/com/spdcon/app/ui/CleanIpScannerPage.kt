@@ -65,11 +65,8 @@ fun CleanIpScannerPage(onBack: () -> Unit, onUseIp: (ip: String, sni: String) ->
             selectedTestProfileName = tunnelTestProfiles.firstOrNull()?.name
         }
     }
-    val rankedTlsCandidates = results.sortedWith(
-        compareByDescending<CleanIpResult> { tunnelTestResults[it.ip]?.startsWith("TUNNEL VERIFIED") == true }
-            .thenByDescending { it.tlsOk }
-            .thenBy { it.latencyMs }
-    )
+    val verifiedTunnelIps = tunnelTestResults.filterValues { it.startsWith("TUNNEL VERIFIED") }.keys
+    val rankedTlsCandidates = ConnectionCandidateRanker.rankTlsResults(results, verifiedTunnelIps)
     val bestCandidate = rankedTlsCandidates.firstOrNull { it.tlsOk }
     val scanningStatus = tr("Scanning candidates…")
     val downloadingCountryStatus = tr("Downloading country ranges and scanning…")
