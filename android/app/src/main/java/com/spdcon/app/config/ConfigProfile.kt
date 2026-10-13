@@ -1,6 +1,6 @@
 package com.spdcon.app.config
 
-enum class ConfigProtocol { VLESS, VMESS, TROJAN, SHADOWSOCKS }
+enum class ConfigProtocol { VLESS, VMESS, TROJAN, SHADOWSOCKS, HYSTERIA2, TUIC }
 
 data class ConfigProfile(
     val name: String,
@@ -27,6 +27,9 @@ data class ConfigProfile(
             if (parameters["sni"].isNullOrBlank()) add("REALITY requires the server's configured SNI/serverName")
             if (parameters["pbk"].isNullOrBlank()) add("REALITY requires the public key (pbk) from the server")
             if (parameters["sid"].isNullOrBlank()) add("REALITY requires a shortId configured on the server")
+        }
+        if (protocol == ConfigProtocol.TUIC && parameters["password"].isNullOrBlank()) {
+            add("TUIC requires its separate password")
         }
     }
 }
