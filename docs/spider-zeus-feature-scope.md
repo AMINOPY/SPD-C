@@ -18,6 +18,7 @@ Default flow: **profile name → goal → network preset → generate → QR / c
 - Keep protocol-specific fields in an expandable Advanced section.
 - REALITY requires actual server-provided public key and short ID; entering an SNI alone must never fabricate a valid REALITY configuration.
 - A generated link/profile is not proof that a remote server has provisioned the user or that the tunnel works.
+- Saved profiles expose a real Xray-core test: native link conversion, temporary core construction (`testXray`), and an outbound HTTPS HEAD probe (`pingBatch`). The probe does not create an Android TUN or route all device traffic.
 - Apply a selected scanner result only to a compatible host/address field, preserving the actual SNI and other TLS identity settings.
 
 ### 2. Scanner and network diagnostics
@@ -57,13 +58,15 @@ Traffic quotas must be enforced by a trusted node/runtime counter, not by client
 Already present on the development branch:
 - Android profile library, common link parsing/serialization, QR/copy/share, REALITY fields and guided config recommendations.
 - A bounded IPv4/TLS scanner with built-in, custom IP/CIDR/range and recent candidates, supported TLS ports, SNI validation, and a maximum of 256 candidates.
-- A new DNS resolver quick scan inspired by SlipNet: curated public resolver candidates, custom IP/CIDR input, UDP/TCP A/TXT/random-subdomain probes, selectable UDP, TCP, or UDP-first/TCP-fallback transport, a 0–3 compatibility score, latency sorting, and remembered successful candidates. This is a DNS compatibility probe only—not SlipNet's full DNS scanner or an end-to-end tunnel test.
+- A new DNS resolver quick scan inspired by SlipNet: curated public resolver candidates, custom IP/CIDR input, UDP/TCP A/TXT/random-subdomain probes, selectable UDP, TCP, or UDP-first/TCP-fallback transport, a 0–3 compatibility score, latency sorting, and remembered successful candidates. This is a DNS compatibility probe only—not SlipNet's full DNS scanner.
+- Official XTLS/libXray native Android AAR pinned to release `v26.10.10`, downloaded during Gradle build and checked against a SHA-256 digest; saved profiles can be tested with the real core and an outbound network probe.
 - Optional FastAPI and Cloudflare Worker foundations for accounts/configs/subscriptions.
 
 Still incomplete and must not be presented as finished:
-- Country-based candidate sourcing, IPv6 scanner support, pausing/resuming scans, durable scan history/export, speed tests, and end-to-end profile compatibility tests. The current DNS probe does not implement SlipNet's full Simple/Advanced/E2E/Prism modes or its signed server-verification protocol.
+- Country-based candidate sourcing, IPv6 scanner support, pausing/resuming scans, durable scan history/export, and speed tests. The current DNS probe does not implement SlipNet's full Simple/Advanced/E2E/Prism modes or its signed server-verification protocol.
+- Device-wide VPN operation via Android `VpnService`/TUN, automatic route and DNS handling, and real device-traffic verification. Xray outbound ping is not a substitute for a live full-device tunnel.
 - Android-to-cloud account/config sync and production-grade Cloudflare deployment management.
-- A bundled/running Xray core, actual live tunnel checks, trusted server-side quota enforcement and tested automatic endpoint failover.
+- Full-device Android tunnel operation is not yet implemented. The native Xray core is bundled for config construction and outbound connectivity tests, but `VpnService`/TUN routing, runtime lifecycle UI, and device traffic verification remain unfinished. Trusted server-side quota enforcement and tested automatic endpoint failover also remain unfinished.
 - Complete node lifecycle, production audit/rate-limit/security review, and end-to-end subscription testing.
 
 ## Licensing and implementation rule
