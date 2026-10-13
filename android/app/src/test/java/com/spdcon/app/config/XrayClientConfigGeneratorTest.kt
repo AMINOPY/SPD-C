@@ -65,6 +65,22 @@ class XrayClientConfigGeneratorTest {
             .getJSONArray("domain").getString(0))
     }
 
+    @Test fun xhttpExportsPathAndModeAndRejectsUnsafeValues() {
+        val good = JSONObject(XrayClientConfigGenerator.generate(
+            profile(network = "xhttp", parameters = mapOf("sni" to "cdn.example.com", "path" to "/de/ws", "mode" to "stream-up"))
+        ).getOrThrow())
+        val stream = good.getJSONArray("outbounds").getJSONObject(0).getJSONObject("streamSettings")
+        assertEquals("/de/ws", stream.getJSONObject("xhttpSettings").getString("path"))
+        assertEquals("stream-up", stream.getJSONObject("xhttpSettings").getString("mode"))
+
+        assertTrue(XrayClientConfigGenerator.generate(
+            profile(network = "xhttp", parameters = mapOf("path" to "/../escape", "mode" to "stream-up"))
+        ).isFailure)
+        assertTrue(XrayClientConfigGenerator.generate(
+            profile(network = "xhttp", parameters = mapOf("path" to "/ok", "mode" to "not-a-mode"))
+        ).isFailure)
+    }
+
     @Test fun rejectsProtocolsNotSupportedByXrayCore() {
         assertTrue(XrayClientConfigGenerator.generate(
             profile(ConfigProtocol.HYSTERIA2, "tls", "udp")
