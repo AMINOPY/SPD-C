@@ -140,6 +140,7 @@ private fun SpdConDashboard() {
     var manualAllowInsecure by remember { mutableStateOf(false) }
     var manualCdnEnabled by remember { mutableStateOf(false) }
     var showAdvancedBuilder by remember { mutableStateOf(false) }
+    var showLinkImport by remember { mutableStateOf(false) }
     var shareLink by remember { mutableStateOf("") }
     var parseResult by remember { mutableStateOf<String?>(null) }
     var parsedSummary by remember { mutableStateOf<String?>(null) }
@@ -411,6 +412,15 @@ private fun SpdConDashboard() {
             }
             if (selectedSection == "create") {
             item {
+                OutlinedButton(
+                    onClick = { showLinkImport = !showLinkImport },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(if (showLinkImport) "بستن ورود لینک کانفیگ" else "ورود کانفیگ موجود (اختیاری)")
+                }
+            }
+            if (showLinkImport) {
+            item {
                 Card(
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
                     modifier = Modifier.fillMaxWidth()
@@ -483,6 +493,7 @@ private fun SpdConDashboard() {
                         }
                     }
                 }
+            }
             }
 
             item {
