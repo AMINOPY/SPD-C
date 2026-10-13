@@ -65,6 +65,7 @@ import com.spdcon.app.config.ConfigLinkParser
 import com.spdcon.app.config.ConfigLinkSerializer
 import com.spdcon.app.config.ConfigProfile
 import com.spdcon.app.config.ConfigGenerationService
+import com.spdcon.app.config.TelegramWebProxyLinkBuilder
 import com.spdcon.app.config.ConfigInboundKind
 import com.spdcon.app.config.ConfigInboundSpec
 import com.spdcon.app.config.WorkerRoute
