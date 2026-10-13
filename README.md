@@ -11,11 +11,11 @@
 - Validate basic config fields and imported input size.
 - Edit Fragment parameters and select labelled starting presets for همراه اول, ایرانسل, and نت ملی / اتصال محدود.
 - Validate REALITY SNI, public key, shortId, fingerprint, spiderX and optional Vision flow.
-- Preview client-side Xray JSON for VLESS + REALITY.
+- Preview client-side Xray JSON for VLESS + REALITY.\n- Generate a QR code for serialized configuration links.\n- Save, reload, and delete configurations in a local SQLite library.
 
 Fragment presets are not measured carrier profiles and cannot guarantee connectivity or bypass. The current JSON generator adds a separate Fragment-enabled Freedom outbound; explicit routing/chaining is still future work. A generated JSON preview does not prove a connection will work.
 
-## Local library and CI artifacts\n\n- The Android app can save, load and delete parsed profiles in a local SQLite library. The current local database is **not encrypted**; do not treat it as a secure credential vault.\n- The Android CI workflow uploads the debug APK as the `spd-con-debug-apk` artifact for 14 days after a successful run. Download it from the workflow run's Artifacts section.\n\n## Architecture
+## Local library and CI artifacts\n\n- The Android app can save, load and delete parsed profiles in a local SQLite library, and display QR codes for serialized share links. The current local database is **not encrypted**; do not treat it as a secure credential vault.\n- The Android CI workflow uploads the debug APK as the `spd-con-debug-apk` artifact for 14 days after a successful run. Download it from the workflow run's Artifacts section.\n\n## Architecture
 
 ```text
 Android (Compose UI)
