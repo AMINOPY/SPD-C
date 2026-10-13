@@ -1,22 +1,25 @@
 # Spd con
 
-**Spd con** is an Android-first configuration builder and management client. It is being built incrementally: offline configuration tools first, followed by scanning/checking and an optional backend for remote nodes, users, and subscriptions.
+**Spd con** is an Android-first configuration builder and management client. It is being built incrementally: local configuration tools first, then scanning/checking and an optional backend for remote nodes, users, and subscriptions.
 
-> Current status: initial Android dashboard, typed configuration model, VLESS/Trojan URI parser, and VMess Base64-JSON parser are in the feature branch. The project is not yet a production-ready VPN panel.
+> Current status: Android dashboard, common share-link parsing/serialization, Fragment presets and REALITY JSON preview are in the development branch. It is not yet a production-ready VPN panel.
 
-## Product goals
+## Current config-engine work
 
-- Android app using Kotlin, Jetpack Compose, and Material 3.
-- Read and validate common VLESS, VMess, and Trojan share links; add complete serializers, Shadowsocks support, QR, and local storage next.
-- Persian RTL interface with localization separated from business logic.
-- Later: node health/management, user and group management, subscriptions, scan/check jobs, audit history, role-based access, and backups.
-- Optional FastAPI backend with PostgreSQL, Redis workers, and controlled node-agent integration.
+- Parse VLESS, Trojan and common VMess share links, plus an initial legacy Shadowsocks URI form.
+- Serialize VLESS, Trojan, VMess and the supported Shadowsocks URI form.
+- Validate basic config fields and imported input size.
+- Edit Fragment parameters and select labelled starting presets for همراه اول, ایرانسل, and نت ملی / اتصال محدود.
+- Validate REALITY SNI, public key, shortId, fingerprint, spiderX and optional Vision flow.
+- Preview client-side Xray JSON for VLESS + REALITY.
+
+Fragment presets are not measured carrier profiles and cannot guarantee connectivity or bypass. The current JSON generator adds a separate Fragment-enabled Freedom outbound; explicit routing/chaining is still future work. A generated JSON preview does not prove a connection will work.
 
 ## Architecture
 
 ```text
 Android (Compose UI)
-  ├── config domain/parser + feature modules
+  ├── config domain, parser/serializer and feature UI
   ├── core: design system, Room, network, security, common utilities
   └── repository interfaces
           │ HTTPS (later, optional)
@@ -40,7 +43,7 @@ The Android client should work locally without a personal server. Remote multi-n
 
 ## Build Android app
 
-Open `android/` in Android Studio, install the Android SDK version requested by Gradle, sync, and run the `app` configuration. CI builds a debug APK.
+Open `android/` in Android Studio, install the Android SDK version requested by Gradle, sync, and run the `app` configuration. GitHub Actions runs unit tests and builds a debug APK; check the workflow result before treating the build as verified.
 
 ## Run backend locally
 
@@ -51,21 +54,6 @@ From the repository root:
 3. Check `http://localhost:8000/health/live`.
 
 The compose stack is for local development, not production. Do not expose PostgreSQL or Redis publicly. The API does not yet implement authentication or remote node operations.
-
-## Development status
-
-- [x] Android dashboard shell.
-- [x] Typed configuration model and required-field validation.
-- [x] Initial VLESS and Trojan URI parsing.
-- [x] Initial VMess Base64 JSON parsing.
-- [x] Parser/model unit-test source.
-- [x] Backend health endpoint and local Compose scaffold.
-- [ ] Run CI and resolve any build/test failures.
-- [ ] Shadowsocks parser, protocol serializers, QR, clipboard, and import/export UI.
-- [ ] Room persistence, config library, search, tags, and history.
-- [ ] Scanner/checker job pipeline.
-- [ ] Authentication, roles, node management, users, and subscriptions.
-- [ ] Security review, release packaging, and deployment runbook.
 
 ## Security and upstream integration
 
