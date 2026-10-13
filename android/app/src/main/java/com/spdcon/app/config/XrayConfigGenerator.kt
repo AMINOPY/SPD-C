@@ -49,6 +49,29 @@ object XrayConfigGenerator {
             .put("security", "reality")
             .put("realitySettings", realitySettings)
 
+        // Transport-specific settings must be present in the exported Xray JSON;
+        // a share link alone is not enough to configure XHTTP or gRPC.
+        when (realityNetwork) {
+            "xhttp" -> {
+                val mode = profile.parameters["mode"] ?: "stream-up"
+                require(mode in setOf("auto", "packet-up", "stream-up", "stream-one")) {
+                    "Unsupported XHTTP mode: $mode"
+                }
+                val path = profile.parameters["path"] ?: "/"
+                require(path.startsWith("/") && !path.contains("..")) {
+                    "XHTTP path must be an absolute safe path"
+                }
+                streamSettings.put(
+                    "xhttpSettings",
+                    JSONObject().put("path", path).put("mode", mode)
+                )
+            }
+            "grpc" -> {
+                val serviceName = profile.parameters["serviceName"] ?: profile.parameters["serviceName".lowercase()] ?: ""
+                streamSettings.put("grpcSettings", JSONObject().put("serviceName", serviceName))
+            }
+        }
+
         val vlessOutbound = JSONObject()
             .put("tag", "proxy")
             .put("protocol", "vless")
