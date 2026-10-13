@@ -14,7 +14,12 @@ class XrayConfigGeneratorTest {
         credential = "00000000-0000-0000-0000-000000000001",
         network = "tcp",
         security = "reality",
-        parameters = mapOf("blockAdult" to blockAdult.toString())
+        parameters = mapOf(
+            "blockAdult" to blockAdult.toString(),
+            "sni" to "example.com",
+            "pbk" to "public-key",
+            "sid" to "abcd"
+        )
     )
 
     private val reality = RealitySettings(
