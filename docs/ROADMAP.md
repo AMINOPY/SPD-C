@@ -11,6 +11,13 @@ This roadmap is the acceptance checklist for evolving the current Android config
 - [ ] Record exact versions, attribution and license obligations before reusing code or assets.
 - [ ] Pin protocol compatibility to a tested Xray-core release and document export-format limitations.
 
+## Current usability hardening (2026-10-13)
+- [x] Wire the guided setup wizard into the actual config form so network goal presets populate protocol, transport, security, port and ALPN.
+- [x] Add an optional Cloudflare CDN mode that aligns VLESS + WS + TLS, Host, SNI and Path defaults, with domain validation.
+- [x] Fix IPv4-literal detection in hostname hints.
+- [ ] Add an actual node/runtime agent for connection-time source-IP observation, per-user IP/device limits and enforcement. A generated share link cannot independently discover a connecting user's public IP; the proxy node must observe and enforce it.
+- [ ] Add live DNS/Cloudflare proxy-state and origin compatibility checks before labeling a CDN profile as ready.
+
 ## Phase 1 — Android configuration foundation
 - [x] Compose dashboard and application shell.
 - [x] Typed configuration model and required-field validation.
