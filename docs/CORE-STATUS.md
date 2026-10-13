@@ -13,6 +13,10 @@ This file separates configuration-generation support from a real running core. A
 | Cloudflare Worker | Metadata/API scaffold | Config metadata, account/subscription routes and starter panel | It does not carry arbitrary VPN traffic and cannot replace a proxy node/runtime |
 | Node telemetry bridge | Python bridge and read-only Xray helper in `node-agent/` | Enrolled-node bearer authentication, input validation, stale-event and duplicate-event rejection, source-IP telemetry submission, local Xray config validation and loopback StatsService queries | An optional case-insensitive Xray core-email-to-Spd-con-user mapping is now supported by the node bridge; the bridge still requires a trusted adapter to supply the core email, source IP and counters. A local `xray_provision.py` helper now supports dry-run and Xray-validated atomic add/remove of one VLESS client on an existing inbound, but it is not yet orchestrated by the central API and does not reload the running core. Automatic Xray log ingestion, per-core session-kill and live policy enforcement are not yet implemented |
 
+## Telegram Web Proxy link builder (2026-10-13)
+
+The Android config screen now includes a Telegram proxy-link builder. It validates a hostname and an operator-supplied secret, URL-encodes values, and exposes the resulting link to the existing copy/QR flow. It uses Telegram's standard `https://t.me/proxy?server=...&secret=...` deep-link format. This helper does not provision an MTProxy daemon, generate a server-valid secret, or verify reachability. The secret must come from a deployed proxy.
+
 ## Config-generation UI integration (2026-10-13)
 
 The Android builder now exposes a multi-inbound generation action for REALITY TCP/XHTTP, TLS Relay WS/XHTTP, and explicitly entered Cloudflare Worker routes. It persists one local user UUID, generates links with that identity, and saves resulting profiles in the encrypted local config library. Tests cover stable identity, route expansion and the per-user relay path.
