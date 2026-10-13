@@ -87,7 +87,7 @@ class ConfigLibraryStore(context: Context) : SQLiteOpenHelper(context, DATABASE_
                         remark = if (cursor.isNull(7)) null else cursor.getString(7),
                         parameters = parameters
                     )
-                }.getOrNull()?.let(::add)
+                }.getOrNull()?.let { add(it) }
             }
         }
     }
