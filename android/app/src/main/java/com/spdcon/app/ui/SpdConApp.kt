@@ -330,6 +330,7 @@ fun SpdConApp(onOpenAdvancedPanel: () -> Unit = {}) {
                         "tools" -> ToolsPage(onOpenAdvancedPanel, onOpenScanner = { selected = "scanner" })
                         "scanner" -> CleanIpScannerPage(
                             onBack = { selected = "tools" },
+                            profiles = profiles,
                             onUseIp = { ip, domain ->
                                 scannerServerIp = ip
                                 scannerSni = domain
