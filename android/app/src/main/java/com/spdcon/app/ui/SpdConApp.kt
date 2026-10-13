@@ -937,7 +937,8 @@ private fun LibraryPage(
                                                 if (test.connected) {
                                                     "PASS • ${test.coreVersion} • ${test.latencyMs ?: 0} ms\n${test.message}"
                                                 } else {
-                                                    "CONFIG VALID • NETWORK FAILED • ${test.coreVersion}\n${test.message}"
+                                                    val diagnosis = ConnectionFailureClassifier.classify(test.message, "network")
+                                                    "${diagnosis.titleFa} • ${test.coreVersion}\n${diagnosis.nextStepFa}\nجزئیات: ${test.message}"
                                                 }
                                             },
                                             onFailure = { failure ->
