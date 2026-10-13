@@ -651,6 +651,11 @@ def admin_report_connection(user_id: str, payload: ConnectionReportIn,
             ).fetchone()
             if owner["user_id"] != user_id:
                 raise HTTPException(status_code=409, detail="Connection ID already belongs to another user")
+        known_ip = conn.execute(
+            "SELECT 1 FROM connection_observations WHERE user_id=? AND client_ip=? "
+            "AND last_seen_at>=? AND connection_id<>? LIMIT 1",
+            (user_id, client_ip, timestamp - 24 * 60 * 60, payload.connection_id),
+        ).fetchone() is not None
         first_seen = previous["first_seen_at"] if previous is not None else timestamp
         disconnected_at = timestamp if payload.state == "disconnected" else None
         conn.execute(
@@ -686,6 +691,13 @@ def admin_report_connection(user_id: str, payload: ConnectionReportIn,
         if policy["max_concurrent_connections"] and active_connections > policy["max_concurrent_connections"]:
             alerts.append("concurrent_connection_limit_exceeded")
     requested_action = policy["action"] if policy is not None else "observe_only"
+    deny_new_ip = bool(
+        policy is not None
+        and requested_action == "deny_new_ip"
+        and policy["max_distinct_ips"] > 0
+        and not known_ip
+        and distinct_ips > policy["max_distinct_ips"]
+    )
     return {
         "connection": {"connection_id": row["connection_id"], "user_id": row["user_id"],
                        "node_id": row["node_id"], "client_ip": row["client_ip"],
@@ -696,7 +708,8 @@ def admin_report_connection(user_id: str, payload: ConnectionReportIn,
         "observed_active_connections_5m": active_connections,
         "alerts": alerts,
         "requested_policy_action": requested_action,
-        "enforcement": "not_enforced_node_agent_required",
+        "decision": "deny_new_ip" if deny_new_ip else "allow",
+        "enforcement": "decision_signal_only_runtime_must_enforce_before_session_admission",
     }
 
 
