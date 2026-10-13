@@ -174,6 +174,11 @@ async function handle(request, env) {
   }
   if (method === "GET" && path === "/api/v1/users/me") return json({ user: cleanUser(user) });
 
+  if (method === "GET" && path === "/api/v1/nodes") {
+    const result = await env.DB.prepare("SELECT id,name,address,port,country,protocol,network,security,sni,public_key,short_id,fingerprint FROM nodes WHERE enabled=1 ORDER BY country,name LIMIT 300").all();
+    return json({ nodes: (result.results || []).map((n) => ({ id:n.id,name:n.name,address:n.address,port:n.port,country:n.country,protocol:n.protocol,network:n.network,security:n.security,sni:n.sni,publicKey:n.public_key,shortId:n.short_id,fingerprint:n.fingerprint })) });
+  }
+
   if (path === "/api/v1/configs" && method === "GET") {
     const result = await env.DB.prepare("SELECT id,name,protocol,profile_json,created_at,updated_at FROM configs WHERE owner_id=? ORDER BY updated_at DESC").bind(user.id).all();
     return json({ configs: (result.results || []).map((r) => ({ ...r, profile: JSON.parse(r.profile_json) })) });
@@ -230,6 +235,86 @@ async function handle(request, env) {
 
   if (path.startsWith("/api/v1/admin/")) {
     if (user.role !== "admin") return error("Admin role required", 403);
+    if (method === "GET" && path === "/api/v1/admin/nodes") {
+      const result = await env.DB.prepare("SELECT id,name,address,port,country,protocol,network,security,sni,public_key,short_id,fingerprint,enabled,created_at,updated_at FROM nodes ORDER BY created_at DESC LIMIT 300").all();
+      return json({ nodes: (result.results || []).map((n) => ({ ...n, enabled: Boolean(n.enabled) })) });
+    }
+    if (method === "POST" && path === "/api/v1/admin/nodes") {
+      let body;
+      try { body = await readJson(request); } catch (e) { return error(e.message); }
+      const name = String(body.name || "").trim();
+      const address = String(body.address || "").trim();
+      const port = Number(body.port || 443);
+      const rawCountry = String(body.country || "auto");
+      const country = rawCountry.toLowerCase() === "auto" ? "auto" : rawCountry.toUpperCase();
+      const protocol = String(body.protocol || "vless").toLowerCase();
+      const network = String(body.network || "tcp").toLowerCase();
+      const security = String(body.security || "tls").toLowerCase();
+      const sni = String(body.sni || "").trim();
+      const publicKey = String(body.publicKey || "").trim();
+      const shortId = String(body.shortId || "").trim().toLowerCase();
+      const fingerprint = String(body.fingerprint || "chrome").trim();
+      if (!name || name.length > 80 || !address || address.length > 253 || /\\s/.test(address) ||
+          !Number.isInteger(port) || port < 1 || port > 65535 ||
+          !/^(auto|[A-Z]{2})$/.test(country) ||
+          !["vless","vmess","trojan","shadowsocks","hysteria2","tuic"].includes(protocol) ||
+          !["tcp","raw","ws","grpc","xhttp","udp"].includes(network) ||
+          !["tls","reality","none"].includes(security) ||
+          !["chrome","firefox","safari","ios","edge","android","360","qq"].includes(fingerprint)) {
+        return error("Invalid node fields");
+      }
+      if (security === "reality" && (protocol !== "vless" || !sni || !/^[a-z0-9.-]+$/i.test(sni) ||
+          !publicKey || !/^[a-f0-9]{0,16}$/.test(shortId) || shortId.length % 2 !== 0)) {
+        return error("REALITY nodes need VLESS, a valid SNI, server public key and an even-length hex shortId (up to 16 chars)");
+      }
+      const id = crypto.randomUUID(), ts = now();
+      try {
+        await env.DB.prepare("INSERT INTO nodes(id,name,address,port,country,protocol,network,security,sni,public_key,short_id,fingerprint,enabled,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,1,?,?)")
+          .bind(id,name,address,port,country,protocol,network,security,sni,publicKey,shortId,fingerprint,ts,ts).run();
+        return json({ node: { id,name,address,port,country,protocol,network,security,sni,publicKey,shortId,fingerprint,enabled:true,createdAt:ts,updatedAt:ts } }, 201);
+      } catch { return error("Could not save node; check that migration 0002_nodes.sql has been applied", 500); }
+    }
+    const nodeMatch = /^\/api\/v1\/admin\/nodes\/([a-f0-9-]+)$/.exec(path);
+    if (nodeMatch && (method === "PATCH" || method === "DELETE")) {
+      if (method === "DELETE") {
+        const result = await env.DB.prepare("DELETE FROM nodes WHERE id=?").bind(nodeMatch[1]).run();
+        return Number(result.meta?.changes || 0) ? json({ ok: true }) : error("Node not found", 404);
+      }
+      let body;
+      try { body = await readJson(request); } catch (e) { return error(e.message); }
+      const allowed = ["name","address","port","country","protocol","network","security","sni","publicKey","shortId","fingerprint","enabled"];
+      if (Object.keys(body).some((key) => !allowed.includes(key))) return error("Unsupported node field");
+      const current = await env.DB.prepare("SELECT * FROM nodes WHERE id=?").bind(nodeMatch[1]).first();
+      if (!current) return error("Node not found", 404);
+      const merged = {
+        name: body.name == null ? current.name : String(body.name).trim(),
+        address: body.address == null ? current.address : String(body.address).trim(),
+        port: body.port == null ? Number(current.port) : Number(body.port),
+        country: body.country == null ? current.country : String(body.country).toUpperCase(),
+        protocol: body.protocol == null ? current.protocol : String(body.protocol).toLowerCase(),
+        network: body.network == null ? current.network : String(body.network).toLowerCase(),
+        security: body.security == null ? current.security : String(body.security).toLowerCase(),
+        sni: body.sni == null ? current.sni : String(body.sni).trim(),
+        publicKey: body.publicKey == null ? current.public_key : String(body.publicKey).trim(),
+        shortId: body.shortId == null ? current.short_id : String(body.shortId).trim().toLowerCase(),
+        fingerprint: body.fingerprint == null ? current.fingerprint : String(body.fingerprint).trim(),
+        enabled: body.enabled == null ? Boolean(current.enabled) : body.enabled
+      };
+      if (!merged.name || merged.name.length > 80 || !merged.address || merged.address.length > 253 || /\\s/.test(merged.address) ||
+          !Number.isInteger(merged.port) || merged.port < 1 || merged.port > 65535 ||
+          !/^(auto|[A-Z]{2})$/.test(merged.country) ||
+          !["vless","vmess","trojan","shadowsocks","hysteria2","tuic"].includes(merged.protocol) ||
+          !["tcp","raw","ws","grpc","xhttp","udp"].includes(merged.network) ||
+          !["tls","reality","none"].includes(merged.security) || typeof merged.enabled !== "boolean" ||
+          !["chrome","firefox","safari","ios","edge","android","360","qq"].includes(merged.fingerprint)) return error("Invalid node fields");
+      if (merged.security === "reality" && (merged.protocol !== "vless" || !merged.sni || !/^[a-z0-9.-]+$/i.test(merged.sni) ||
+          !merged.publicKey || !/^[a-f0-9]{0,16}$/.test(merged.shortId) || merged.shortId.length % 2 !== 0)) {
+        return error("REALITY nodes need VLESS, a valid SNI, server public key and an even-length hex shortId (up to 16 chars)");
+      }
+      await env.DB.prepare("UPDATE nodes SET name=?,address=?,port=?,country=?,protocol=?,network=?,security=?,sni=?,public_key=?,short_id=?,fingerprint=?,enabled=?,updated_at=? WHERE id=?")
+        .bind(merged.name,merged.address,merged.port,merged.country,merged.protocol,merged.network,merged.security,merged.sni,merged.publicKey,merged.shortId,merged.fingerprint,Number(merged.enabled),now(),nodeMatch[1]).run();
+      return json({ ok: true, node: { id: nodeMatch[1], ...merged } });
+    }
     if (method === "GET" && path === "/api/v1/admin/users") {
       const result = await env.DB.prepare("SELECT * FROM users ORDER BY created_at DESC LIMIT 500").all();
       return json({ users: (result.results || []).map(cleanUser) });

@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Dns
@@ -141,6 +142,20 @@ private fun SpdConDashboard() {
     var manualCdnEnabled by remember { mutableStateOf(false) }
     var showAdvancedBuilder by remember { mutableStateOf(false) }
     var showLinkImport by remember { mutableStateOf(false) }
+    var remoteNodes by remember { mutableStateOf(emptyList<CloudSyncClient.RemoteNode>()) }
+    var nodeMenuExpanded by remember { mutableStateOf(false) }
+    var nodeMessage by remember { mutableStateOf<String?>(null) }
+    var nodeNameDraft by remember { mutableStateOf("") }
+    var nodeAddressDraft by remember { mutableStateOf("") }
+    var nodePortDraft by remember { mutableStateOf("443") }
+    var nodeCountryDraft by remember { mutableStateOf("DE") }
+    var nodeProtocolDraft by remember { mutableStateOf("vless") }
+    var nodeNetworkDraft by remember { mutableStateOf("tcp") }
+    var nodeSecurityDraft by remember { mutableStateOf("reality") }
+    var nodeSniDraft by remember { mutableStateOf("") }
+    var nodePublicKeyDraft by remember { mutableStateOf("") }
+    var nodeShortIdDraft by remember { mutableStateOf("") }
+    var nodeFingerprintDraft by remember { mutableStateOf("chrome") }
     var shareLink by remember { mutableStateOf("") }
     var parseResult by remember { mutableStateOf<String?>(null) }
     var parsedSummary by remember { mutableStateOf<String?>(null) }
@@ -175,6 +190,45 @@ private fun SpdConDashboard() {
         }
     }
 
+    fun refreshRemoteNodes(adminOnly: Boolean = true) {
+        if (cloudBaseUrl.isBlank() || cloudToken.isBlank()) {
+            nodeMessage = "ابتدا در بخش ابر وارد حساب Cloudflare شو."
+            return
+        }
+        cloudBusy = true
+        coroutineScope.launch {
+            var result = runCatching {
+                withContext(Dispatchers.IO) { CloudSyncClient.listNodes(cloudBaseUrl, cloudToken, adminOnly) }
+            }
+            if (result.isFailure && adminOnly) {
+                result = runCatching {
+                    withContext(Dispatchers.IO) { CloudSyncClient.listNodes(cloudBaseUrl, cloudToken, false) }
+                }
+            }
+            result.onSuccess { remoteNodes = it; nodeMessage = "فهرست نودها به‌روز شد: ${it.size} نود." }
+                .onFailure { nodeMessage = "دریافت نودها ناموفق بود: ${it.message}" }
+            cloudBusy = false
+        }
+    }
+
+    fun applyRemoteNode(node: CloudSyncClient.RemoteNode) {
+        manualName = node.name
+        manualServer = node.address
+        manualPort = node.port.toString()
+        manualProtocol = runCatching { ConfigProtocol.valueOf(node.protocol.uppercase()) }.getOrDefault(ConfigProtocol.VLESS)
+        manualNetwork = if (node.network.equals("raw", true)) "tcp" else node.network
+        manualSecurity = node.security
+        manualSni = node.sni
+        realityServerName = node.sni
+        realityPublicKey = node.publicKey
+        realityShortId = node.shortId
+        realityFingerprint = node.fingerprint
+        if (node.country != "auto") selectedCountry = node.country
+        selectedSection = "create"
+        nodeMenuExpanded = false
+        nodeMessage = "تنظیمات از نود انتخابی پر شد؛ UUID/کاربر باید روی سرور هم ثبت شود."
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -200,15 +254,16 @@ private fun SpdConDashboard() {
                             Text(when (selectedSection) {
                                 "library" -> "کانفیگ‌های ذخیره‌شده‌ات را پیدا و مدیریت کن."
                                 "cloud" -> "همگام‌سازی و لینک اشتراک؛ فقط در صورت نیاز."
+                                "nodes" -> "نودها را مدیریت کن و با یک انتخاب، فرم ساخت کانفیگ را پر کن."
                                 "tools" -> "ابزارهای جانبی و قابلیت‌های در حال توسعه."
                                 else -> "ساخت کانفیگ در چند قدم ساده؛ بدون شلوغی تنظیمات."
                             }, style = MaterialTheme.typography.bodyMedium)
                         }
                     }
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        listOf("create" to "ساخت", "library" to "ذخیره‌ها", "cloud" to "ابر", "tools" to "ابزارها").forEach { (section, label) ->
+                        listOf("create" to "ساخت", "library" to "ذخیره‌ها", "nodes" to "نودها", "cloud" to "ابر", "tools" to "ابزارها").forEach { (section, label) ->
                             if (selectedSection == section) {
-                                Button(onClick = { selectedSection = section }, modifier = Modifier.weight(1f), contentPadding = PaddingValues(horizontal = 4.dp, vertical = 10.dp)) { Text(label, maxLines = 1) }
+                                Button(onClick = { selectedSection = section; if (section == "nodes" && cloudToken.isNotBlank()) refreshRemoteNodes(true) }, modifier = Modifier.weight(1f), contentPadding = PaddingValues(horizontal = 4.dp, vertical = 10.dp)) { Text(label, maxLines = 1) }
                             } else {
                                 OutlinedButton(onClick = { selectedSection = section }, modifier = Modifier.weight(1f), contentPadding = PaddingValues(horizontal = 4.dp, vertical = 10.dp)) { Text(label, maxLines = 1) }
                             }
@@ -410,6 +465,86 @@ private fun SpdConDashboard() {
             }
 
             }
+            if (selectedSection == "nodes") {
+                item {
+                    Card(modifier = Modifier.fillMaxWidth()) {
+                        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                            Text("مدیریت نودها", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                            Text("مشخصات نود را یک‌بار ثبت کن؛ بعد در ساخت سریع انتخابش کن تا آدرس، انتقال، امنیت و مقادیر REALITY خودش پر شود.")
+                            Text("این بخش تنظیمات نود را نگه می‌دارد؛ نصب Xray یا ثبت خودکار UUID روی سرور هنوز به Node Agent متصل نیاز دارد.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            OutlinedTextField(value = nodeNameDraft, onValueChange = { nodeNameDraft = it }, modifier = Modifier.fillMaxWidth(), label = { Text("نام نود") }, singleLine = true)
+                            OutlinedTextField(value = nodeAddressDraft, onValueChange = { nodeAddressDraft = it }, modifier = Modifier.fillMaxWidth(), label = { Text("دامنه یا IP نود") }, singleLine = true)
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                OutlinedTextField(value = nodePortDraft, onValueChange = { nodePortDraft = it.filter(Char::isDigit).take(5) }, modifier = Modifier.weight(1f), label = { Text("پورت") }, singleLine = true)
+                                OutlinedTextField(value = nodeCountryDraft, onValueChange = { nodeCountryDraft = it.uppercase().take(2) }, modifier = Modifier.weight(1f), label = { Text("کشور (مثلاً DE)") }, singleLine = true)
+                            }
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                OutlinedTextField(value = nodeProtocolDraft, onValueChange = { nodeProtocolDraft = it.lowercase() }, modifier = Modifier.weight(1f), label = { Text("پروتکل") }, singleLine = true)
+                                OutlinedTextField(value = nodeNetworkDraft, onValueChange = { nodeNetworkDraft = it.lowercase() }, modifier = Modifier.weight(1f), label = { Text("انتقال") }, singleLine = true)
+                            }
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                OutlinedTextField(value = nodeSecurityDraft, onValueChange = { nodeSecurityDraft = it.lowercase() }, modifier = Modifier.weight(1f), label = { Text("امنیت (reality/tls)") }, singleLine = true)
+                                OutlinedTextField(value = nodeFingerprintDraft, onValueChange = { nodeFingerprintDraft = it.lowercase() }, modifier = Modifier.weight(1f), label = { Text("Fingerprint") }, singleLine = true)
+                            }
+                            OutlinedTextField(value = nodeSniDraft, onValueChange = { nodeSniDraft = it.trim() }, modifier = Modifier.fillMaxWidth(), label = { Text("SNI / serverName") }, singleLine = true)
+                            if (nodeSecurityDraft.equals("reality", true)) {
+                                OutlinedTextField(value = nodePublicKeyDraft, onValueChange = { nodePublicKeyDraft = it.trim() }, modifier = Modifier.fillMaxWidth(), label = { Text("کلید عمومی REALITY نود") }, singleLine = true)
+                                OutlinedTextField(value = nodeShortIdDraft, onValueChange = { nodeShortIdDraft = it.trim() }, modifier = Modifier.fillMaxWidth(), label = { Text("shortId نود") }, singleLine = true)
+                            }
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Button(enabled = !cloudBusy && cloudToken.isNotBlank() && nodeNameDraft.isNotBlank() && nodeAddressDraft.isNotBlank() && (nodeSecurityDraft != "reality" || (nodeSniDraft.isNotBlank() && nodePublicKeyDraft.isNotBlank())), onClick = {
+                                    val port = nodePortDraft.toIntOrNull()
+                                    if (port == null || port !in 1..65535) {
+                                        nodeMessage = "پورت باید بین 1 تا 65535 باشد."
+                                    } else {
+                                        cloudBusy = true
+                                        coroutineScope.launch {
+                                            val result = runCatching {
+                                                withContext(Dispatchers.IO) {
+                                                    CloudSyncClient.createNode(cloudBaseUrl, cloudToken, CloudSyncClient.RemoteNode(
+                                                        id = "", name = nodeNameDraft.trim(), address = nodeAddressDraft.trim(), port = port,
+                                                        country = nodeCountryDraft.ifBlank { "auto" }, protocol = nodeProtocolDraft,
+                                                        network = nodeNetworkDraft, security = nodeSecurityDraft, sni = nodeSniDraft.trim(),
+                                                        publicKey = nodePublicKeyDraft.trim(), shortId = nodeShortIdDraft.trim(),
+                                                        fingerprint = nodeFingerprintDraft.ifBlank { "chrome" }
+                                                    ))
+                                                }
+                                            }
+                                            result.onSuccess { node ->
+                                                nodeNameDraft = ""; nodeAddressDraft = ""; nodeSniDraft = ""; nodePublicKeyDraft = ""; nodeShortIdDraft = ""
+                                                nodeMessage = "نود ثبت شد: ${node.name}"
+                                                refreshRemoteNodes(true)
+                                            }.onFailure { nodeMessage = "ثبت نود ناموفق بود: ${it.message}"; cloudBusy = false }
+                                        }
+                                    }
+                                }) { Text(if (cloudBusy) "در حال انجام…" else "ثبت نود") }
+                                OutlinedButton(enabled = !cloudBusy && cloudToken.isNotBlank(), onClick = { refreshRemoteNodes(true) }) { Text("تازه‌سازی") }
+                            }
+                            nodeMessage?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
+                        }
+                    }
+                }
+                items(remoteNodes, key = { it.id }) { node ->
+                    Card(modifier = Modifier.fillMaxWidth()) {
+                        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Text(node.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                            Text("${node.address}:${node.port} · ${node.country} · ${node.protocol.uppercase()} · ${node.security}", style = MaterialTheme.typography.bodySmall)
+                            if (node.security.equals("reality", true)) Text("SNI: ${node.sni} · shortId: ${node.shortId}", style = MaterialTheme.typography.bodySmall)
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Button(onClick = { applyRemoteNode(node) }) { Text("استفاده در ساخت") }
+                                if (cloudToken.isNotBlank()) OutlinedButton(onClick = {
+                                    cloudBusy = true
+                                    coroutineScope.launch {
+                                        val result = runCatching { withContext(Dispatchers.IO) { CloudSyncClient.deleteNode(cloudBaseUrl, cloudToken, node.id) } }
+                                        result.onSuccess { nodeMessage = "نود حذف شد"; refreshRemoteNodes(true) }
+                                            .onFailure { nodeMessage = "حذف فقط برای مدیر مجاز است: ${it.message}"; cloudBusy = false }
+                                    }
+                                }) { Text("حذف") }
+                            }
+                        }
+                    }
+                }
+            }
             if (selectedSection == "create") {
             item {
                 OutlinedButton(
@@ -528,6 +663,33 @@ private fun SpdConDashboard() {
                                     onClick = { manualProtocol = protocol; manualProtocolMenuExpanded = false }
                                 )
                             }
+                        }
+                        Card(
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Text("راهنمای سریع اتصال واقعی", fontWeight = FontWeight.Bold)
+                                Text("۱) اگر نود آماده داری، از «انتخاب نود ذخیره‌شده» استفاده کن؛ اطلاعات REALITY از همان نود پر می‌شود.")
+                                Text("۲) اگر لینک کامل داری، بخش «واردکردن لینک» را باز کن و لینک vless:// یا لینک سازگار را وارد کن تا فیلدها خودکار خوانده شوند.")
+                                Text("۳) اگر فقط SNI مثل digikala.com داری، هنوز نود آماده نیست؛ کلید REALITY و shortId از دامنه به دست نمی‌آیند. برای جلوگیری از لینک ظاهراً آماده اما خراب، برنامه این مقادیر را جعل نمی‌کند.")
+                                Text("نکته: ساخت لینک با اتصال واقعی فرق دارد؛ سرور باید کاربر/UUID را هم بشناسد.", style = MaterialTheme.typography.bodySmall)
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    OutlinedButton(onClick = { nodeMenuExpanded = true }, modifier = Modifier.weight(1f)) {
+                                        Text("انتخاب نود")
+                                    }
+                                    Button(onClick = { showLinkImport = true; selectedSection = "create" }, modifier = Modifier.weight(1f)) {
+                                        Text("واردکردن لینک")
+                                    }
+                                }
+                            }
+                        }
+                        OutlinedButton(onClick = { nodeMenuExpanded = true }, modifier = Modifier.fillMaxWidth()) { Text("انتخاب نود ذخیره‌شده (پرکردن خودکار)") }
+                        DropdownMenu(expanded = nodeMenuExpanded, onDismissRequest = { nodeMenuExpanded = false }) {
+                            remoteNodes.filter { it.enabled }.forEach { node ->
+                                DropdownMenuItem(text = { Text("${node.name} · ${node.country}") }, onClick = { applyRemoteNode(node) })
+                            }
+                            if (remoteNodes.isEmpty()) DropdownMenuItem(text = { Text("نودی نیست؛ از بخش نودها بارگذاری کن") }, onClick = { nodeMenuExpanded = false; selectedSection = "nodes" })
                         }
                         OutlinedTextField(value = manualName, onValueChange = { manualName = it }, modifier = Modifier.fillMaxWidth(), label = { Text("نام کانفیگ") }, singleLine = true)
                         OutlinedTextField(
