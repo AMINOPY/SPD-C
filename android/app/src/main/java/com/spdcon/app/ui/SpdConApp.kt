@@ -58,6 +58,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -88,6 +89,10 @@ import com.spdcon.app.ui.theme.SurfaceGlass
 import com.spdcon.app.ui.theme.SurfaceGlassLight
 import com.spdcon.app.ui.theme.TextSecondary
 import java.util.UUID
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import com.spdcon.app.config.XrayCoreTester
 
 private val screenItems = listOf(
     Triple("home", "Home", Icons.Outlined.Home to Icons.Filled.Home),
@@ -639,6 +644,9 @@ private fun LibraryPage(
     onDelete: (ConfigProfile) -> Unit
 ) {
     var search by remember { mutableStateOf("") }
+    var testingProfileName by remember { mutableStateOf<String?>(null) }
+    var testMessage by remember { mutableStateOf<String?>(null) }
+    val scope = rememberCoroutineScope()
     val filtered = profiles.filter { profile ->
         search.isBlank() || profile.name.contains(search, true) ||
             profile.server.contains(search, true) || profile.protocol.name.contains(search, true) ||
@@ -679,10 +687,49 @@ private fun LibraryPage(
                                 TextButton(onClick = { onDelete(profile) }) { Text(tr("Delete"), color = Color(0xFFFF6C82), fontSize = 11.sp) }
                             }
                         }
+                        Spacer(Modifier.height(8.dp))
+                        OutlinedButton(
+                            onClick = {
+                                if (testingProfileName == null) {
+                                    testingProfileName = profile.name
+                                    testMessage = null
+                                    scope.launch {
+                                        val result = withContext(Dispatchers.IO) {
+                                            runCatching { XrayCoreTester.testProfile(profile) }
+                                        }
+                                        testingProfileName = null
+                                        testMessage = result.fold(
+                                            onSuccess = { test ->
+                                                if (test.connected) {
+                                                    "PASS • ${test.coreVersion} • ${test.latencyMs ?: 0} ms\n${test.message}"
+                                                } else {
+                                                    "CONFIG VALID • NETWORK FAILED • ${test.coreVersion}\n${test.message}"
+                                                }
+                                            },
+                                            onFailure = { failure ->
+                                                "Xray test failed: ${failure.message ?: failure.javaClass.simpleName}"
+                                            }
+                                        )
+                                    }
+                                }
+                            },
+                            enabled = testingProfileName == null,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(if (testingProfileName == profile.name) tr("Testing with Xray-core…") else tr("Test with real Xray-core"))
+                        }
                     }
                 }
             }
         }
+    }
+    if (testMessage != null) {
+        AlertDialog(
+            onDismissRequest = { testMessage = null },
+            title = { Text(tr("Xray-core test result")) },
+            text = { Text(testMessage.orEmpty()) },
+            confirmButton = { TextButton(onClick = { testMessage = null }) { Text(tr("Close")) } }
+        )
     }
 }
 
