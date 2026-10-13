@@ -179,6 +179,10 @@ object ConfigLinkParser {
                 put("scy", json.optString("scy", "auto"))
                 put("host", json.optString("host"))
                 put("path", json.optString("path"))
+                put("sni", json.optString("sni"))
+                put("alpn", json.optString("alpn"))
+                put("fp", json.optString("fp"))
+                put("headerType", json.optString("type"))
                 put("tls", security)
                 put("net", network)
             }.filterValues { it.isNotBlank() }
