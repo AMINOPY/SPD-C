@@ -163,9 +163,7 @@ object ConfigGenerationService {
                     put("sni", tlsName)
                     put("fp", inbound.fingerprint.ifBlank { "chrome" })
                     put("alpn", inbound.alpn)
-                    put("path", if (transport == "WS") {
-                        if (inbound.path.isBlank() || inbound.path == "/") path else inbound.path
-                    } else path)
+                    put("path", path)
                     if (transport == "XHTTP") put("mode", inbound.xhttpMode)
                     if (endpoint != inbound.endpoint) put("ipVariant", "true")
                 }
