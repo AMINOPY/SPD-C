@@ -28,7 +28,7 @@ class ConnectionCandidateRankerTest {
     fun latencyAloneNeverMarksCandidateVerified() {
         val result = ConnectionCandidateRanker.rank(ConnectionEvidence(latencyMs = 1))
         assertEquals(CandidateConfidence.UNVERIFIED, result.confidence)
-        assertEquals(-99, result.score)
+        assertEquals(0, result.score)
     }
 
     @Test
