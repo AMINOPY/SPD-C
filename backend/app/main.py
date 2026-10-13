@@ -91,6 +91,19 @@ def init_db() -> None:
             node_id TEXT NOT NULL, delta_bytes INTEGER NOT NULL CHECK(delta_bytes >= 0),
             reported_at INTEGER NOT NULL
         );
+        CREATE TABLE IF NOT EXISTS nodes (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            secret_hash TEXT NOT NULL UNIQUE,
+            enabled INTEGER NOT NULL DEFAULT 1,
+            created_at INTEGER NOT NULL,
+            last_seen_at INTEGER
+        );
+        CREATE TABLE IF NOT EXISTS node_events (
+            event_id TEXT PRIMARY KEY,
+            node_id TEXT NOT NULL REFERENCES nodes(id) ON DELETE CASCADE,
+            received_at INTEGER NOT NULL
+        );
         CREATE TABLE IF NOT EXISTS connection_policies (
             user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
             max_distinct_ips INTEGER NOT NULL DEFAULT 0 CHECK(max_distinct_ips >= 0 AND max_distinct_ips <= 256),
@@ -239,6 +252,16 @@ class ConnectionReportIn(BaseModel):
     state: str = Field(default="active", pattern=r"^(active|disconnected)$")
     upload_bytes: int = Field(default=0, ge=0, le=10**15)
     download_bytes: int = Field(default=0, ge=0, le=10**15)
+
+
+class NodeCreateIn(BaseModel):
+    name: str = Field(min_length=1, max_length=120)
+
+
+class NodeConnectionReportIn(ConnectionReportIn):
+    user_id: str = Field(min_length=1, max_length=128)
+    event_id: str = Field(min_length=16, max_length=128)
+    event_timestamp: int = Field(ge=0)
 
 
 def validate_profile(profile: dict[str, Any]) -> str:
@@ -591,3 +614,126 @@ def admin_list_connections(user_id: str,
         ).fetchall()
     return {"user_id": user_id, "connections": [dict(row) for row in rows],
             "privacy_note": "Contains client IP addresses; restrict admin access and define retention."}
+
+
+
+@app.post("/admin/nodes", status_code=201, tags=["admin", "nodes"])
+def admin_create_node(payload: NodeCreateIn,
+                      _: sqlite3.Row = Depends(admin_user)) -> dict[str, Any]:
+    """Enroll a node and reveal its bearer secret once. Use only behind HTTPS."""
+    node_id = "node_" + secrets.token_urlsafe(12)
+    node_secret = secrets.token_urlsafe(48)
+    timestamp = now()
+    with db() as conn:
+        conn.execute(
+            "INSERT INTO nodes(id,name,secret_hash,enabled,created_at) VALUES(?,?,?,?,?)",
+            (node_id, payload.name, hash_secret(node_secret), 1, timestamp),
+        )
+    return {"id": node_id, "name": payload.name, "node_secret": node_secret,
+            "created_at": timestamp,
+            "warning": "Store node_secret in a root-readable secret file. It is shown only once; HTTPS is required."}
+
+
+@app.get("/admin/nodes", tags=["admin", "nodes"])
+def admin_list_nodes(_: sqlite3.Row = Depends(admin_user)) -> dict[str, Any]:
+    with db() as conn:
+        rows = conn.execute(
+            "SELECT id,name,enabled,created_at,last_seen_at FROM nodes ORDER BY created_at DESC"
+        ).fetchall()
+    return {"nodes": [dict(row) for row in rows]}
+
+
+@app.patch("/admin/nodes/{node_id}/enabled", tags=["admin", "nodes"])
+def admin_set_node_enabled(node_id: str, enabled: bool,
+                           _: sqlite3.Row = Depends(admin_user)) -> dict[str, Any]:
+    with db() as conn:
+        cursor = conn.execute("UPDATE nodes SET enabled=? WHERE id=?",
+                              (int(enabled), node_id))
+        if cursor.rowcount == 0:
+            raise HTTPException(status_code=404, detail="Node not found")
+        row = conn.execute("SELECT id,name,enabled,created_at,last_seen_at FROM nodes WHERE id=?",
+                           (node_id,)).fetchone()
+    return dict(row)
+
+
+@app.post("/nodes/{node_id}/connections/report", status_code=201,
+          tags=["nodes", "connections"])
+def node_report_connection(node_id: str, payload: NodeConnectionReportIn,
+                           authorization: str | None = Header(default=None)) -> dict[str, Any]:
+    """Receive idempotent, time-bounded telemetry from an enrolled node over HTTPS."""
+    import ipaddress
+
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Node bearer secret required")
+    node_secret = authorization[7:].strip()
+    timestamp = now()
+    if abs(timestamp - payload.event_timestamp) > 300:
+        raise HTTPException(status_code=401, detail="Telemetry event timestamp outside 5-minute window")
+    try:
+        client_ip = str(ipaddress.ip_address(payload.client_ip))
+    except ValueError:
+        raise HTTPException(status_code=422, detail="client_ip must be a valid IPv4 or IPv6 address")
+
+    with db() as conn:
+        node = conn.execute("SELECT * FROM nodes WHERE id=?", (node_id,)).fetchone()
+        if node is None or not node["enabled"] or not hmac.compare_digest(
+            node["secret_hash"], hash_secret(node_secret)
+        ):
+            raise HTTPException(status_code=401, detail="Unknown, disabled or invalid node credentials")
+        if conn.execute("SELECT 1 FROM node_events WHERE event_id=?", (payload.event_id,)).fetchone():
+            raise HTTPException(status_code=409, detail="Duplicate telemetry event")
+        if not conn.execute("SELECT 1 FROM users WHERE id=?", (payload.user_id,)).fetchone():
+            raise HTTPException(status_code=404, detail="User not found")
+        if payload.node_id != node_id:
+            raise HTTPException(status_code=422, detail="Payload node_id must match authenticated node")
+        previous = conn.execute(
+            "SELECT user_id,first_seen_at FROM connection_observations WHERE connection_id=?",
+            (payload.connection_id,),
+        ).fetchone()
+        if previous is not None and previous["user_id"] != payload.user_id:
+            raise HTTPException(status_code=409, detail="Connection ID already belongs to another user")
+        first_seen = previous["first_seen_at"] if previous else timestamp
+        disconnected_at = timestamp if payload.state == "disconnected" else None
+        conn.execute(
+            "INSERT INTO connection_observations(connection_id,user_id,node_id,client_ip,client_label,state,"
+            "first_seen_at,last_seen_at,disconnected_at,upload_bytes,download_bytes) "
+            "VALUES(?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(connection_id) DO UPDATE SET "
+            "node_id=excluded.node_id,client_ip=excluded.client_ip,client_label=excluded.client_label,"
+            "state=excluded.state,last_seen_at=excluded.last_seen_at,disconnected_at=excluded.disconnected_at,"
+            "upload_bytes=MAX(connection_observations.upload_bytes,excluded.upload_bytes),"
+            "download_bytes=MAX(connection_observations.download_bytes,excluded.download_bytes)",
+            (payload.connection_id, payload.user_id, node_id, client_ip, payload.client_label,
+             payload.state, first_seen, timestamp, disconnected_at,
+             payload.upload_bytes, payload.download_bytes),
+        )
+        conn.execute("INSERT INTO node_events(event_id,node_id,received_at) VALUES(?,?,?)",
+                     (payload.event_id, node_id, timestamp))
+        conn.execute("UPDATE nodes SET last_seen_at=? WHERE id=?", (timestamp, node_id))
+        policy = conn.execute("SELECT * FROM connection_policies WHERE user_id=?",
+                              (payload.user_id,)).fetchone()
+        distinct_ips = conn.execute(
+            "SELECT COUNT(DISTINCT client_ip) FROM connection_observations "
+            "WHERE user_id=? AND last_seen_at>=?",
+            (payload.user_id, timestamp - 24 * 60 * 60),
+        ).fetchone()[0]
+        active_connections = conn.execute(
+            "SELECT COUNT(*) FROM connection_observations WHERE user_id=? AND state='active' "
+            "AND last_seen_at>=?",
+            (payload.user_id, timestamp - 5 * 60),
+        ).fetchone()[0]
+
+    alerts: list[str] = []
+    if policy is not None:
+        if policy["max_distinct_ips"] and distinct_ips > policy["max_distinct_ips"]:
+            alerts.append("distinct_ip_limit_exceeded")
+        if policy["max_concurrent_connections"] and active_connections > policy["max_concurrent_connections"]:
+            alerts.append("concurrent_connection_limit_exceeded")
+    return {
+        "accepted": True, "event_id": payload.event_id, "node_id": node_id,
+        "user_id": payload.user_id, "client_ip": client_ip,
+        "observed_distinct_ips_24h": distinct_ips,
+        "observed_active_connections_5m": active_connections,
+        "alerts": alerts,
+        "requested_policy_action": policy["action"] if policy is not None else "observe_only",
+        "enforcement": "telemetry_only_node_runtime_enforcement_not_implemented",
+    }
