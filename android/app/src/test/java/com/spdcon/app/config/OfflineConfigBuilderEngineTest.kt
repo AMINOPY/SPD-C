@@ -9,6 +9,24 @@ import org.junit.Test
 
 class OfflineConfigBuilderEngineTest {
     @Test
+    fun shareLinkSerializationUsesOnlyLocalProfileData() {
+        val profile = ConfigProfile(
+            name = "offline",
+            protocol = ConfigProtocol.VLESS,
+            server = "example.com",
+            port = 443,
+            credential = "00000000-0000-4000-8000-000000000001",
+            network = "ws",
+            security = "tls",
+            parameters = mapOf("sni" to "example.com", "path" to "/ws")
+        )
+        val link = OfflineConfigBuilderEngine.buildShareLink(profile).getOrThrow()
+        assertTrue(link.startsWith("vless://"))
+        assertTrue(link.contains("example.com"))
+        assertTrue(link.contains("security=tls"))
+    }
+
+    @Test
     fun generatedUuidIsValidV4AndNotPersistedByEngine() {
         val first = OfflineConfigBuilderEngine.generateUuid()
         val second = OfflineConfigBuilderEngine.generateUuid()
