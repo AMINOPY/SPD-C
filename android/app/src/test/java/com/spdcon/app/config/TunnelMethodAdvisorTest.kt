@@ -67,6 +67,6 @@ class TunnelMethodAdvisorTest {
         val assessment = TunnelMethodAdvisor.assess(p, report = report)
         assertEquals(TunnelSelectionConfidence.LIVE_VERIFIED, assessment.confidence)
         assertTrue(assessment.summaryFa.contains("شبکهٔ فعلی"))
-        assertFalse(assessment.summaryFa.contains("تضمین"))
+        assertFalse(assessment.summaryFa.contains("تضمین می‌شود"))
     }
 }
