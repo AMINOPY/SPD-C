@@ -47,10 +47,19 @@ object ConnectionCandidateRanker {
         return RankedConnectionCandidate(evidence, confidence, base - latencyPenalty)
     }
 
-    fun rankTlsResults(results: List<CleanIpResult>): List<CleanIpResult> =
+    fun rankTlsResults(
+        results: List<CleanIpResult>,
+        tunnelVerifiedIps: Set<String> = emptySet()
+    ): List<CleanIpResult> =
         results.sortedWith(
             compareByDescending<CleanIpResult> {
-                rank(ConnectionEvidence(tlsVerified = it.tlsOk, latencyMs = it.latencyMs)).score
+                rank(
+                    ConnectionEvidence(
+                        tunnelSucceeded = it.ip in tunnelVerifiedIps,
+                        tlsVerified = it.tlsOk,
+                        latencyMs = it.latencyMs
+                    )
+                ).score
             }.thenBy { it.latencyMs }
         )
 }
