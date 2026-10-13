@@ -35,6 +35,10 @@ fun CleanIpScannerPage(onBack: () -> Unit, onUseIp: (ip: String, sni: String) ->
     var status by remember { mutableStateOf<String?>(null) }
     var results by remember { mutableStateOf(emptyList<CleanIpResult>()) }
     var recentIps by remember { mutableStateOf((prefs.getString("last_good_ips", "") ?: "").lines().filter(String::isNotBlank)) }
+    val scanningStatus = tr("Scanning candidates…")
+    val noCandidatesError = tr("No IP candidates to scan")
+    val scanFailedMessage = tr("Scan failed")
+    val finishedTemplate = tr("Finished: {good} verified TLS IPs from {total} candidates")
 
     Column(
         modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState())
@@ -90,7 +94,7 @@ fun CleanIpScannerPage(onBack: () -> Unit, onUseIp: (ip: String, sni: String) ->
         }
         Button(
             onClick = {
-                scanning = true; error = null; status = tr("Scanning candidates…"); results = emptyList()
+                scanning = true; error = null; status = scanningStatus; results = emptyList()
                 scope.launch {
                     try {
                         val candidates = withContext(Dispatchers.Default) {
@@ -100,7 +104,7 @@ fun CleanIpScannerPage(onBack: () -> Unit, onUseIp: (ip: String, sni: String) ->
                                 else -> CleanIpScanner.DEFAULT_CLOUDFLARE_CANDIDATES
                             }
                         }
-                        require(candidates.isNotEmpty()) { tr("No IP candidates to scan") }
+                        require(candidates.isNotEmpty()) { noCandidatesError }
                         val selectedPort = port.toIntOrNull() ?: 0
                         val scanned = withContext(Dispatchers.IO) {
                             CleanIpScanner.scan(candidates, selectedPort, sni.trim(), workers = workers.toInt())
@@ -109,10 +113,10 @@ fun CleanIpScannerPage(onBack: () -> Unit, onUseIp: (ip: String, sni: String) ->
                         val good = scanned.filter { it.tlsOk }.map { it.ip }.distinct()
                         recentIps = good
                         prefs.edit().putString("last_good_ips", good.joinToString("\n")).apply()
-                        status = tr("Finished: {good} verified TLS IPs from {total} candidates")
+                        status = finishedTemplate
                             .replace("{good}", good.size.toString()).replace("{total}", scanned.size.toString())
                     } catch (e: Exception) {
-                        error = e.message ?: tr("Scan failed"); status = null
+                        error = e.message ?: scanFailedMessage; status = null
                     } finally { scanning = false }
                 }
             },

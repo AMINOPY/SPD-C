@@ -120,6 +120,7 @@ fun SpdConApp(onOpenAdvancedPanel: () -> Unit = {}) {
     val generatedQr = remember(generatedLink) {
         generatedLink?.let { com.spdcon.app.createQrBitmap(it)?.asImageBitmap() }
     }
+    val bothProtocolsSavedMessage = tr("Both VLESS and Trojan WebSocket profiles were saved. The QR dialog shows the first link; both are available in Library.")
 
     fun reloadProfiles() { profiles = store.loadAll() }
     fun openProfile(profile: ConfigProfile) {
@@ -209,7 +210,7 @@ fun SpdConApp(onOpenAdvancedPanel: () -> Unit = {}) {
                                             generatedLink = pairs.first().second
                                             selected = "library"
                                             if (pairs.size > 1) {
-                                                dialogMessage = tr("Both VLESS and Trojan WebSocket profiles were saved. The QR dialog shows the first link; both are available in Library.")
+                                                dialogMessage = bothProtocolsSavedMessage
                                             }
                                         }
                                     }
