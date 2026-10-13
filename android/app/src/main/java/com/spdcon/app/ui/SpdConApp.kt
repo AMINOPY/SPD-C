@@ -1,6 +1,7 @@
 package com.spdcon.app.ui
 
 import android.content.Context
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -64,6 +65,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
@@ -103,6 +106,9 @@ fun SpdConApp(onOpenAdvancedPanel: () -> Unit = {}) {
     var generatedLink by remember { mutableStateOf<String?>(null) }
     var dialogMessage by remember { mutableStateOf<String?>(null) }
     var selectedProfileName by remember { mutableStateOf<String?>(null) }
+    val generatedQr = remember(generatedLink) {
+        generatedLink?.let { com.spdcon.app.createQrBitmap(it)?.asImageBitmap() }
+    }
 
     fun reloadProfiles() { profiles = store.loadAll() }
     fun openProfile(profile: ConfigProfile) {
@@ -230,7 +236,15 @@ fun SpdConApp(onOpenAdvancedPanel: () -> Unit = {}) {
                     modifier = Modifier.fillMaxWidth().height(170.dp).verticalScroll(rememberScrollState()),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Text("Saved locally. Copy this share link into your VPN client:", color = TextSecondary)
+                    Text("Saved locally. Scan the QR code or copy the link into your VPN client:", color = TextSecondary)
+                    generatedQr?.let { bitmap ->
+                        Image(
+                            bitmap = bitmap,
+                            contentDescription = "Configuration QR code",
+                            modifier = Modifier.fillMaxWidth().height(150.dp),
+                            contentScale = ContentScale.Fit
+                        )
+                    }
                     Text(generatedLink.orEmpty(), fontSize = 12.sp)
                 }
             },

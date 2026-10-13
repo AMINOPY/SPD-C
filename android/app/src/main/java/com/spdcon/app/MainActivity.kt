@@ -1454,7 +1454,7 @@ private fun SpdConDashboard() {
     }
 }
 
-private fun createQrBitmap(content: String): Bitmap? = runCatching {
+internal fun createQrBitmap(content: String): Bitmap? = runCatching {
     require(content.length <= 8_000) { "QR content is too long" }
     val size = 640
     val matrix = MultiFormatWriter().encode(
