@@ -83,7 +83,7 @@ object DnsResolverScanner {
         DatagramSocket().use { socket ->
             socket.soTimeout = timeoutMs
             socket.connect(InetSocketAddress(server, port))
-            socket.send(DatagramPacket(request, request.size))
+            socket.send(DatagramPacket(request, request.size, server, port))
             val buffer = ByteArray(4096)
             val packet = DatagramPacket(buffer, buffer.size)
             socket.receive(packet)
