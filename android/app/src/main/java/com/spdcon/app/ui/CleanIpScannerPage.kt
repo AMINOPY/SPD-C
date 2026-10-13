@@ -14,6 +14,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.spdcon.app.ui.theme.NeonCyan
+import com.spdcon.app.config.ConfigProfile
+import com.spdcon.app.config.ConfigProtocol
+import com.spdcon.app.config.ConnectionDiagnosticRunner
+import com.spdcon.app.config.DiagnosticStageState
 import com.spdcon.app.ui.theme.TextSecondary
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -21,7 +25,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 
 @Composable
-fun CleanIpScannerPage(onBack: () -> Unit, onUseIp: (ip: String, sni: String) -> Unit) {
+fun CleanIpScannerPage(onBack: () -> Unit, onUseIp: (ip: String, sni: String) -> Unit, profiles: List<ConfigProfile> = emptyList()) {
     val context = LocalContext.current
     val clipboard = LocalClipboardManager.current
     val scope = rememberCoroutineScope()
@@ -47,6 +51,20 @@ fun CleanIpScannerPage(onBack: () -> Unit, onUseIp: (ip: String, sni: String) ->
     var history by remember { mutableStateOf(ScanHistoryStore.load(prefs)) }
     var speedTestingIp by remember { mutableStateOf<String?>(null) }
     var speedResults by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
+    var selectedTestProfileName by remember { mutableStateOf<String?>(null) }
+    var testProfileMenuExpanded by remember { mutableStateOf(false) }
+    var tunnelTestingIp by remember { mutableStateOf<String?>(null) }
+    var tunnelTestResults by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
+    val tunnelTestProfiles = profiles.filter { profile ->
+        profile.port == port.toIntOrNull() && profile.security.equals("tls", true) &&
+            profile.protocol != ConfigProtocol.TUIC && profile.protocol != ConfigProtocol.HYSTERIA2 &&
+            profile.protocol != ConfigProtocol.SHADOWSOCKS
+    }
+    LaunchedEffect(tunnelTestProfiles) {
+        if (tunnelTestProfiles.none { it.name == selectedTestProfileName }) {
+            selectedTestProfileName = tunnelTestProfiles.firstOrNull()?.name
+        }
+    }
     val scanningStatus = tr("Scanning candidates…")
     val downloadingCountryStatus = tr("Downloading country ranges and scanning…")
     val noCandidatesError = tr("No IP candidates to scan")
@@ -264,6 +282,43 @@ fun CleanIpScannerPage(onBack: () -> Unit, onUseIp: (ip: String, sni: String) ->
                 color = TextSecondary, fontSize = 11.sp)
             Text(tr("Download/upload speed uses Cloudflare's speed endpoint pinned to this IP; it is only meaningful for Cloudflare edge IPs."),
                 color = TextSecondary, fontSize = 11.sp)
+            if (mode == "tls") {
+                Card(shape = RoundedCornerShape(14.dp), modifier = Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text(tr("Real tunnel test"), fontWeight = FontWeight.SemiBold)
+                        Text(tr("Choose a saved TLS profile on the same port. The scanner will pin its server to each selected IP and test a real HTTPS request through Xray."),
+                            color = TextSecondary, fontSize = 11.sp)
+                        Box {
+                            OutlinedButton(
+                                onClick = { testProfileMenuExpanded = true },
+                                enabled = tunnelTestProfiles.isNotEmpty(),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text(tunnelTestProfiles.firstOrNull { it.name == selectedTestProfileName }?.name
+                                    ?: tr("No compatible saved profile"))
+                            }
+                            DropdownMenu(
+                                expanded = testProfileMenuExpanded,
+                                onDismissRequest = { testProfileMenuExpanded = false }
+                            ) {
+                                tunnelTestProfiles.forEach { profile ->
+                                    DropdownMenuItem(
+                                        text = { Text("${profile.name} • ${profile.protocol.name}") },
+                                        onClick = {
+                                            selectedTestProfileName = profile.name
+                                            testProfileMenuExpanded = false
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                        if (tunnelTestProfiles.isEmpty()) {
+                            Text(tr("Save a TLS profile whose port matches the scanner port to enable end-to-end tunnel testing."),
+                                color = TextSecondary, fontSize = 11.sp)
+                        }
+                    }
+                }
+            }
             results.forEach { result ->
                 Card(shape = RoundedCornerShape(14.dp), modifier = Modifier.fillMaxWidth()) {
                     Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
@@ -277,6 +332,57 @@ fun CleanIpScannerPage(onBack: () -> Unit, onUseIp: (ip: String, sni: String) ->
                             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                                 TextButton(onClick = { onUseIp(result.ip, sni.trim()) }) {
                                     Text(tr("Use IP in config"))
+                                }
+                                TextButton(
+                                    enabled = tunnelTestingIp == null && selectedTestProfileName != null &&
+                                        tunnelTestProfiles.any { it.name == selectedTestProfileName },
+                                    onClick = {
+                                        val baseProfile = tunnelTestProfiles.firstOrNull { it.name == selectedTestProfileName }
+                                        if (baseProfile != null) {
+                                            tunnelTestingIp = result.ip
+                                            scope.launch {
+                                                val outcome = withContext(Dispatchers.IO) {
+                                                    val params = baseProfile.parameters.toMutableMap()
+                                                    params["sni"] = sni.trim()
+                                                    if (baseProfile.network.equals("ws", true) ||
+                                                        baseProfile.network.equals("websocket", true)) {
+                                                        if (params["host"].isNullOrBlank()) params["host"] = sni.trim()
+                                                    }
+                                                    runCatching {
+                                                        ConnectionDiagnosticRunner.run(
+                                                            baseProfile.copy(
+                                                                name = "${baseProfile.name} @ ${result.ip}",
+                                                                server = result.ip,
+                                                                parameters = params
+                                                            )
+                                                        )
+                                                    }
+                                                }
+                                                tunnelTestingIp = null
+                                                tunnelTestResults = tunnelTestResults + (result.ip to outcome.fold(
+                                                    onSuccess = { report ->
+                                                        val stageLines = report.stages.joinToString("\n") { stage ->
+                                                            val mark = when (stage.state) {
+                                                                DiagnosticStageState.PASS -> "✓"
+                                                                DiagnosticStageState.FAIL -> "✗"
+                                                                DiagnosticStageState.SKIPPED -> "—"
+                                                                DiagnosticStageState.UNKNOWN -> "?"
+                                                            }
+                                                            "$mark ${stage.name.uppercase()}: ${stage.detail}"
+                                                        }
+                                                        if (report.tunnelConnected) {
+                                                            "TUNNEL VERIFIED • ${report.tunnelLatencyMs ?: 0} ms\n$stageLines\nThis verifies this profile/IP on this network only; it does not prove DPI resistance everywhere."
+                                                        } else {
+                                                            "${report.diagnosis?.titleFa ?: "Tunnel not verified"}\n${report.diagnosis?.nextStepFa.orEmpty()}\n$stageLines"
+                                                        }
+                                                    },
+                                                    onFailure = { "Test failed: ${it.message ?: it.javaClass.simpleName}" }
+                                                ))
+                                            }
+                                        }
+                                    }
+                                ) {
+                                    Text(if (tunnelTestingIp == result.ip) tr("Testing tunnel…") else tr("Test real tunnel"))
                                 }
                                 TextButton(
                                     enabled = speedTestingIp == null,
@@ -306,6 +412,9 @@ fun CleanIpScannerPage(onBack: () -> Unit, onUseIp: (ip: String, sni: String) ->
                             }
                             speedResults[result.ip]?.let { speedText ->
                                 Text(speedText, color = NeonCyan, fontSize = 11.sp)
+                            }
+                            tunnelTestResults[result.ip]?.let { resultText ->
+                                Text(resultText, color = if (resultText.startsWith("TUNNEL VERIFIED")) NeonCyan else MaterialTheme.colorScheme.error, fontSize = 11.sp)
                             }
                         }
                     }
