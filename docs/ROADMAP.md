@@ -1,18 +1,22 @@
 # Implementation roadmap
 
 ## Phase 0 — repository and license review
-- Review source trees, licenses, dependencies, APIs and release activity of each inspiration project.
-- Record attribution and license obligations before reusing code or assets.
+- Review source trees, licenses, dependencies, APIs and release activity of SpiderPanel, Blue-Knight-Panel, 3x-ui, Xray-core, Scan-Cloud and DicodeConfigChecker.
+- Record exact versions, attribution and license obligations before reusing code or assets.
 - Define protocol compatibility against a pinned Xray release.
 
-## Phase 1 — Android foundation
-- Establish app navigation, Persian RTL support, theme, reusable components and accessibility.
-- Add Room-backed configuration library and repository tests.
-- Set up formatting, unit tests and GitHub Actions APK build.
+## Phase 1 — Android foundation (started)
+- [x] Android Compose dashboard and application shell.
+- [x] Typed configuration model and required-field validation.
+- [x] Initial VLESS/Trojan URI and VMess Base64 JSON parsing.
+- [x] Parser/model unit-test source.
+- [ ] Confirm CI build and tests pass.
+- [ ] Add navigation, Persian RTL polish, reusable design system and accessibility.
+- [ ] Add Room-backed local configuration library.
 
-## Phase 2 — configuration engine
-- Implement typed models for VLESS, VMess, Trojan and Shadowsocks.
-- Parse and generate supported share links; validate required fields and supported transport/security combinations.
+## Phase 2 — complete configuration engine
+- Add Shadowsocks support and round-trip serializers for supported protocols.
+- Validate protocol-specific transport/security combinations against a pinned engine version.
 - Add copy, QR, JSON/link import-export, search, tags, duplicate detection and version history.
 - Add malformed-input tests and redact secrets from diagnostics.
 
@@ -37,7 +41,9 @@
 - Document threat model and deployment runbook.
 
 ## Version 0.1 acceptance criteria
-- Android project opens in Android Studio and renders the dashboard.
-- Backend health endpoint runs locally in Docker Compose.
-- No real secrets are committed.
-- Next increment is the configuration domain model and tested parser/serializer.
+- App builds and renders on supported Android versions.
+- User can parse and validate supported share links with understandable errors.
+- Local save/edit/search, serializers, QR and import/export work without a backend.
+- Persian RTL layout and meaningful validation errors.
+- Automated tests cover valid and malformed configuration inputs.
+- No credentials or private configuration material are logged.
