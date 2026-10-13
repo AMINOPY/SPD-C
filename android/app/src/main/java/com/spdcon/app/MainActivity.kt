@@ -554,7 +554,10 @@ private fun SpdConDashboard() {
                                     if (manualServiceName.isNotBlank()) put("serviceName", manualServiceName.trim())
                                     if (manualSni.isNotBlank() && !manualSecurity.equals("reality", true)) put("sni", manualSni.trim())
                                     if (manualSecurity.equals("tls", true)) put("fp", realityFingerprint.trim())
-                                    if (manualAlpn.isNotBlank()) put("alpn", manualAlpn.split(",").map { it.trim() }.filter { it.isNotBlank() }.joinToString(","))
+                                    if (manualAlpn.isNotBlank()) {
+                                        val alpnValue = if ((manualProtocol == ConfigProtocol.HYSTERIA2 || manualProtocol == ConfigProtocol.TUIC) && manualAlpn.trim() == "h2,http/1.1") "h3" else manualAlpn
+                                        put("alpn", alpnValue.split(",").map { it.trim() }.filter { it.isNotBlank() }.joinToString(","))
+                                    }
                                     if (manualHeaderType.isNotBlank()) put("headerType", manualHeaderType.trim())
                                     if (manualProtocol == ConfigProtocol.VLESS && manualEncryption.isNotBlank()) put("encryption", manualEncryption.trim())
                                     if (manualMode.isNotBlank()) put("mode", manualMode.trim())
