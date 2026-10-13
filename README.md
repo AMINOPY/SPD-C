@@ -45,7 +45,7 @@ After a successful workflow, download **spd-con-debug-apk** under **Artifacts**.
 - The Fragment-enabled Freedom outbound is separate from the VLESS outbound. Automatic routing/chaining through Fragment is not implemented.
 - Network-labelled Fragment presets are editable heuristics, not measured ISP profiles and not a guarantee of bypass or connectivity.
 - Full Xray JSON import/export, tested client-specific subscription encodings for v2rayNG/Hiddify/Clash/sing-box/NPV Tunnel, Hysteria2/TUIC runtime support, DoH, file-based import/export and backup/restore, change history, live connectivity checks, and scanner/checker jobs remain incomplete.
-- The API quota counter uses trusted usage reports. No node agent is connected to independently measure or enforce live tunnel traffic.
+- The API quota counter uses trusted usage reports. The node agent can submit authenticated connection telemetry and cumulative byte-counter deltas now update API usage totals; however, it still does not automatically collect Xray access logs/StatsService counters or enforce live tunnel quotas.
 - The optional FastAPI backend currently uses SQLite for a single instance. The Cloudflare Worker uses D1 but still needs production rate limiting, audit logging, integration tests, Android API integration and trusted node telemetry. Remote node enrollment and cross-device sync remain incomplete.
 - Upstream repositories have not been merged or copied into this project. Review licenses, versions, notices, and APIs before adapting code.
 
