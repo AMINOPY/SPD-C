@@ -24,7 +24,16 @@ Each line is one event, for example:
 {"user_id":"<Spd con user id>","connection_id":"runtime-session-123","client_ip":"198.51.100.20","state":"disconnected","upload_bytes":1800,"download_bytes":4500}
 ```
 
-The runtime adapter must obtain the source IP from the node/runtime and map the authenticated runtime identity (for example an Xray user email) to the correct Spd con user id. Never accept a user id or client IP directly from an untrusted client. The bridge does not yet tail/parse arbitrary Xray logs, call Xray's StatsService, install firewall rules, disconnect sessions, or apply policy changes to a running core.
+The runtime adapter must obtain the source IP from the node/runtime and map the authenticated runtime identity (for example an Xray user email) to the correct Spd con user id. Never accept a user id or client IP directly from an untrusted client. The optional `xray_runtime.py` helper can validate a config using an installed Xray binary and query StatsService counters through a loopback-only Xray API. It does not yet parse access logs into IP observations, map counters to policy enforcement, install firewall rules, disconnect sessions, or apply policy changes to a running core.
+
+## Xray runtime helper
+
+Install a pinned Xray-core release on the node and keep its management API bound to loopback (for example `127.0.0.1:10085`). The Xray config must enable the API/StatsService for counter queries to work; do not expose the API port publicly.
+
+- Validate a config without starting or restarting the core: `python3 node-agent/xray_runtime.py --xray-bin /usr/local/bin/xray validate --config /etc/xray/config.json`
+- Query user traffic counters: `python3 node-agent/xray_runtime.py --xray-bin /usr/local/bin/xray stats --server 127.0.0.1:10085 --pattern 'user>>>'`
+
+The helper is read-only. It does not echo raw Xray error logs because those may contain private deployment details. Stats output is not yet connected to Spd con quota accounting, and config validation does not prove reachability to a remote server.
 
 ## Security and behavior
 
