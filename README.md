@@ -25,7 +25,7 @@ The `backend/` directory contains a FastAPI API foundation with:
 - A persistent SQLite volume in the local Docker Compose setup.
 - API tests for password hashing, config owner isolation, subscription revocation and admin limit metadata.
 
-See [backend setup and API limitations](backend/README.md). The backend is not yet connected to the Android UI or a web admin panel.
+See [backend setup and API limitations](backend/README.md). The backend is not yet connected to the Android UI. The `/panel/` route serves an initial responsive web dashboard for login, basic config management, subscription creation, and admin quota controls.
 
 ## Build status and APK
 
@@ -41,7 +41,7 @@ After a successful workflow, download **spd-con-debug-apk** under **Artifacts**.
 - The Fragment-enabled Freedom outbound is separate from the VLESS outbound. Automatic routing/chaining through Fragment is not implemented.
 - Network-labelled Fragment presets are editable heuristics, not measured ISP profiles and not a guarantee of bypass or connectivity.
 - Full Xray JSON import/export, tested client-specific subscription encodings for v2rayNG/Hiddify/Clash/sing-box/NPV Tunnel, Hysteria2/TUIC runtime support, DoH, file-based import/export, search/tags/history, live connectivity checks, and scanner/checker jobs remain incomplete.
-- The API's quota counter uses trusted usage reports. No node agent is connected to independently measure or enforce live tunnel traffic.
+- The API quota counter uses trusted usage reports. No node agent is connected to independently measure or enforce live tunnel traffic.
 - The backend currently uses SQLite for a single instance. PostgreSQL/Redis integration, database migrations, rate limiting, full audit logging, a web admin UI, remote node enrollment and cross-device sync remain incomplete.
 - Upstream repositories have not been merged or copied into this project. Review licenses, versions, notices, and APIs before adapting code.
 
