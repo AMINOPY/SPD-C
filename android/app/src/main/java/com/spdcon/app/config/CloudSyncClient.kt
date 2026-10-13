@@ -15,6 +15,12 @@ import java.nio.charset.StandardCharsets
 object CloudSyncClient {
     data class Session(val token: String, val username: String)
     data class SyncSummary(val uploaded: Int, val skipped: Int, val downloaded: Int)
+    data class RemoteNode(
+        val id: String, val name: String, val address: String, val port: Int,
+        val country: String, val protocol: String, val network: String, val security: String,
+        val sni: String, val publicKey: String, val shortId: String, val fingerprint: String,
+        val enabled: Boolean = true
+    )
 
     fun register(baseUrl: String, username: String, password: String) {
         request(baseUrl, "/api/v1/auth/register", "POST", body = JSONObject()
@@ -64,6 +70,57 @@ object CloudSyncClient {
             }
         }
         return SyncSummary(uploaded = 0, skipped = skipped, downloaded = downloaded)
+    }
+
+    fun listNodes(baseUrl: String, token: String, admin: Boolean = true): List<RemoteNode> {
+        val path = if (admin) "/api/v1/admin/nodes" else "/api/v1/nodes"
+        val response = request(baseUrl, path, "GET", token)
+        val nodes = response.optJSONArray("nodes") ?: JSONArray()
+        return buildList {
+            for (index in 0 until nodes.length()) {
+                val item = nodes.optJSONObject(index) ?: continue
+                add(RemoteNode(
+                    id = item.optString("id"),
+                    name = item.optString("name"),
+                    address = item.optString("address"),
+                    port = item.optInt("port", 443),
+                    country = item.optString("country", "auto"),
+                    protocol = item.optString("protocol", "vless"),
+                    network = item.optString("network", "tcp"),
+                    security = item.optString("security", "tls"),
+                    sni = item.optString("sni"),
+                    publicKey = item.optString("publicKey", item.optString("public_key")),
+                    shortId = item.optString("shortId", item.optString("short_id")),
+                    fingerprint = item.optString("fingerprint", "chrome"),
+                    enabled = item.optBoolean("enabled", true)
+                ))
+            }
+        }
+    }
+
+    fun createNode(baseUrl: String, token: String, node: RemoteNode): RemoteNode {
+        val response = request(baseUrl, "/api/v1/admin/nodes", "POST", token, JSONObject()
+            .put("name", node.name).put("address", node.address).put("port", node.port)
+            .put("country", node.country).put("protocol", node.protocol).put("network", node.network)
+            .put("security", node.security).put("sni", node.sni).put("publicKey", node.publicKey)
+            .put("shortId", node.shortId).put("fingerprint", node.fingerprint))
+        val item = response.optJSONObject("node") ?: throw IllegalStateException("پاسخ ثبت نود معتبر نیست.")
+        return RemoteNode(
+            id = item.optString("id"), name = item.optString("name"), address = item.optString("address"),
+            port = item.optInt("port", 443), country = item.optString("country", "auto"),
+            protocol = item.optString("protocol", "vless"), network = item.optString("network", "tcp"),
+            security = item.optString("security", "tls"), sni = item.optString("sni"),
+            publicKey = item.optString("publicKey"), shortId = item.optString("shortId"),
+            fingerprint = item.optString("fingerprint", "chrome"), enabled = item.optBoolean("enabled", true)
+        )
+    }
+
+    fun setNodeEnabled(baseUrl: String, token: String, nodeId: String, enabled: Boolean) {
+        request(baseUrl, "/api/v1/admin/nodes/$nodeId", "PATCH", token, JSONObject().put("enabled", enabled))
+    }
+
+    fun deleteNode(baseUrl: String, token: String, nodeId: String) {
+        request(baseUrl, "/api/v1/admin/nodes/$nodeId", "DELETE", token)
     }
 
     fun logout(baseUrl: String, token: String) {
