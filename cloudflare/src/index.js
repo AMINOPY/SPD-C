@@ -274,7 +274,7 @@ async function handle(request, env) {
         return json({ node: { id,name,address,port,country,protocol,network,security,sni,publicKey,shortId,fingerprint,enabled:true,createdAt:ts,updatedAt:ts } }, 201);
       } catch { return error("Could not save node; check that migration 0002_nodes.sql has been applied", 500); }
     }
-    const nodeMatch = /^\\/api\\/v1\\/admin\\/nodes\\/([a-f0-9-]+)$/.exec(path);
+    const nodeMatch = /^\/api\/v1\/admin\/nodes\/([a-f0-9-]+)$/.exec(path);
     if (nodeMatch && (method === "PATCH" || method === "DELETE")) {
       if (method === "DELETE") {
         const result = await env.DB.prepare("DELETE FROM nodes WHERE id=?").bind(nodeMatch[1]).run();
