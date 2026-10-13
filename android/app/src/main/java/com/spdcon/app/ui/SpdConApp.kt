@@ -378,9 +378,9 @@ private fun CreatePage(
     var step by remember { mutableStateOf(1) }
     var selectedProtocol by remember(template) {
         mutableStateOf(when {
-            template?.protocol == ConfigProtocol.TROJAN && template.network.equals("ws", true) && template.security.equals("tls", true) -> "Trojan + WS + TLS"
-            template?.protocol == ConfigProtocol.VLESS && template.network.equals("ws", true) && template.security.equals("tls", true) -> "VLESS + WS + TLS"
-            template?.protocol == ConfigProtocol.VLESS && template.security.equals("reality", true) -> "VLESS + Reality"
+            template != null && template.protocol == ConfigProtocol.TROJAN && template.network.equals("ws", true) && template.security.equals("tls", true) -> "Trojan + WS + TLS"
+            template != null && template.protocol == ConfigProtocol.VLESS && template.network.equals("ws", true) && template.security.equals("tls", true) -> "VLESS + WS + TLS"
+            template != null && template.protocol == ConfigProtocol.VLESS && template.security.equals("reality", true) -> "VLESS + Reality"
             template?.protocol == ConfigProtocol.TROJAN -> "Trojan"
             template?.protocol == ConfigProtocol.SHADOWSOCKS -> "Shadowsocks"
             else -> "VLESS + WS + TLS"
@@ -439,13 +439,13 @@ private fun CreatePage(
                 if (server.isNotBlank() && !editServerSettings) {
                     GlassCard(modifier = Modifier.fillMaxWidth(), cornerRadius = 16.dp) {
                         Text(tr("Using saved server template"), fontWeight = FontWeight.SemiBold)
-                        Text("$"+"server:$"+"port", color = TextSecondary, fontSize = 12.sp)
+                        Text("$"+"{server}:$"+"{port}", color = TextSecondary, fontSize = 12.sp)
                         TextButton(onClick = { editServerSettings = true }) { Text(tr("Change server settings")) }
                     }
                     Text(tr("Only the name and protocol are needed when reusing this saved server template."),
                         color = TextSecondary, fontSize = 12.sp)
                 }
-                if (editServerSettings || server.isBlank()) {
+                if (editServerSettings || server.isBlank() || (selectedProtocol == "VLESS + Reality" && sni.isBlank())) {
                     GlassField(server, { server = it }, tr("Server hostname / IP"))
                     GlassField(port, { port = it.filter(Char::isDigit).take(5) }, tr("Port"), numeric = true)
                     GlassField(credential, { credential = it }, tr("Credential (leave blank to generate)"))
@@ -453,7 +453,7 @@ private fun CreatePage(
                         GlassField(sni, { sni = it }, if (selectedProtocol == "VLESS + Reality") tr("REALITY SNI / serverName") else tr("TLS SNI (optional)"))
                     }
                 }
-                if (selectedProtocol.contains("+ WS")) {
+                if (selectedProtocol.contains("+ WS") && (editServerSettings || template == null)) {
                     GlassField(host, { host = it }, tr("WebSocket Host header (optional)"))
                     GlassField(wsPath, { wsPath = it }, tr("WebSocket path"))
                     androidx.compose.material3.Checkbox(
