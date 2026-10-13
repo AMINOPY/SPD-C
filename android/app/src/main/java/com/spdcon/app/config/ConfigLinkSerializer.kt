@@ -29,17 +29,23 @@ object ConfigLinkSerializer {
             "${encode(key)}=${encode(value)}"
         }
         val remark = profile.remark ?: profile.name
-        return "$scheme://${encodeUserInfo(profile.credential)}@${profile.server}:${profile.port}?$queryText#${encode(remark)}"
+        val host = if (profile.server.contains(":") && !profile.server.startsWith("[")) "[${profile.server}]" else profile.server
+        return "$scheme://${encodeUserInfo(profile.credential)}@$host:${profile.port}?$queryText#${encode(remark)}"
     }
 
     private fun serializeShadowsocks(profile: ConfigProfile): String {
         val method = profile.parameters["method"]
             ?: throw IllegalArgumentException("Shadowsocks encryption method is required")
-        val userInfo = "$method:${profile.credential}@${profile.server}:${profile.port}"
+        val host = if (profile.server.contains(":") && !profile.server.startsWith("[")) "[${profile.server}]" else profile.server
+        val userInfo = "$method:${profile.credential}@$host:${profile.port}"
         val encoded = Base64.getUrlEncoder().withoutPadding()
             .encodeToString(userInfo.toByteArray(StandardCharsets.UTF_8))
+        val query = profile.parameters.filterKeys { it != "method" }.toSortedMap()
+            .filterValues { it.isNotBlank() }
+            .entries.joinToString("&") { (key, value) -> "${encode(key)}=${encode(value)}" }
+        val querySuffix = if (query.isBlank()) "" else "?$query"
         val remark = profile.remark ?: profile.name
-        return "ss://$encoded#${encode(remark)}"
+        return "ss://$encoded$querySuffix#${encode(remark)}"
     }
 
     private fun serializeVmess(profile: ConfigProfile): String {
