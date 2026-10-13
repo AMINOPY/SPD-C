@@ -62,7 +62,7 @@ class ConfigClientExportersTest {
         ).getOrThrow()
         val decoded = String(Base64.getDecoder().decode(result.text), Charsets.UTF_8)
         assertTrue(decoded.startsWith("vless://"))
-        assertTrue(decoded.contains("\\nvmess://"))
+        assertTrue(decoded.contains("\nvmess://"))
     }
 
     @Test fun deduplicatesRepeatedProfilesAndRejectsEmptyInput() {
