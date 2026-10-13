@@ -653,8 +653,8 @@ def admin_report_connection(user_id: str, payload: ConnectionReportIn,
                 raise HTTPException(status_code=409, detail="Connection ID already belongs to another user")
         known_ip = conn.execute(
             "SELECT 1 FROM connection_observations WHERE user_id=? AND client_ip=? "
-            "AND last_seen_at>=? AND connection_id<>? LIMIT 1",
-            (user_id, client_ip, timestamp - 24 * 60 * 60, payload.connection_id),
+            "AND last_seen_at>=? LIMIT 1",
+            (user_id, client_ip, timestamp - 24 * 60 * 60),
         ).fetchone() is not None
         first_seen = previous["first_seen_at"] if previous is not None else timestamp
         disconnected_at = timestamp if payload.state == "disconnected" else None
@@ -811,8 +811,8 @@ def node_report_connection(node_id: str, payload: NodeConnectionReportIn,
         # before admitting a session; telemetry arriving after connection is observational.
         known_ip = conn.execute(
             "SELECT 1 FROM connection_observations WHERE user_id=? AND client_ip=? "
-            "AND last_seen_at>=? AND connection_id<>? LIMIT 1",
-            (payload.user_id, client_ip, timestamp - 24 * 60 * 60, payload.connection_id),
+            "AND last_seen_at>=? LIMIT 1",
+            (payload.user_id, client_ip, timestamp - 24 * 60 * 60),
         ).fetchone() is not None
         first_seen = previous["first_seen_at"] if previous else timestamp
         previous_upload = previous["upload_bytes"] if previous else 0
