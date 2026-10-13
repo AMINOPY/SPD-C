@@ -23,6 +23,11 @@ test("serves the responsive web panel without requiring a session", async () => 
   const html = await response.text();
   assert.match(html, /پنل آنلاین ساده/);
   assert.match(html, /data-tab="configs"/);
+  assert.match(html, /option value="hysteria2"/);
+  assert.match(html, /option value="tuic"/);
+  assert.match(html, /hysteria2:\/\//);
+  assert.match(html, /tuic:\/\//);
+  assert.match(html, /رمز مستقل TUIC/);
 });
 
 test("refuses to run without a strong app secret", async () => {
