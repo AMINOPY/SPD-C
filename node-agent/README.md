@@ -33,7 +33,8 @@ Install a pinned Xray-core release on the node and keep its management API bound
 - Validate a config without starting or restarting the core: `python3 node-agent/xray_runtime.py --xray-bin /usr/local/bin/xray validate --config /etc/xray/config.json`
 - Query user traffic counters: `python3 node-agent/xray_runtime.py --xray-bin /usr/local/bin/xray stats --server 127.0.0.1:10085 --pattern 'user>>>'`
 
-The helper is read-only. It does not echo raw Xray error logs because those may contain private deployment details. The xray_usage_sync.py utility now polls these cumulative per-user StatsService counters and reports deltas to the API. The connection-report API can return `decision: deny_new_ip` when the configured IP limit is exceeded, but this is not enforcement: a runtime adapter must consult/apply the decision before authorizing a session. Do not treat telemetry submitted after a connection begins as a hard access-control boundary. for quota accounting. It still does not terminate sessions or enforce a quota in the running core, and config validation does not prove reachability to a remote server.
+The helper is read-only. It does not echo raw Xray error logs because they may contain private deployment details. The `xray_usage_sync.py` utility polls cumulative per-user StatsService counters and reports deltas to the API. The connection-report API can return `decision: deny_new_ip` when the configured IP limit is exceeded, but this is not enforcement: a runtime adapter must apply decisions before authorizing a session. Telemetry submitted after a connection begins is not a hard access-control boundary. Quota reports still do not terminate sessions or enforce a quota in the running core, and config validation does not prove reachability to a remote server.
+
 
 ## Automatic Xray usage accounting
 
@@ -63,3 +64,14 @@ Omit --once to run a supervised polling loop (default interval: 60 seconds). Alt
 ```sh
 python3 -m unittest discover -s node-agent -p 'test_*.py' -v
 ```
+
+
+## Safe VLESS client provisioning helper
+
+`xray_provision.py` provides a narrowly scoped local operation for adding or removing one client from an existing VLESS inbound. It validates the target tag, protocol, UUID and email; refuses ambiguous inbound tags and conflicting identities; validates the temporary candidate with the installed Xray binary; and only then can atomically replace the config file. It does not create an inbound, install Xray, restart the service, or connect itself to the central API.
+
+First run a dry-run (no config file replacement):
+
+    python3 node-agent/xray_provision.py add --config /etc/xray/config.json --inbound-tag vless-in --client-id <uuid> --email user-123@spdcon.local --xray-bin /usr/local/bin/xray
+
+After reviewing the result, add `--apply` to atomically replace the validated config. A successful file update does **not** change the already-running process; follow your normal change-control process to reload/restart Xray and verify health. Keep the config and UUID private. Removal requires both the exact UUID and matching email. Run the unit tests before using this helper on a production node.
