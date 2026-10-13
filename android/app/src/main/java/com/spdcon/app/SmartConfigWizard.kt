@@ -17,6 +17,7 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -142,33 +143,57 @@ fun SmartConfigWizard(onApply: (SmartConfigChoice) -> Unit) {
     var goal by remember { mutableStateOf(SmartGoal.BALANCED) }
     var contextMenu by remember { mutableStateOf(false) }
     var goalMenu by remember { mutableStateOf(false) }
+    var showOptions by remember { mutableStateOf(false) }
     val choice = SmartConfigAdvisor.recommend(context, goal)
+
+    // Apply a safe starting recommendation automatically. This only fills the form;
+    // it does not claim to test the server or guarantee that the route will connect.
+    androidx.compose.runtime.LaunchedEffect(context, goal) {
+        onApply(choice)
+    }
 
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text("ساخت هوشمند کانفیگ", style = MaterialTheme.typography.titleLarge)
-            Text("نوع اتصال Wi‑Fi یا داده همراه به‌صورت محلی تشخیص داده می‌شود؛ اپراتور، DPI و سلامت نود بدون تست واقعی حدس زده نمی‌شوند. دو انتخاب کوتاه برای پیشنهاد اولیه کافی است.")
-            OutlinedButton(onClick = { contextMenu = true }, modifier = Modifier.fillMaxWidth()) {
-                Text("شبکه: ${context.title}")
+            Text("ساخت هوشمند", style = MaterialTheme.typography.titleLarge)
+            Text(
+                "تنظیم اولیه خودکار انجام شد: ${context.title}. برای ساخت معمولی لازم نیست گزینه‌های فنی را دست‌کاری کنی.",
+                style = MaterialTheme.typography.bodyMedium
+            )
+            Text(
+                "پیشنهاد فعلی: ${choice.protocol} • ${choice.transport.uppercase()} • ${choice.security.uppercase()} • پورت ${choice.port}",
+                style = MaterialTheme.typography.titleSmall
+            )
+            Text(choice.explanation, style = MaterialTheme.typography.bodySmall)
+            TextButton(onClick = { showOptions = !showOptions }) {
+                Text(if (showOptions) "بستن تنظیمات تخصصی" else "تنظیمات تخصصی (اختیاری)")
             }
-            DropdownMenu(expanded = contextMenu, onDismissRequest = { contextMenu = false }) {
-                SmartNetworkContext.entries.forEach { option ->
-                    DropdownMenuItem(text = { Text(option.title) }, onClick = { context = option; contextMenu = false })
+            if (showOptions) {
+                OutlinedButton(onClick = { contextMenu = true }, modifier = Modifier.fillMaxWidth()) {
+                    Text("نوع شبکه: ${context.title}")
                 }
-            }
-            OutlinedButton(onClick = { goalMenu = true }, modifier = Modifier.fillMaxWidth()) {
-                Text("هدف: ${goal.title}")
-            }
-            DropdownMenu(expanded = goalMenu, onDismissRequest = { goalMenu = false }) {
-                SmartGoal.entries.forEach { option ->
-                    DropdownMenuItem(text = { Text(option.title) }, onClick = { goal = option; goalMenu = false })
+                DropdownMenu(expanded = contextMenu, onDismissRequest = { contextMenu = false }) {
+                    SmartNetworkContext.entries.forEach { option ->
+                        DropdownMenuItem(
+                            text = { Text(option.title) },
+                            onClick = { context = option; contextMenu = false }
+                        )
+                    }
                 }
-            }
-            Text(choice.explanation, style = MaterialTheme.typography.bodyMedium)
-            Text("پیشنهاد: VLESS • ${choice.transport.uppercase()} • ${choice.security.uppercase()} • پورت ${choice.port}", style = MaterialTheme.typography.bodyMedium)
-            Text(choice.warning, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Button(onClick = { onApply(choice) }, modifier = Modifier.fillMaxWidth()) {
-                Text("اعمال پیشنهاد در فرم ساخت")
+                OutlinedButton(onClick = { goalMenu = true }, modifier = Modifier.fillMaxWidth()) {
+                    Text("هدف ساخت: ${goal.title}")
+                }
+                DropdownMenu(expanded = goalMenu, onDismissRequest = { goalMenu = false }) {
+                    SmartGoal.entries.forEach { option ->
+                        DropdownMenuItem(
+                            text = { Text(option.title) },
+                            onClick = { goal = option; goalMenu = false }
+                        )
+                    }
+                }
+                Text(choice.warning, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Button(onClick = { onApply(choice) }, modifier = Modifier.fillMaxWidth()) {
+                    Text("اعمال دوباره پیشنهاد")
+                }
             }
         }
     }
