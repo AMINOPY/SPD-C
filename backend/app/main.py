@@ -104,6 +104,22 @@ def init_db() -> None:
             node_id TEXT NOT NULL REFERENCES nodes(id) ON DELETE CASCADE,
             received_at INTEGER NOT NULL
         );
+        CREATE TABLE IF NOT EXISTS node_provisioning_jobs (
+            id TEXT PRIMARY KEY,
+            node_id TEXT NOT NULL REFERENCES nodes(id) ON DELETE CASCADE,
+            user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            action TEXT NOT NULL CHECK(action IN ('add','remove')),
+            inbound_tag TEXT NOT NULL,
+            client_id TEXT NOT NULL,
+            client_email TEXT NOT NULL,
+            status TEXT NOT NULL DEFAULT 'pending'
+                CHECK(status IN ('pending','claimed','validated','config_pending_restart','failed')),
+            result_message TEXT,
+            created_at INTEGER NOT NULL,
+            updated_at INTEGER NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_node_jobs_poll
+            ON node_provisioning_jobs(node_id,status,created_at);
         CREATE TABLE IF NOT EXISTS node_usage_counters (
             node_id TEXT NOT NULL REFERENCES nodes(id) ON DELETE CASCADE,
             user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -289,6 +305,19 @@ class NodeUsageReportIn(BaseModel):
 
 class NodeCreateIn(BaseModel):
     name: str = Field(min_length=1, max_length=120)
+
+
+class NodeProvisioningJobIn(BaseModel):
+    user_id: str = Field(min_length=1, max_length=128)
+    action: str = Field(pattern=r"^(add|remove)$")
+    inbound_tag: str = Field(min_length=1, max_length=128, pattern=r"^[A-Za-z0-9_.:-]+$")
+    client_id: str = Field(min_length=36, max_length=36)
+    client_email: str = Field(min_length=1, max_length=128, pattern=r"^[A-Za-z0-9][A-Za-z0-9._@+-]{0,127}$")
+
+
+class NodeProvisioningResultIn(BaseModel):
+    status: str = Field(pattern=r"^(validated|config_pending_restart|failed)$")
+    message: str = Field(min_length=1, max_length=300)
 
 
 class NodeConnectionReportIn(ConnectionReportIn):
@@ -765,6 +794,124 @@ def admin_set_node_enabled(node_id: str, enabled: bool,
             raise HTTPException(status_code=404, detail="Node not found")
         row = conn.execute("SELECT id,name,enabled,created_at,last_seen_at FROM nodes WHERE id=?",
                            (node_id,)).fetchone()
+    return dict(row)
+
+
+@app.post("/admin/nodes/{node_id}/provisioning-jobs", status_code=201,
+          tags=["admin", "nodes", "provisioning"])
+def admin_create_provisioning_job(node_id: str, payload: NodeProvisioningJobIn,
+                                  _: sqlite3.Row = Depends(admin_user)) -> dict[str, Any]:
+    """Queue a VLESS client change for an enrolled node; this does not change a live process immediately."""
+    import uuid as uuid_module
+
+    try:
+        client_id = str(uuid_module.UUID(payload.client_id))
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail="client_id must be a valid UUID") from exc
+    timestamp = now()
+    job_id = "job_" + secrets.token_urlsafe(12)
+    with db() as conn:
+        node = conn.execute("SELECT enabled FROM nodes WHERE id=?", (node_id,)).fetchone()
+        if node is None:
+            raise HTTPException(status_code=404, detail="Node not found")
+        if not node["enabled"]:
+            raise HTTPException(status_code=409, detail="Node is disabled")
+        if not conn.execute("SELECT 1 FROM users WHERE id=?", (payload.user_id,)).fetchone():
+            raise HTTPException(status_code=404, detail="User not found")
+        existing = conn.execute(
+            "SELECT id FROM node_provisioning_jobs WHERE node_id=? AND user_id=? "
+            "AND action=? AND inbound_tag=? AND client_id=? AND client_email=? "
+            "AND status IN ('pending','claimed','validated','config_pending_restart') LIMIT 1",
+            (node_id, payload.user_id, payload.action, payload.inbound_tag, client_id, payload.client_email),
+        ).fetchone()
+        if existing:
+            raise HTTPException(status_code=409, detail="An equivalent provisioning job already exists")
+        conn.execute(
+            "INSERT INTO node_provisioning_jobs(id,node_id,user_id,action,inbound_tag,client_id,"
+            "client_email,status,created_at,updated_at) VALUES(?,?,?,?,?,?,?,'pending',?,?)",
+            (job_id, node_id, payload.user_id, payload.action, payload.inbound_tag,
+             client_id, payload.client_email, timestamp, timestamp),
+        )
+    return {"id": job_id, "node_id": node_id, "user_id": payload.user_id,
+            "action": payload.action, "inbound_tag": payload.inbound_tag,
+            "client_id": client_id, "client_email": payload.client_email,
+            "status": "pending", "created_at": timestamp,
+            "warning": "The node must process this job; config file changes do not automatically reload the running Xray process."}
+
+
+@app.get("/admin/nodes/{node_id}/provisioning-jobs", tags=["admin", "nodes", "provisioning"])
+def admin_list_provisioning_jobs(node_id: str,
+                                 _: sqlite3.Row = Depends(admin_user)) -> dict[str, Any]:
+    with db() as conn:
+        if not conn.execute("SELECT 1 FROM nodes WHERE id=?", (node_id,)).fetchone():
+            raise HTTPException(status_code=404, detail="Node not found")
+        rows = conn.execute(
+            "SELECT id,node_id,user_id,action,inbound_tag,client_id,client_email,status,"
+            "result_message,created_at,updated_at FROM node_provisioning_jobs "
+            "WHERE node_id=? ORDER BY created_at DESC LIMIT 100", (node_id,)
+        ).fetchall()
+    return {"jobs": [dict(row) for row in rows]}
+
+
+def authenticate_node(node_id: str, authorization: str | None) -> None:
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Node bearer secret required")
+    supplied = authorization[7:].strip()
+    with db() as conn:
+        node = conn.execute("SELECT secret_hash,enabled FROM nodes WHERE id=?", (node_id,)).fetchone()
+    if node is None or not node["enabled"] or not hmac.compare_digest(
+        node["secret_hash"], hash_secret(supplied)
+    ):
+        raise HTTPException(status_code=401, detail="Unknown, disabled or invalid node credentials")
+
+
+@app.get("/nodes/{node_id}/provisioning-jobs/next", tags=["nodes", "provisioning"])
+def node_claim_provisioning_job(node_id: str,
+                                authorization: str | None = Header(default=None)) -> dict[str, Any]:
+    authenticate_node(node_id, authorization)
+    timestamp = now()
+    with db() as conn:
+        # Expired claims are retried after five minutes if a node worker disappeared.
+        conn.execute(
+            "UPDATE node_provisioning_jobs SET status='pending',updated_at=? "
+            "WHERE node_id=? AND status='claimed' AND updated_at<?",
+            (timestamp, node_id, timestamp - 300),
+        )
+        row = conn.execute(
+            "SELECT * FROM node_provisioning_jobs WHERE node_id=? AND status='pending' "
+            "ORDER BY created_at LIMIT 1", (node_id,)
+        ).fetchone()
+        if row is None:
+            return {"job": None}
+        cursor = conn.execute(
+            "UPDATE node_provisioning_jobs SET status='claimed',updated_at=? "
+            "WHERE id=? AND status='pending'", (timestamp, row["id"])
+        )
+        if cursor.rowcount != 1:
+            return {"job": None}
+        job = dict(row)
+        job["status"] = "claimed"
+        job["updated_at"] = timestamp
+    return {"job": job}
+
+
+@app.post("/nodes/{node_id}/provisioning-jobs/{job_id}/result", tags=["nodes", "provisioning"])
+def node_report_provisioning_result(node_id: str, job_id: str, payload: NodeProvisioningResultIn,
+                                    authorization: str | None = Header(default=None)) -> dict[str, Any]:
+    authenticate_node(node_id, authorization)
+    timestamp = now()
+    with db() as conn:
+        cursor = conn.execute(
+            "UPDATE node_provisioning_jobs SET status=?,result_message=?,updated_at=? "
+            "WHERE id=? AND node_id=? AND status='claimed'",
+            (payload.status, payload.message, timestamp, job_id, node_id),
+        )
+        if cursor.rowcount != 1:
+            raise HTTPException(status_code=404, detail="Claimed provisioning job not found")
+        row = conn.execute(
+            "SELECT id,status,result_message,updated_at FROM node_provisioning_jobs WHERE id=?",
+            (job_id,),
+        ).fetchone()
     return dict(row)
 
 
