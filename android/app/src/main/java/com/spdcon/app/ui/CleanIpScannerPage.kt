@@ -17,6 +17,7 @@ import com.spdcon.app.ui.theme.NeonCyan
 import com.spdcon.app.ui.theme.TextSecondary
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 
 @Composable
@@ -35,6 +36,8 @@ fun CleanIpScannerPage(onBack: () -> Unit, onUseIp: (ip: String, sni: String) ->
     var port by remember { mutableStateOf("443") }
     var workers by remember { mutableFloatStateOf(8f) }
     var scanning by remember { mutableStateOf(false) }
+    var scanPaused by remember { mutableStateOf(false) }
+    val scanControl = remember { ScanControl() }
     var error by remember { mutableStateOf<String?>(null) }
     var status by remember { mutableStateOf<String?>(null) }
     var results by remember { mutableStateOf(emptyList<CleanIpResult>()) }
@@ -162,13 +165,19 @@ fun CleanIpScannerPage(onBack: () -> Unit, onUseIp: (ip: String, sni: String) ->
         }
         Button(
             onClick = {
-                scanning = true; error = null; status = if (source == "country") tr("Downloading country ranges and scanning…") else scanningStatus; results = emptyList()
+                scanning = true; scanPaused = false; scanControl.paused = false; scanControl.cancelled = false
+                error = null; status = if (source == "country") tr("Downloading country ranges and scanning…") else scanningStatus
+                results = emptyList(); dnsResults = emptyList()
                 scope.launch {
                     val outcome = executeCleanIpScan(
                         mode, source, input, countryCode, recentIps, recentDnsIps, sni.trim(), dnsDomain.trim(),
                         port.toIntOrNull() ?: 0, workers.toInt(), dnsTransport, noCandidatesError, scanFailedMessage,
-                        finishedTemplate, finishedDnsTemplate
-                    )
+                        finishedTemplate, finishedDnsTemplate, scanControl
+                    ) { partialTls, partialDns, completed, total ->
+                        results = partialTls
+                        dnsResults = partialDns
+                        status = if (scanControl.paused) "Paused • " + completed + "/" + total else "Scanning • " + completed + "/" + total
+                    }
                     error = outcome.errorMessage
                     status = outcome.statusMessage
                     results = outcome.tlsResults
@@ -184,13 +193,27 @@ fun CleanIpScannerPage(onBack: () -> Unit, onUseIp: (ip: String, sni: String) ->
                         ScanHistoryStore.record(prefs, mode, source, countryCode, outcome.tlsResults, outcome.dnsResults)
                         history = ScanHistoryStore.load(prefs)
                     }
+                    scanPaused = false
                     scanning = false
                 }
             },
             enabled = !scanning && if (mode == "dns") DnsResolverScanner.isValidDomain(dnsDomain.trim()) else CleanIpScanner.isValidSni(sni.trim()),
             modifier = Modifier.fillMaxWidth()
         ) { Text(if (scanning) tr("Scanning…") else tr("Find clean IPs")) }
-        if (scanning) LinearProgressIndicator(Modifier.fillMaxWidth())
+        if (scanning) {
+            LinearProgressIndicator(Modifier.fillMaxWidth())
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(onClick = {
+                    scanPaused = !scanPaused
+                    scanControl.paused = scanPaused
+                }) { Text(if (scanPaused) tr("Resume") else tr("Pause")) }
+                TextButton(onClick = {
+                    scanControl.cancelled = true
+                    scanControl.paused = false
+                    scanPaused = false
+                }) { Text(tr("Stop scan")) }
+            }
+        }
         status?.let { Text(it, color = NeonCyan, fontSize = 12.sp) }
         error?.let { Text(it, color = MaterialTheme.colorScheme.error, fontSize = 12.sp) }
         if (dnsResults.isNotEmpty()) {
@@ -279,6 +302,15 @@ private data class CleanIpScanOutcome(
     val errorMessage: String? = null
 )
 
+private class ScanControl {
+    @Volatile var paused: Boolean = false
+    @Volatile var cancelled: Boolean = false
+
+    suspend fun awaitIfResumed() {
+        while (paused && !cancelled) delay(150)
+    }
+}
+
 private suspend fun executeCleanIpScan(
     mode: String,
     source: String,
@@ -294,7 +326,9 @@ private suspend fun executeCleanIpScan(
     noCandidatesError: String,
     scanFailedMessage: String,
     finishedTlsTemplate: String,
-    finishedDnsTemplate: String
+    finishedDnsTemplate: String,
+    control: ScanControl,
+    onProgress: suspend (List<CleanIpResult>, List<DnsResolverResult>, Int, Int) -> Unit
 ): CleanIpScanOutcome = try {
     val countrySample = if (source == "country") {
         withContext(Dispatchers.IO) { CountryIpRangeSource.fetchSample(countryCode) }
@@ -309,29 +343,47 @@ private suspend fun executeCleanIpScan(
     }
     require(candidates.isNotEmpty()) { noCandidatesError }
     require(port in 1..65535) { "Port must be between 1 and 65535" }
-    if (mode == "dns") {
-        val scanned = withContext(Dispatchers.IO) {
-            DnsResolverScanner.scan(candidates, dnsDomain, port, workers = workers, transport = dnsTransport)
+
+    val allTls = mutableListOf<CleanIpResult>()
+    val allDns = mutableListOf<DnsResolverResult>()
+    var completed = 0
+    val batchSize = (workers * 2).coerceIn(8, 32)
+    for (batch in candidates.chunked(batchSize)) {
+        control.awaitIfResumed()
+        if (control.cancelled) break
+        if (mode == "dns") {
+            val scanned = withContext(Dispatchers.IO) {
+                DnsResolverScanner.scan(batch, dnsDomain, port, workers = workers, transport = dnsTransport)
+            }
+            allDns += scanned
+        } else {
+            val scanned = withContext(Dispatchers.IO) {
+                CleanIpScanner.scan(batch, port, sni, workers = workers)
+            }
+            allTls += scanned
         }
-        val good = scanned.filter { it.score >= 2 }.map { it.ip }.distinct()
-        CleanIpScanOutcome(
-            dnsResults = scanned,
-            goodIps = good,
-            statusMessage = finishedDnsTemplate.replace("{good}", good.size.toString())
-                .replace("{total}", scanned.size.toString()) + (countrySample?.let { " • ${it.countryCode}: ${it.prefixCount} registered ranges" } ?: "")
-        )
-    } else {
-        val scanned = withContext(Dispatchers.IO) {
-            CleanIpScanner.scan(candidates, port, sni, workers = workers)
-        }
-        val good = scanned.filter { it.tlsOk }.map { it.ip }.distinct()
-        CleanIpScanOutcome(
-            tlsResults = scanned,
-            goodIps = good,
-            statusMessage = finishedTlsTemplate.replace("{good}", good.size.toString())
-                .replace("{total}", scanned.size.toString()) + (countrySample?.let { " • ${it.countryCode}: ${it.prefixCount} registered ranges" } ?: "")
-        )
+        completed += batch.size
+        onProgress(allTls.toList(), allDns.toList(), completed, candidates.size)
     }
+
+    val tls = allTls.sortedWith(compareBy<CleanIpResult> { !it.tlsOk }.thenBy { it.latencyMs })
+    val dns = allDns.sortedWith(compareByDescending<DnsResolverResult> { it.score }.thenBy { it.latencyMs })
+    val good = if (mode == "dns") dns.filter { it.score >= 2 }.map { it.ip }.distinct()
+        else tls.filter { it.tlsOk }.map { it.ip }.distinct()
+    val baseStatus = if (control.cancelled) {
+        "Stopped after " + completed + "/" + candidates.size + " candidates • " + good.size + " passed"
+    } else if (mode == "dns") {
+        finishedDnsTemplate.replace("{good}", good.size.toString()).replace("{total}", dns.size.toString())
+    } else {
+        finishedTlsTemplate.replace("{good}", good.size.toString()).replace("{total}", tls.size.toString())
+    }
+    val countrySuffix = countrySample?.let { " • " + it.countryCode + ": " + it.prefixCount + " registered ranges" } ?: ""
+    CleanIpScanOutcome(
+        tlsResults = tls,
+        dnsResults = dns,
+        goodIps = good,
+        statusMessage = baseStatus + countrySuffix
+    )
 } catch (e: Exception) {
     CleanIpScanOutcome(errorMessage = e.message ?: scanFailedMessage)
 }
