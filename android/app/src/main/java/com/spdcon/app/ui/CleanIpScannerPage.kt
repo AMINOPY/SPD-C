@@ -41,6 +41,7 @@ fun CleanIpScannerPage(onBack: () -> Unit, onUseIp: (ip: String, sni: String) ->
     var dnsResults by remember { mutableStateOf(emptyList<DnsResolverResult>()) }
     var recentIps by remember { mutableStateOf((prefs.getString("last_good_ips", "") ?: "").lines().filter(String::isNotBlank)) }
     var recentDnsIps by remember { mutableStateOf((prefs.getString("last_dns_ips", "") ?: "").lines().filter(String::isNotBlank)) }
+    var history by remember { mutableStateOf(ScanHistoryStore.load(prefs)) }
     val scanningStatus = tr("Scanning candidates…")
     val noCandidatesError = tr("No IP candidates to scan")
     val scanFailedMessage = tr("Scan failed")
@@ -180,6 +181,8 @@ fun CleanIpScannerPage(onBack: () -> Unit, onUseIp: (ip: String, sni: String) ->
                             recentIps = outcome.goodIps
                             prefs.edit().putString("last_good_ips", outcome.goodIps.joinToString("\n")).apply()
                         }
+                        ScanHistoryStore.record(prefs, mode, source, countryCode, outcome.tlsResults, outcome.dnsResults)
+                        history = ScanHistoryStore.load(prefs)
                     }
                     scanning = false
                 }
@@ -234,6 +237,32 @@ fun CleanIpScannerPage(onBack: () -> Unit, onUseIp: (ip: String, sni: String) ->
                         if (result.tlsOk) TextButton(onClick = { onUseIp(result.ip, sni.trim()) }) {
                             Text(tr("Use IP in config"))
                         }
+                    }
+                }
+            }
+        }
+
+        if (history.isNotEmpty()) {
+            Card(shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                    Text(tr("Scan history (last 30 runs)"), fontWeight = FontWeight.SemiBold)
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        TextButton(onClick = { clipboard.setText(AnnotatedString(ScanHistoryStore.exportJson(prefs))) }) {
+                            Text(tr("Export full JSON"))
+                        }
+                        TextButton(onClick = {
+                            ScanHistoryStore.clear(prefs)
+                            history = emptyList()
+                        }) { Text(tr("Clear history")) }
+                    }
+                    history.take(10).forEach { entry ->
+                        val time = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", java.util.Locale.getDefault())
+                            .format(java.util.Date(entry.timestampMs))
+                        val sourceLabel = if (entry.source == "country") "${entry.countryCode} country" else entry.source
+                        Text(
+                            "$time • ${entry.mode.uppercase()} • $sourceLabel • ${entry.successful}/${entry.total} good",
+                            color = TextSecondary, fontSize = 11.sp
+                        )
                     }
                 }
             }
