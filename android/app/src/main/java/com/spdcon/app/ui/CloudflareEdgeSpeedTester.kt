@@ -34,29 +34,29 @@ object CloudflareEdgeSpeedTester {
         require(bytesPerDirection in 64 * 1024..MAX_BYTES) { "Speed test size must be between 64 KiB and 2 MiB" }
         require(timeoutMs in 2_000..30_000) { "Timeout must be between 2 and 30 seconds" }
 
-        val downloadStart = System.nanoTime()
-        val downloaded = download(ip, bytesPerDirection, timeoutMs)
-        val downloadMs = elapsedMs(downloadStart)
-        require(downloaded > 0) { "Cloudflare speed endpoint returned no download data" }
+        val download = download(ip, bytesPerDirection, timeoutMs)
+        require(download.bytes > 0) { "Cloudflare speed endpoint returned no download data" }
 
-        val uploadStart = System.nanoTime()
-        val uploaded = upload(ip, bytesPerDirection, timeoutMs)
-        val uploadMs = elapsedMs(uploadStart)
-        require(uploaded in 200..299) { "Cloudflare upload endpoint returned HTTP $uploaded" }
+        val upload = upload(ip, bytesPerDirection, timeoutMs)
+        require(upload.status in 200..299) { "Cloudflare upload endpoint returned HTTP ${upload.status}" }
 
         return CloudflareSpeedResult(
             ip = ip,
-            downloadMbps = mbps(downloaded.toLong(), downloadMs),
-            uploadMbps = mbps(bytesPerDirection.toLong(), uploadMs),
-            downloadBytes = downloaded.toLong(),
+            downloadMbps = mbps(download.bytes, download.elapsedMs),
+            uploadMbps = mbps(bytesPerDirection.toLong(), upload.elapsedMs),
+            downloadBytes = download.bytes,
             uploadBytes = bytesPerDirection.toLong(),
-            downloadMs = downloadMs,
-            uploadMs = uploadMs
+            downloadMs = download.elapsedMs,
+            uploadMs = upload.elapsedMs
         )
     }
 
-    private fun download(ip: String, requestedBytes: Int, timeoutMs: Int): Int {
+    private data class TransferResult(val bytes: Long, val elapsedMs: Long)
+    private data class UploadResult(val status: Int, val elapsedMs: Long)
+
+    private fun download(ip: String, requestedBytes: Int, timeoutMs: Int): TransferResult {
         return openTls(ip, timeoutMs).use { socket ->
+            val started = System.nanoTime()
             val output = socket.outputStream
             output.write(
                 ("GET /__down?bytes=$requestedBytes HTTP/1.1\r\n" +
@@ -69,17 +69,19 @@ object CloudflareEdgeSpeedTester {
             val response = readHeaders(input)
             require(response.status in 200..299) { "Cloudflare download endpoint returned HTTP ${response.status}" }
             val transferEncoding = response.headers["transfer-encoding"].orEmpty()
-            when {
+            val downloaded = when {
                 transferEncoding.contains("chunked", ignoreCase = true) -> readChunkedBody(input)
                 response.headers["content-length"]?.toLongOrNull() != null ->
                     readExactBody(input, response.headers.getValue("content-length").toLong())
                 else -> readUntilEof(input)
-            }.coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
+            }
+            TransferResult(downloaded, elapsedMs(started))
         }
     }
 
-    private fun upload(ip: String, requestedBytes: Int, timeoutMs: Int): Int {
+    private fun upload(ip: String, requestedBytes: Int, timeoutMs: Int): UploadResult {
         return openTls(ip, timeoutMs).use { socket ->
+            val started = System.nanoTime()
             val output = socket.outputStream
             output.write(
                 ("POST /__up HTTP/1.1\r\n" +
@@ -97,7 +99,7 @@ object CloudflareEdgeSpeedTester {
             }
             output.flush()
             val response = readHeaders(BufferedInputStream(socket.inputStream))
-            response.status
+            UploadResult(response.status, elapsedMs(started))
         }
     }
 
