@@ -915,22 +915,22 @@ private fun SpdConDashboard() {
                                         qrContent = if (links.size == 1) links.first() else null
                                         copyContent = combined
                                         generatedOutput = links.mapIndexed { index, link ->
-                                            "\${index + 1}. \${report.configs[index].label}\n$link"
+                                            "${index + 1}. ${report.configs[index].label}\n$link"
                                         }.joinToString("\n\n")
                                         multiGenerationOutput = generatedOutput
                                         multiGenerationMessage = buildString {
-                                            append("ساخت \${profiles.size} لینک انجام شد؛ شناسه کاربر ثابت است: $stableGenerationUserId. ")
-                                            append("ذخیره موفق: \${saveResults.count { it.isSuccess }} از \${saveResults.size}. ")
+                                            append("ساخت ${profiles.size} لینک انجام شد؛ شناسه کاربر ثابت است: $stableGenerationUserId. ")
+                                            append("ذخیره موفق: ${saveResults.count { it.isSuccess }} از ${saveResults.size}. ")
                                             append("برای اتصال واقعی باید همین UUID در سرور ثبت شده و مسیر/کلید/پورت با سرویس فعال مطابقت داشته باشد.")
                                             if (report.warnings.isNotEmpty()) append("\n" + report.warnings.joinToString("\n"))
                                         }
                                         parseResult = multiGenerationMessage
                                         parsedSummary = profiles.joinToString("\n\n") { profile ->
-                                            "\${profile.name}\n\${profile.server}:\${profile.port} · \${profile.network} · \${profile.security}\n\${com.spdcon.app.config.ConfigDiagnostics.format(profile)}"
+                                            "${profile.name}\n${profile.server}:${profile.port} · ${profile.network} · ${profile.security}\n${com.spdcon.app.config.ConfigDiagnostics.format(profile)}"
                                         }
                                     },
                                     onFailure = {
-                                        multiGenerationMessage = "ساخت چندکانفیگی ناموفق بود: \${it.message}"
+                                        multiGenerationMessage = "ساخت چندکانفیگی ناموفق بود: ${it.message}"
                                         multiGenerationOutput = null
                                         generatedOutput = null
                                         qrContent = null
