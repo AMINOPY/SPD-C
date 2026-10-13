@@ -1135,6 +1135,41 @@ private fun SpdConDashboard() {
                             onClick = {
                                 val profile = parsedProfile
                                 if (profile == null) {
+                                    generatedOutput = "ابتدا لینک یا پروفایل معتبری را بخوان."
+                                } else {
+                                    qrContent = null
+                                    val exportProfile = if (profile.security.equals("reality", true)) {
+                                        val overrides = mapOf(
+                                            "sni" to realityServerName.trim(),
+                                            "pbk" to realityPublicKey.trim(),
+                                            "sid" to realityShortId.trim(),
+                                            "fp" to realityFingerprint.trim(),
+                                            "spx" to realitySpiderX.trim(),
+                                            "flow" to realityFlow.trim()
+                                        ).filterValues { it.isNotBlank() }
+                                        profile.copy(parameters = profile.parameters + overrides)
+                                    } else profile
+                                    val result = com.spdcon.app.config.XrayClientConfigGenerator.generate(exportProfile)
+                                    generatedOutput = result.fold(
+                                        onSuccess = {
+                                            copyContent = it
+                                            "خروجی JSON کامل Xray برای بازبینی/ذخیره:\\n$it\\n\\nاین خروجی فایل پیکربندی است؛ سرور را خودکار تنظیم نمی‌کند و اتصال VPN را اجرا نمی‌کند."
+                                        },
+                                        onFailure = {
+                                            copyContent = null
+                                            "ساخت JSON ممکن نشد: ${it.message}"
+                                        }
+                                    )
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            enabled = parsedProfile?.let { com.spdcon.app.config.XrayClientConfigGenerator.supports(it) } == true
+                        ) { Text("تولید JSON کامل Xray (VLESS / VMess / Trojan / Shadowsocks)") }
+                        Spacer(Modifier.height(8.dp))
+                        Button(
+                            onClick = {
+                                val profile = parsedProfile
+                                if (profile == null) {
                                     generatedOutput = "ابتدا یک لینک VLESS + REALITY را بخوان."
                                 } else {
                                     qrContent = null
