@@ -171,10 +171,21 @@ fun CleanIpScannerPage(onBack: () -> Unit, onUseIp: (ip: String, sni: String) ->
                 scanning = true; scanPaused = false; scanControl.paused = false; scanControl.cancelled = false
                 error = null; status = if (source == "country") downloadingCountryStatus else scanningStatus
                 results = emptyList(); dnsResults = emptyList()
+                val scanMode = mode
+                val scanSource = source
+                val scanCountryCode = countryCode
+                val scanInput = input
+                val scanSni = sni.trim()
+                val scanDnsDomain = dnsDomain.trim()
+                val scanPort = port.toIntOrNull() ?: 0
+                val scanWorkers = workers.toInt()
+                val scanDnsTransport = dnsTransport
+                val previousTls = recentIps
+                val previousDns = recentDnsIps
                 scope.launch {
                     val outcome = executeCleanIpScan(
-                        mode, source, input, countryCode, recentIps, recentDnsIps, sni.trim(), dnsDomain.trim(),
-                        port.toIntOrNull() ?: 0, workers.toInt(), dnsTransport, noCandidatesError, scanFailedMessage,
+                        scanMode, scanSource, scanInput, scanCountryCode, previousTls, previousDns, scanSni, scanDnsDomain,
+                        scanPort, scanWorkers, scanDnsTransport, noCandidatesError, scanFailedMessage,
                         finishedTemplate, finishedDnsTemplate, scanControl
                     ) { partialTls, partialDns, completed, total ->
                         results = partialTls
@@ -186,14 +197,14 @@ fun CleanIpScannerPage(onBack: () -> Unit, onUseIp: (ip: String, sni: String) ->
                     results = outcome.tlsResults
                     dnsResults = outcome.dnsResults
                     if (outcome.errorMessage == null) {
-                        if (mode == "dns") {
+                        if (scanMode == "dns") {
                             recentDnsIps = outcome.goodIps
                             prefs.edit().putString("last_dns_ips", outcome.goodIps.joinToString("\n")).apply()
                         } else {
                             recentIps = outcome.goodIps
                             prefs.edit().putString("last_good_ips", outcome.goodIps.joinToString("\n")).apply()
                         }
-                        ScanHistoryStore.record(prefs, mode, source, countryCode, outcome.tlsResults, outcome.dnsResults)
+                        ScanHistoryStore.record(prefs, scanMode, scanSource, scanCountryCode, outcome.tlsResults, outcome.dnsResults)
                         history = ScanHistoryStore.load(prefs)
                     }
                     scanPaused = false
@@ -250,6 +261,8 @@ fun CleanIpScannerPage(onBack: () -> Unit, onUseIp: (ip: String, sni: String) ->
                 }
             }
             Text(tr("A verified TLS handshake is a reachability signal, not a guarantee that a proxy or route will work."),
+                color = TextSecondary, fontSize = 11.sp)
+            Text(tr("Download/upload speed uses Cloudflare's speed endpoint pinned to this IP; it is only meaningful for Cloudflare edge IPs."),
                 color = TextSecondary, fontSize = 11.sp)
             results.forEach { result ->
                 Card(shape = RoundedCornerShape(14.dp), modifier = Modifier.fillMaxWidth()) {
