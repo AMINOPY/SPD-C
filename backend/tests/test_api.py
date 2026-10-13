@@ -99,6 +99,63 @@ class ConfigHubApiTests(unittest.TestCase):
         self.assertEqual(usage.status_code, 201, usage.text)
         self.assertEqual(self.client.get(subscription["url"]).status_code, 404)
 
+    def test_connection_policy_and_ip_observations_are_admin_scoped(self):
+        admin_user = self.register("admin_user")
+        bootstrap = self.client.post("/admin/bootstrap", headers={
+            "X-Bootstrap-Token": api.BOOTSTRAP_ADMIN_TOKEN
+        })
+        self.assertEqual(bootstrap.status_code, 201, bootstrap.text)
+        admin_headers = self.login("admin_user")
+
+        user_response = self.client.post("/auth/register", json={
+            "username": "vpn_user", "password": "a-very-long-test-password"
+        })
+        self.assertEqual(user_response.status_code, 201, user_response.text)
+        user_id = user_response.json()["user"]["id"]
+
+        policy = self.client.put(f"/admin/users/{user_id}/connection-policy",
+            headers=admin_headers, json={
+                "max_distinct_ips": 1, "max_concurrent_connections": 2,
+                "action": "deny_new_ip"
+            })
+        self.assertEqual(policy.status_code, 200, policy.text)
+        self.assertEqual(policy.json()["enforcement"], "pending_node_agent")
+
+        first = self.client.post(f"/admin/users/{user_id}/connections/report",
+            headers=admin_headers, json={
+                "connection_id": "connection-first", "node_id": "node-a",
+                "client_ip": "192.0.2.10", "state": "active",
+                "upload_bytes": 100, "download_bytes": 200
+            })
+        self.assertEqual(first.status_code, 201, first.text)
+        self.assertEqual(first.json()["alerts"], [])
+
+        second = self.client.post(f"/admin/users/{user_id}/connections/report",
+            headers=admin_headers, json={
+                "connection_id": "connection-second", "node_id": "node-a",
+                "client_ip": "2001:db8::10", "state": "active"
+            })
+        self.assertEqual(second.status_code, 201, second.text)
+        self.assertIn("distinct_ip_limit_exceeded", second.json()["alerts"])
+        self.assertEqual(second.json()["requested_policy_action"], "deny_new_ip")
+        self.assertEqual(second.json()["enforcement"], "not_enforced_node_agent_required")
+
+        connections = self.client.get(
+            f"/admin/users/{user_id}/connections", headers=admin_headers)
+        self.assertEqual(connections.status_code, 200, connections.text)
+        self.assertEqual(len(connections.json()["connections"]), 2)
+
+        invalid_ip = self.client.post(f"/admin/users/{user_id}/connections/report",
+            headers=admin_headers, json={
+                "connection_id": "connection-invalid", "node_id": "node-a",
+                "client_ip": "not-an-ip", "state": "active"
+            })
+        self.assertEqual(invalid_ip.status_code, 422)
+
+        non_admin = self.client.get(
+            f"/admin/users/{user_id}/connections", headers=self.login("vpn_user"))
+        self.assertEqual(non_admin.status_code, 403)
+
     def test_admin_bootstrap_and_server_side_limits(self):
         user = self.register()
         bootstrap = self.client.post("/admin/bootstrap", headers={
