@@ -7,6 +7,9 @@ on:
       - "android/**"
       - "backend/**"
       - "node-agent/**"
+      - "tests/fixtures/xray/**"
+      - "tools/xray-core-check.sh"
+      - "docs/CONFIG_FORMATS.md"
       - "cloudflare/**"
       - ".github/workflows/android-ci.yml"
   pull_request:
@@ -72,6 +75,14 @@ jobs:
         run: python -m py_compile node-agent/agent.py node-agent/test_agent.py
       - name: Run node agent tests
         run: python -m unittest discover -s node-agent -p 'test_*.py' -v
+
+  xray-core-config-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Validate exported-config fixtures against pinned Xray-core
+        run: bash tools/xray-core-check.sh
 
   android-build:
     runs-on: ubuntu-latest
