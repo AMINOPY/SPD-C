@@ -109,7 +109,7 @@ def hash_secret(value: str) -> str:
 def password_hash(password: str, salt: bytes | None = None) -> str:
     salt = salt or secrets.token_bytes(16)
     digest = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt, PBKDF2_ROUNDS)
-    return f"pbkdf2_sha256\${PBKDF2_ROUNDS}\${salt.hex()}\${digest.hex()}"
+    return "pbkdf2_sha256" + "$" + str(PBKDF2_ROUNDS) + "$" + salt.hex() + "$" + digest.hex()
 
 
 def verify_password(password: str, encoded: str) -> bool:
