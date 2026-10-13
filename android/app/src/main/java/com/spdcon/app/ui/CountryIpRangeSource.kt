@@ -67,7 +67,7 @@ object CountryIpRangeSource {
         }
         // If reserved/special prefixes were skipped, try remaining ranges until the sample is filled.
         if (selected.size < maxSamples) {
-            for (range in prefixes.shuffled(random)) {
+            for (range in prefixes.shuffled()) {
                 range.randomPublicAddress()?.let(selected::add)
                 if (selected.size >= maxSamples) break
             }
