@@ -1,6 +1,6 @@
 # Spd con Cloudflare API
 
-This is the optional cloud backend for the Android-first Spd con app. It does not require a separate web panel. Most config building, QR generation, local storage, export, tags/search/history and backup should remain in Android; this Worker provides online accounts, sync primitives and subscription links.
+This is the optional cloud backend for the Android-first Spd con app. It does not require a separate web panel. The Android app now has an optional cloud card for account registration/login, uploading/downloading profiles and creating subscription links. Most config building, QR generation, local storage, export, tags/search and favorites remain in Android; this Worker provides online accounts, sync primitives and subscription links.
 
 ## Deploy with Cloudflare
 
