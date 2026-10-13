@@ -14,7 +14,6 @@ import android.telephony.TelephonyManager
 import androidx.core.content.ContextCompat
 import java.net.HttpURLConnection
 import java.net.URL
-import kotlin.math.max
 
 data class AiConNetworkSnapshot(
     val transport: String,
@@ -137,7 +136,8 @@ object AiConEngine {
     fun rankCandidates(
         profiles: List<ConfigProfile>,
         reportsByName: Map<String, ConnectionDiagnosticReport>,
-        snapshot: AiConNetworkSnapshot
+        snapshot: AiConNetworkSnapshot,
+        measuredDownloadMbps: Double? = null
     ): List<AiConCandidate> = profiles.mapNotNull { profile ->
         val report = reportsByName[profile.name] ?: return@mapNotNull null
         if (!ConfigRuntimeCompatibility.inspectForBundledRuntime(profile).supported) return@mapNotNull null
@@ -156,7 +156,22 @@ object AiConEngine {
             snapshot.transport == "wifi" && profile.network.lowercase() in setOf("ws", "websocket") -> 5L
             else -> 0L
         }
-        AiConCandidate(profile, report, 100_000L + transportFit + advertisedBandwidthFit - latency.coerceAtMost(60_000L))
+        // Treat the short direct-link speed sample as a weak hint only; the live tunnel probe and latency dominate.
+        val speedFit = when {
+            measuredDownloadMbps != null && measuredDownloadMbps < 2.0 &&
+                profile.network.lowercase() in setOf("tcp", "raw") -> 20L
+            measuredDownloadMbps != null && measuredDownloadMbps > 30.0 &&
+                profile.network.lowercase() in setOf("ws", "websocket") -> 5L
+            else -> 0L
+        }
+        val signalFit = when {
+            snapshot.signalDbm != null && snapshot.signalDbm <= -115 &&
+                profile.network.lowercase() in setOf("tcp", "raw") -> 15L
+            snapshot.radioTechnology?.startsWith("2G") == true &&
+                profile.network.lowercase() in setOf("tcp", "raw") -> 15L
+            else -> 0L
+        }
+        AiConCandidate(profile, report, 100_000L + transportFit + advertisedBandwidthFit + speedFit + signalFit - latency.coerceAtMost(60_000L))
     }.sortedWith(compareByDescending<AiConCandidate> { it.score }.thenBy { it.report.tunnelLatencyMs ?: Long.MAX_VALUE })
 
     fun createAiProfile(candidate: ConfigProfile): ConfigProfile = candidate.copy(
