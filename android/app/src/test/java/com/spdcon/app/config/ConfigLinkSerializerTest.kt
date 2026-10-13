@@ -42,4 +42,18 @@ class ConfigLinkSerializerTest {
         assertTrue(serialized.isSuccess)
         assertTrue(serialized.getOrThrow().startsWith("ss://"))
     }
+    @Test
+    fun parsesSip002ShadowsocksUserInfoAndPreservesPluginQuery() {
+        val userInfo = java.util.Base64.getUrlEncoder().withoutPadding()
+            .encodeToString("aes-128-gcm:secret".toByteArray())
+        val input = "ss://$userInfo@example.com:8388?plugin=obfs-local%3Bobfs%3Dhttp#SIP002"
+        val parsed = ConfigLinkParser.parse(input)
+        assertTrue(parsed.isSuccess)
+        assertEquals("secret", parsed.getOrThrow().credential)
+        assertEquals("obfs-local;obfs=http", parsed.getOrThrow().parameters["plugin"])
+        val serialized = ConfigLinkSerializer.serialize(parsed.getOrThrow())
+        assertTrue(serialized.isSuccess)
+        assertTrue(serialized.getOrThrow().contains("plugin=obfs-local%3Bobfs%3Dhttp"))
+    }
+
 }
