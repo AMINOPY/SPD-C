@@ -33,7 +33,7 @@ Install a pinned Xray-core release on the node and keep its management API bound
 - Validate a config without starting or restarting the core: `python3 node-agent/xray_runtime.py --xray-bin /usr/local/bin/xray validate --config /etc/xray/config.json`
 - Query user traffic counters: `python3 node-agent/xray_runtime.py --xray-bin /usr/local/bin/xray stats --server 127.0.0.1:10085 --pattern 'user>>>'`
 
-The helper is read-only. It does not echo raw Xray error logs because those may contain private deployment details. The xray_usage_sync.py utility now polls these cumulative per-user StatsService counters and reports deltas to the API for quota accounting. It still does not terminate sessions or enforce a quota in the running core, and config validation does not prove reachability to a remote server.
+The helper is read-only. It does not echo raw Xray error logs because those may contain private deployment details. The xray_usage_sync.py utility now polls these cumulative per-user StatsService counters and reports deltas to the API. The connection-report API can return `decision: deny_new_ip` when the configured IP limit is exceeded, but this is not enforcement: a runtime adapter must consult/apply the decision before authorizing a session. Do not treat telemetry submitted after a connection begins as a hard access-control boundary. for quota accounting. It still does not terminate sessions or enforce a quota in the running core, and config validation does not prove reachability to a remote server.
 
 ## Automatic Xray usage accounting
 
