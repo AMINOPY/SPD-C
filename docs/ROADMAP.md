@@ -19,6 +19,9 @@ This roadmap is the acceptance checklist for evolving the current Android config
 - [x] Local SQLite configuration library.
 - [x] Encrypt saved credentials with Android Keystore AES-GCM; migrate plaintext credentials from database v1.
 - [ ] Full manual builder coverage for each supported protocol and transport/security combination.
+- [x] Simplify VLESS/VMess creation by generating UUID automatically; keep password input only for Trojan/Shadowsocks.
+- [x] Collapse advanced Fragment and REALITY controls by default; use safe defaults for REALITY fingerprint and spiderX.
+- [ ] Add real transport auto-detection by testing candidate transports against a configured server; TCP is only the current manual-builder fallback.
 - [ ] Add tests for the new local search, tags and favorites flow; add duplicate detection and configuration change history.
 - [ ] File import/export, bulk operations, backup and restore.
 - [ ] Navigation, accessibility, polished RTL layouts and selectable themes.
@@ -38,12 +41,14 @@ This roadmap is the acceptance checklist for evolving the current Android config
 ## Phase 3 — optional cloud services (Android-first, no web panel required)
 - [x] Add an initial FastAPI API for account registration/login/logout, own-config CRUD, role checks, subscription creation/revocation, expiry and admin quota metadata.
 - [x] Add Android account login, optional profile upload/download, and subscription-link actions for the Cloudflare Worker API (initial sync; conflicts are skipped, not merged).
+- [x] Add a mobile-first Cloudflare `/panel` for login, config CRUD, subscription links and basic admin user controls.
+- [x] Add a Cloudflare Worker route test for `/panel`.
 - [ ] Add integration tests and production controls to the Cloudflare Worker; deploy only after setting a real D1 database ID and secrets.
-- [ ] Keep FastAPI/Docker as an optional local-development alternative; the web dashboard is not a product requirement.
+- [x] Keep FastAPI/Docker as an optional local-development alternative; Cloudflare is the no-personal-VPS option.
 - [x] Add initial opaque bearer sessions, password hashing, Admin/User authorization checks and owner-scoped config access.
 - [ ] Add rate limiting, comprehensive audit logs, account recovery and production session-management controls.
 - [x] Add an initial responsive web dashboard for login, basic config CRUD, subscription creation and admin quota controls.
-- [ ] Build a production-ready web admin interface with full lifecycle workflows, validation, accessibility and visual polish; keep mobile Android as a first-class client.
+- [ ] Build a production-ready web admin interface with full lifecycle workflows, validation, accessibility and visual polish; keep mobile Android as a first-class client. The current Cloudflare panel is a basic first version.
 - [ ] Define API contracts, encryption and conflict handling before enabling multi-device sync.
 
 ## Phase 4 — nodes, scanner and checker
@@ -75,7 +80,7 @@ This roadmap is the acceptance checklist for evolving the current Android config
 - Connectivity status is based on a real test/runtime, not inferred from syntactic validity.
 
 ## Current verified limitations
-- The initial FastAPI account/config/subscription endpoints and the separate Cloudflare Worker scaffold exist, but neither is yet connected to Android UI. The web dashboard is optional. The backend uses SQLite in one instance; PostgreSQL/Redis in the original compose file were not integrated and the compose setup now uses a persistent SQLite volume.
+- The Android app has an optional Cloudflare sync card; the Worker now serves a basic `/panel` page as well. The FastAPI/Docker backend is a local-development alternative and uses SQLite in one instance.
 - Quota/usage is currently based on trusted admin usage reports; no node agent exists to independently measure or enforce tunnel traffic.
 - Subscription response is a normalized JSON profile list, not yet a tested v2rayNG/Hiddify/Clash/sing-box/NPV-specific subscription encoding.
 - Before public deployment, configure strong APP_SECRET and bootstrap token, HTTPS, request rate limits, audit logging, and production-grade database migrations.
@@ -84,4 +89,4 @@ This roadmap is the acceptance checklist for evolving the current Android config
 - The generated Fragment Freedom outbound is separate; automatic routing/chaining to a selected VLESS connection is not implemented.
 - Network-labelled Fragment presets are editable heuristics, not measured ISP profiles and do not guarantee connectivity or bypass.
 - Local credentials are encrypted at rest using Android Keystore AES-GCM; other SQLite metadata is not encrypted.
-- Remote nodes, server-enforced quotas, users/roles, subscription service, web admin, live scanner/checker and multi-device sync remain incomplete.
+- Remote nodes, real traffic enforcement, live scanner/checker, production admin workflows and conflict-safe multi-device sync remain incomplete. The Cloudflare panel is a starter UI, not a full Blue-Knight-Panel replacement.
