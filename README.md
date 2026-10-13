@@ -6,8 +6,8 @@
 
 ## Current config-engine work
 
-- Parse VLESS, Trojan and common VMess share links, plus an initial legacy Shadowsocks URI form.
-- Serialize VLESS, Trojan, VMess and the supported Shadowsocks URI form.
+- Parse VLESS, Trojan and common VMess share links, plus legacy and SIP002-style Shadowsocks links (common subset).
+- Serialize VLESS, Trojan, VMess and supported Shadowsocks links; preserve Shadowsocks plugin query parameters and bracket IPv6 hosts.
 - Validate basic config fields and imported input size.
 - Edit Fragment parameters and select labelled starting presets for همراه اول, ایرانسل, and نت ملی / اتصال محدود.
 - Validate REALITY SNI, public key, shortId, fingerprint, spiderX and optional Vision flow.
@@ -15,7 +15,7 @@
 
 Fragment presets are not measured carrier profiles and cannot guarantee connectivity or bypass. The current JSON generator adds a separate Fragment-enabled Freedom outbound; explicit routing/chaining is still future work. A generated JSON preview does not prove a connection will work.
 
-## Architecture
+## Local library and CI artifacts\n\n- The Android app can save, load and delete parsed profiles in a local SQLite library. The current local database is **not encrypted**; do not treat it as a secure credential vault.\n- The Android CI workflow uploads the debug APK as the `spd-con-debug-apk` artifact for 14 days after a successful run. Download it from the workflow run's Artifacts section.\n\n## Architecture
 
 ```text
 Android (Compose UI)
