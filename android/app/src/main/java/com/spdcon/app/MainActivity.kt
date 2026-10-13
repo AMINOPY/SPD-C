@@ -444,7 +444,7 @@ private fun SpdConDashboard() {
                         OutlinedTextField(value = manualServer, onValueChange = { manualServer = it }, modifier = Modifier.fillMaxWidth(), label = { Text("دامنه یا IP سرور") }, singleLine = true)
                         OutlinedTextField(value = manualPort, onValueChange = { manualPort = it }, modifier = Modifier.fillMaxWidth(), label = { Text("پورت") }, singleLine = true)
                         OutlinedButton(onClick = { countryMenuExpanded = true }, modifier = Modifier.fillMaxWidth()) {
-                            Text("کشور IP: " + when (selectedCountry) {
+                            Text("کشور هدف (انتخاب IP واقعی هنوز به فهرست نودها نیاز دارد): " + when (selectedCountry) {
                                 "US" -> "آمریکا"; "DE" -> "آلمان"; "NL" -> "هلند"; "FR" -> "فرانسه"
                                 "GB" -> "بریتانیا"; "TR" -> "ترکیه"; "FI" -> "فنلاند"; "SE" -> "سوئد"
                                 "JP" -> "ژاپن"; "SG" -> "سنگاپور"; else -> "خودکار"
