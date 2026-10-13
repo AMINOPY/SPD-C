@@ -102,8 +102,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import com.spdcon.app.config.XrayCoreTester
-import com.spdcon.app.config.ConnectionFailureClassifier
+import com.spdcon.app.config.ConnectionDiagnosticRunner
 import com.spdcon.app.vpn.SpdConVpnService
 
 private val screenItems = listOf(
@@ -929,22 +928,38 @@ private fun LibraryPage(
                                     testMessage = null
                                     scope.launch {
                                         val result = withContext(Dispatchers.IO) {
-                                            runCatching { XrayCoreTester.testProfile(profile) }
+                                            runCatching { ConnectionDiagnosticRunner.run(profile) }
                                         }
                                         testingProfileName = null
                                         testMessage = result.fold(
-                                            onSuccess = { test ->
-                                                if (test.connected) {
-                                                    "PASS • ${test.coreVersion} • ${test.latencyMs ?: 0} ms\n${test.message}"
+                                            onSuccess = { report ->
+                                                val stages = report.stages.joinToString("\n") { stage ->
+                                                    val label = when (stage.name) {
+                                                        "dns" -> "DNS"
+                                                        "tcp" -> "TCP / پورت"
+                                                        "tls" -> "TLS"
+                                                        "tunnel" -> "تونل واقعی"
+                                                        else -> stage.name
+                                                    }
+                                                    val state = when (stage.state) {
+                                                        com.spdcon.app.config.DiagnosticStageState.PASS -> "✓"
+                                                        com.spdcon.app.config.DiagnosticStageState.FAIL -> "✗"
+                                                        com.spdcon.app.config.DiagnosticStageState.SKIPPED -> "—"
+                                                        com.spdcon.app.config.DiagnosticStageState.UNKNOWN -> "?"
+                                                    }
+                                                    val time = stage.latencyMs?.let { " • ${it} ms" }.orEmpty()
+                                                    "$state $label$time: ${stage.detail}"
+                                                }
+                                                if (report.tunnelConnected) {
+                                                    "تونل واقعی تأیید شد • ${report.coreVersion.orEmpty()}\n$stages\nتوجه: این تست موفقیت همین مسیر را نشان می‌دهد، نه تضمین عبور از DPI در همهٔ شبکه‌ها."
                                                 } else {
-                                                    val diagnosis = ConnectionFailureClassifier.classify(test.message, "network")
-                                                    "${diagnosis.titleFa} • ${test.coreVersion}\n${diagnosis.nextStepFa}\nجزئیات: ${test.message}"
+                                                    val diagnosis = report.diagnosis
+                                                    "${diagnosis?.titleFa ?: "اتصال تأیید نشد"}\n${diagnosis?.nextStepFa.orEmpty()}\n$stages"
                                                 }
                                             },
                                             onFailure = { failure ->
                                                 val detail = failure.message ?: failure.javaClass.simpleName
-                                                val diagnosis = ConnectionFailureClassifier.classify(detail)
-                                                "${diagnosis.titleFa}\n${diagnosis.nextStepFa}\nجزئیات: ${detail}"
+                                                "آزمایش تشخیصی اجرا نشد\nجزئیات: $detail"
                                             }
                                         )
                                     }
