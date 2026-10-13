@@ -55,7 +55,7 @@ object ScanHistoryStore {
         val old = runCatching { JSONArray(prefs.getString(KEY, "[]") ?: "[]") }.getOrDefault(JSONArray())
         val next = JSONArray().put(entry)
         for (index in 0 until minOf(old.length(), MAX_RUNS - 1)) {
-            old.optJSONObject(index)?.let(next::put)
+            old.optJSONObject(index)?.let { next.put(it) }
         }
         prefs.edit().putString(KEY, next.toString()).apply()
     }
