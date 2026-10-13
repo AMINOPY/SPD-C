@@ -74,6 +74,7 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.runtime.staticCompositionLocalOf
 import com.spdcon.app.config.ConfigLibraryStore
 import com.spdcon.app.config.ConfigLinkSerializer
 import com.spdcon.app.config.ConfigProfile
@@ -99,6 +100,14 @@ private val screenItems = listOf(
 @Composable
 fun SpdConApp(onOpenAdvancedPanel: () -> Unit = {}) {
     val context = LocalContext.current
+    val languagePrefs = remember(context) { context.getSharedPreferences("spdcon-language", Context.MODE_PRIVATE) }
+    var appLanguage by remember {
+        mutableStateOf(AppLanguage.fromCode(languagePrefs.getString("language", "en") ?: "en"))
+    }
+    val setAppLanguage: (AppLanguage) -> Unit = { next ->
+        appLanguage = next
+        languagePrefs.edit().putString("language", next.code).apply()
+    }
     val clipboard = LocalClipboardManager.current
     val store = remember(context) { ConfigLibraryStore(context) }
     var profiles by remember { mutableStateOf(store.loadAll()) }
@@ -118,6 +127,11 @@ fun SpdConApp(onOpenAdvancedPanel: () -> Unit = {}) {
         )
     }
 
+    androidx.compose.runtime.CompositionLocalProvider(
+        LocalAppLanguage provides appLanguage,
+        LocalSetAppLanguage provides setAppLanguage,
+        androidx.compose.ui.platform.LocalLayoutDirection provides appLanguage.layoutDirection
+    ) {
     SpdConTheme {
         Box(
             modifier = Modifier.fillMaxSize().background(
@@ -132,7 +146,7 @@ fun SpdConApp(onOpenAdvancedPanel: () -> Unit = {}) {
                 ) {
                     Column {
                         Text("SPD-C", fontSize = 25.sp, fontWeight = FontWeight.ExtraBold, color = Color.White)
-                        Text("Secure • Private • Connected", fontSize = 12.sp, color = TextSecondary)
+                        Text(tr("Secure • Private • Connected"), fontSize = 12.sp, color = TextSecondary)
                     }
                     Row(
                         modifier = Modifier.clip(CircleShape).background(Color(0xFF0C2A2B)).padding(horizontal = 12.dp, vertical = 8.dp),
@@ -140,7 +154,7 @@ fun SpdConApp(onOpenAdvancedPanel: () -> Unit = {}) {
                     ) {
                         Box(Modifier.size(7.dp).clip(CircleShape).background(SuccessGreen))
                         Spacer(Modifier.width(7.dp))
-                        Text("VPN off", color = SuccessGreen, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                        Text(tr("VPN off"), color = SuccessGreen, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                     }
                 }
 
@@ -209,6 +223,7 @@ fun SpdConApp(onOpenAdvancedPanel: () -> Unit = {}) {
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 screenItems.forEach { (route, label, icons) ->
+                    val localizedLabel = tr(label)
                     val active = selected == route
                     Column(
                         modifier = Modifier.clip(RoundedCornerShape(17.dp))
@@ -218,25 +233,26 @@ fun SpdConApp(onOpenAdvancedPanel: () -> Unit = {}) {
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.Center
                     ) {
-                        Icon(if (active) icons.second else icons.first, contentDescription = label,
+                        Icon(if (active) icons.second else icons.first, contentDescription = localizedLabel,
                             tint = if (active) NeonCyan else TextSecondary, modifier = Modifier.size(22.dp))
-                        Text(label, color = if (active) NeonCyan else TextSecondary, fontSize = 10.sp)
+                        Text(localizedLabel, color = if (active) NeonCyan else TextSecondary, fontSize = 10.sp)
                     }
                 }
             }
         }
     }
 
+    }
     if (generatedLink != null) {
         AlertDialog(
             onDismissRequest = { generatedLink = null },
-            title = { Text("Configuration ready") },
+            title = { Text(tr("Configuration ready")) },
             text = {
                 Column(
                     modifier = Modifier.fillMaxWidth().height(170.dp).verticalScroll(rememberScrollState()),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Text("Saved locally. Scan the QR code or copy the link into your VPN client:", color = TextSecondary)
+                    Text(tr("Saved locally. Scan the QR code or copy the link into your VPN client:"), color = TextSecondary)
                     generatedQr?.let { bitmap ->
                         Image(
                             bitmap = bitmap,
@@ -255,10 +271,10 @@ fun SpdConApp(onOpenAdvancedPanel: () -> Unit = {}) {
                 }) {
                     Icon(Icons.Filled.ContentCopy, contentDescription = null)
                     Spacer(Modifier.width(7.dp))
-                    Text("Copy link")
+                    Text(tr("Copy link"))
                 }
             },
-            dismissButton = { TextButton(onClick = { generatedLink = null }) { Text("Close") } }
+            dismissButton = { TextButton(onClick = { generatedLink = null }) { Text(tr("Close")) } }
         )
     }
     if (dialogMessage != null) {
@@ -273,8 +289,8 @@ fun SpdConApp(onOpenAdvancedPanel: () -> Unit = {}) {
         AlertDialog(
             onDismissRequest = { selectedProfileName = null },
             title = { Text(selectedProfileName.orEmpty()) },
-            text = { Text("Configuration details") },
-            confirmButton = { TextButton(onClick = { selectedProfileName = null }) { Text("Close") } }
+            text = { Text(tr("Configuration details")) },
+            confirmButton = { TextButton(onClick = { selectedProfileName = null }) { Text(tr("Close")) } }
         )
     }
 }
@@ -299,8 +315,8 @@ private fun HomePage(
                     Icon(Icons.Filled.Security, contentDescription = null, tint = NeonCyan, modifier = Modifier.size(43.dp))
                 }
                 Spacer(Modifier.height(12.dp))
-                Text("VPN not connected", fontSize = 21.sp, fontWeight = FontWeight.Bold)
-                Text("Your configurations stay on this device until you export or sync them.",
+                Text(tr("VPN not connected"), fontSize = 21.sp, fontWeight = FontWeight.Bold)
+                Text(tr("Your configurations stay on this device until you export or sync them."),
                     color = TextSecondary, fontSize = 12.sp)
                 Spacer(Modifier.height(18.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(24.dp)) {
@@ -311,21 +327,21 @@ private fun HomePage(
             }
         }
 
-        Text("Quick Actions", color = TextSecondary, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+        Text(tr("Quick Actions"), color = TextSecondary, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
-            ActionCard("New Config", Icons.Filled.Add, Modifier.weight(1f), onCreate)
-            ActionCard("Library", Icons.Filled.Folder, Modifier.weight(1f), onLibrary)
+            ActionCard(tr("New Config"), Icons.Filled.Add, Modifier.weight(1f), onCreate)
+            ActionCard(tr("Library"), Icons.Filled.Folder, Modifier.weight(1f), onLibrary)
         }
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
-            ActionCard("QR / Import", Icons.Filled.QrCodeScanner, Modifier.weight(1f), onScan)
-            ActionCard("Diagnostics", Icons.Filled.Analytics, Modifier.weight(1f), onTools)
+            ActionCard(tr("QR / Import"), Icons.Filled.QrCodeScanner, Modifier.weight(1f), onScan)
+            ActionCard(tr("Diagnostics"), Icons.Filled.Analytics, Modifier.weight(1f), onTools)
         }
 
-        Text("Overview", color = TextSecondary, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+        Text(tr("Overview"), color = TextSecondary, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-            StatCard("$configCount", "Configs", Modifier.weight(1f))
-            StatCard("$favoriteCount", "Favorites", Modifier.weight(1f))
-            StatCard("Local", "Sync", Modifier.weight(1f))
+            StatCard("$configCount", tr("Configs"), Modifier.weight(1f))
+            StatCard("$favoriteCount", tr("Favorites"), Modifier.weight(1f))
+            StatCard("Local", tr("Sync"), Modifier.weight(1f))
         }
     }
 }
@@ -347,8 +363,8 @@ private fun CreatePage(onGenerate: (ConfigProfile) -> Unit) {
             .padding(horizontal = 20.dp).padding(top = 8.dp, bottom = 112.dp),
         verticalArrangement = Arrangement.spacedBy(13.dp)
     ) {
-        Text("Create Config", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-        Text("Build a valid share link and save it to your local library.", color = TextSecondary, fontSize = 13.sp)
+        Text(tr("Create Config"), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+        Text(tr("Build a valid share link and save it to your local library."), color = TextSecondary, fontSize = 13.sp)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             (1..3).forEach { n ->
                 Box(Modifier.weight(1f).height(4.dp).clip(CircleShape)
@@ -359,7 +375,7 @@ private fun CreatePage(onGenerate: (ConfigProfile) -> Unit) {
 
         when (step) {
             1 -> {
-                Text("Choose protocol", style = MaterialTheme.typography.titleMedium)
+                Text(tr("Choose protocol"), style = MaterialTheme.typography.titleMedium)
                 listOf("VLESS + TLS", "VLESS + Reality", "Trojan", "Shadowsocks", "Hysteria2", "TUIC").forEach { option ->
                     GlassCard(
                         modifier = Modifier.fillMaxWidth(),
@@ -523,40 +539,56 @@ private fun ToolsPage(onOpenAdvancedPanel: () -> Unit) {
             .padding(horizontal = 20.dp).padding(top = 8.dp, bottom = 112.dp),
         verticalArrangement = Arrangement.spacedBy(13.dp)
     ) {
-        Text("Tools", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-        Text("Advanced utilities and server-side helpers", color = TextSecondary, fontSize = 13.sp)
-        ToolCard("Backhaul Generator", "Build tunnel server / client configuration", Icons.Filled.Build, onOpenAdvancedPanel)
-        ToolCard("REALITY & node settings", "Open the full configuration panel", Icons.Filled.Security, onOpenAdvancedPanel)
-        ToolCard("Cloudflare / Telegram proxy", "Open existing proxy tools", Icons.Filled.Settings, onOpenAdvancedPanel)
-        ToolCard("QR import & diagnostics", "Use the full import and diagnostic panel", Icons.Filled.QrCodeScanner, onOpenAdvancedPanel)
+        Text(tr("Tools"), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+        Text(tr("Advanced utilities and server-side helpers"), color = TextSecondary, fontSize = 13.sp)
+        ToolCard(tr("Backhaul Generator"), tr("Build tunnel server / client configuration"), Icons.Filled.Build, onOpenAdvancedPanel)
+        ToolCard(tr("REALITY & node settings"), tr("Open the full configuration panel"), Icons.Filled.Security, onOpenAdvancedPanel)
+        ToolCard(tr("Cloudflare / Telegram proxy"), tr("Open existing proxy tools"), Icons.Filled.Settings, onOpenAdvancedPanel)
+        ToolCard(tr("QR import & diagnostics"), tr("Use the full import and diagnostic panel"), Icons.Filled.QrCodeScanner, onOpenAdvancedPanel)
     }
 }
 
 @Composable
 private fun MorePage(onOpenAdvancedPanel: () -> Unit) {
+    val language = LocalAppLanguage.current
+    val setLanguage = LocalSetAppLanguage.current
     Column(
         modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState())
             .padding(horizontal = 20.dp).padding(top = 8.dp, bottom = 112.dp),
         verticalArrangement = Arrangement.spacedBy(13.dp)
     ) {
-        Text("More", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-        Text("Settings and advanced features", color = TextSecondary, fontSize = 13.sp)
+        Text(tr("More"), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+        Text(tr("Settings and advanced features"), color = TextSecondary, fontSize = 13.sp)
         GlassCard(modifier = Modifier.fillMaxWidth()) {
-            Text("Local-first storage", fontWeight = FontWeight.SemiBold)
-            Text("Credentials are stored by the existing encrypted local library. Cloud sync remains optional.",
+            Text(tr("Local-first storage"), fontWeight = FontWeight.SemiBold)
+            Text(tr("Credentials are stored by the existing encrypted local library. Cloud sync remains optional."),
                 color = TextSecondary, fontSize = 12.sp)
         }
         GlassCard(modifier = Modifier.fillMaxWidth()) {
-            Text("Appearance", fontWeight = FontWeight.SemiBold)
-            Text("SPD-C Neon Glass • dark navy • cyan glow", color = TextSecondary, fontSize = 12.sp)
+            Text(tr("Language"), fontWeight = FontWeight.SemiBold)
+            Text(tr("Choose the app language. Persian and Arabic use right-to-left layout."),
+                color = TextSecondary, fontSize = 12.sp)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                AppLanguage.entries.forEach { option ->
+                    FilterChip(
+                        selected = language == option,
+                        onClick = { setLanguage(option) },
+                        label = { Text(option.nativeLabel) }
+                    )
+                }
+            }
+        }
+        GlassCard(modifier = Modifier.fillMaxWidth()) {
+            Text(tr("Appearance"), fontWeight = FontWeight.SemiBold)
+            Text(tr("SPD-C Neon Glass • dark navy • cyan glow"), color = TextSecondary, fontSize = 12.sp)
         }
         GlassCard(modifier = Modifier.fillMaxWidth(), onClick = onOpenAdvancedPanel) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Filled.Settings, contentDescription = null, tint = NeonCyan, modifier = Modifier.size(26.dp))
                 Spacer(Modifier.width(12.dp))
                 Column(modifier = Modifier.weight(1f)) {
-                    Text("Advanced / legacy panel", fontWeight = FontWeight.SemiBold)
-                    Text("Nodes, Cloud sync, Backhaul, Telegram proxy and extended settings",
+                    Text(tr("Advanced / legacy panel"), fontWeight = FontWeight.SemiBold)
+                    Text(tr("Nodes, Cloud sync, Backhaul, Telegram proxy and extended settings"),
                         color = TextSecondary, fontSize = 12.sp)
                 }
             }
