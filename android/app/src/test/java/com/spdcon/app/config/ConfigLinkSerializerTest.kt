@@ -86,6 +86,58 @@ class ConfigLinkSerializerTest {
     }
 
     @Test
+    fun serializesAndParsesHysteria2Link() {
+        val profile = ConfigProfile(
+            name = "Hysteria test",
+            protocol = ConfigProtocol.HYSTERIA2,
+            server = "edge.example.com",
+            port = 443,
+            credential = "hy2-secret",
+            network = "udp",
+            security = "tls",
+            parameters = mapOf(
+                "sni" to "cdn.example.com",
+                "obfs" to "salamander",
+                "obfs-password" to "obfs-secret"
+            )
+        )
+        val link = ConfigLinkSerializer.serialize(profile).getOrThrow()
+        assertTrue(link.startsWith("hysteria2://hy2-secret@edge.example.com:443/"))
+        val parsed = ConfigLinkParser.parse(link).getOrThrow()
+        assertEquals(ConfigProtocol.HYSTERIA2, parsed.protocol)
+        assertEquals("hy2-secret", parsed.credential)
+        assertEquals("salamander", parsed.parameters["obfs"])
+        assertEquals("obfs-secret", parsed.parameters["obfs-password"])
+    }
+
+    @Test
+    fun serializesAndParsesTuicLinkWithSeparatePassword() {
+        val profile = ConfigProfile(
+            name = "TUIC test",
+            protocol = ConfigProtocol.TUIC,
+            server = "edge.example.com",
+            port = 443,
+            credential = "00000000-0000-0000-0000-000000000000",
+            network = "udp",
+            security = "tls",
+            parameters = mapOf(
+                "password" to "tuic-secret",
+                "sni" to "cdn.example.com",
+                "alpn" to "h3",
+                "congestion_control" to "bbr",
+                "udp_relay_mode" to "native"
+            )
+        )
+        val link = ConfigLinkSerializer.serialize(profile).getOrThrow()
+        assertTrue(link.startsWith("tuic://00000000-0000-0000-0000-000000000000:tuic-secret@"))
+        val parsed = ConfigLinkParser.parse(link).getOrThrow()
+        assertEquals(ConfigProtocol.TUIC, parsed.protocol)
+        assertEquals("00000000-0000-0000-0000-000000000000", parsed.credential)
+        assertEquals("tuic-secret", parsed.parameters["password"])
+        assertEquals("h3", parsed.parameters["alpn"])
+    }
+
+    @Test
     fun parsesAndSerializesShadowsocks() {
         val input = "ss://" + java.util.Base64.getUrlEncoder().withoutPadding()
             .encodeToString("chacha20-ietf-poly1305:password@example.com:8388".toByteArray()) + "#Test"
