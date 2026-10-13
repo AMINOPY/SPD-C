@@ -554,7 +554,7 @@ private fun AiConPage(
                                     }
                                     if (report != null) reports[candidate.name] = report
                                 }
-                                val best = AiConEngine.rankCandidates(profiles, reports, network).firstOrNull()
+                                val best = AiConEngine.rankCandidates(profiles, reports, network, downloadMbps).firstOrNull()
                                 if (best == null) {
                                     result = "هیچ تونلی در این بررسی تأیید نشد؛ برای جلوگیری از ساخت کانفیگِ ظاهراً آماده اما خراب، AI_CON چیزی را به‌عنوان کانفیگِ کارا ذخیره نکرد."
                                 } else {
