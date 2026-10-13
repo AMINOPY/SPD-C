@@ -184,6 +184,21 @@ class ConfigHubApiTests(unittest.TestCase):
         self.assertEqual(first.status_code, 201, first.text)
         self.assertTrue(first.json()["accepted"])
         self.assertEqual(first.json()["client_ip"], "2001:db8::8")
+        self.assertEqual(first.json()["usage_delta_bytes"], 400)
+        with api.db() as conn:
+            self.assertEqual(conn.execute("SELECT used_bytes FROM users WHERE id=?",
+                                          (user["id"],)).fetchone()["used_bytes"], 400)
+
+        # A later cumulative snapshot charges only the increase, not the whole counter.
+        updated_event = dict(event, event_id="event-unique-987654321",
+                             event_timestamp=api.now(), upload_bytes=150, download_bytes=325)
+        updated = self.client.post(f"/nodes/{node['id']}/connections/report",
+                                   headers=headers, json=updated_event)
+        self.assertEqual(updated.status_code, 201, updated.text)
+        self.assertEqual(updated.json()["usage_delta_bytes"], 75)
+        with api.db() as conn:
+            self.assertEqual(conn.execute("SELECT used_bytes FROM users WHERE id=?",
+                                          (user["id"],)).fetchone()["used_bytes"], 475)
 
         replay = self.client.post(f"/nodes/{node['id']}/connections/report",
                                   headers=headers, json=event)
