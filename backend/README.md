@@ -1,6 +1,6 @@
 # Spd con API (initial Config Hub backend)
 
-This is an initial, testable API foundation. It is not yet the production control plane for live VPN nodes.
+This is an optional initial, testable API foundation for local Docker-based development. It is not required by the Android-first app and is not yet the production control plane for live VPN nodes. For a no-VPS Cloudflare option, see [../cloudflare/README.md](../cloudflare/README.md).
 
 ## Run locally with Docker Compose
 
@@ -8,7 +8,7 @@ This is an initial, testable API foundation. It is not yet the production contro
 2. Generate separate long random values for `APP_SECRET` and `BOOTSTRAP_ADMIN_TOKEN` (at least 32 characters for the app secret).
 3. Optionally set `PUBLIC_BASE_URL` to the externally reachable HTTPS API origin. Leave it blank for local development.
 4. Run `docker compose up --build` from this directory.
-5. Open `http://127.0.0.1:8000/panel/` for the initial web dashboard, or `http://127.0.0.1:8000/docs` to explore the API.
+5. Open `http://127.0.0.1:8000/panel/` only if you want to try the optional prototype dashboard, or `http://127.0.0.1:8000/docs` to explore the API.
 
 Do not expose the development API to the public internet without TLS termination, rate limiting, secure secret management, monitoring and a production review. Do not commit `.env`.
 
