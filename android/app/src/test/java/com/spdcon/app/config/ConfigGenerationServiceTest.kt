@@ -69,6 +69,27 @@ class ConfigGenerationServiceTest {
     }
 
     @Test
+    fun tlsRelayHonorsCustomXhttpPathTemplateAndKeepsUserIdInPath() {
+        val report = ConfigGenerationService.generateForUser(
+            userId,
+            "Amin",
+            listOf(
+                ConfigInboundSpec(
+                    id = "relay-custom-path",
+                    name = "Custom Relay",
+                    kind = ConfigInboundKind.TLS_RELAY,
+                    endpoint = "relay.example.com",
+                    sni = "relay.example.com",
+                    path = "/custom/{mode}/{uuid}",
+                    xhttpMode = "stream-one"
+                )
+            )
+        ).getOrThrow()
+        val xhttp = report.configs.single { it.profile.network == "xhttp" }
+        assertEquals("/custom/stream-one/$userId", xhttp.profile.parameters["path"])
+    }
+
+    @Test
     fun workerRoutesExpandStableUserIdAndOptionalKnownIp() {
         val report = ConfigGenerationService.generateForUser(
             userId,
