@@ -102,7 +102,8 @@ class SpdConVpnService : VpnService() {
 
         val proxyOutbound = outbounds.optJSONObject(0)
             ?: throw IllegalArgumentException("Xray returned an invalid outbound")
-        val proxyTag = proxyOutbound.optString("tag").ifBlank { "spdcon-proxy" }
+        // Use a reserved, stable tag so imported remarks cannot collide with DNS/direct routes.
+        val proxyTag = "spdcon-proxy"
         proxyOutbound.put("tag", proxyTag)
 
         val builder = Builder()
