@@ -4,7 +4,9 @@ This roadmap is the acceptance checklist for evolving the current Android config
 
 ## Phase 0 — compatibility, security and license review
 - [ ] Review source trees, licenses, dependencies, APIs and release activity of SpiderPanel, Blue-Knight-Panel, 3x-ui, Xray-core, Scan-Cloud and DicodeConfigChecker.
-- [x] Document the staged feature strategy for SpiderPanel (primary product inspiration), Blue-Knight-Panel (web UX inspiration) and a server-side 3x-ui node adapter in `docs/INTEGRATION-PLAN.md`.
+- [x] Document the staged feature strategy for SpiderPanel (primary product inspiration), Blue-Knight-Panel (web UX inspiration), Shade (setup/import-export/relay reliability ideas) and a server-side 3x-ui node adapter in `docs/INTEGRATION-PLAN.md`.
+- [ ] Confirm the exact public repository URL and license for `4nOnymou3/WARP`; the supplied repo path returned 404 in this review, so no features are attributed to it yet.
+- [ ] Implement Shade-inspired guided setup, safe profile import/export, real health-based relay failover, and optional runtime-backed domain filtering.
 - [x] Initial scanner license metadata check: Clean-IP-Scanner and cfray report MIT; SpiderPanel, Blue-Knight-Panel, WhiteDNS-cleanip-finder and Exelite-Scanner do not expose a recognized SPDX license in repository metadata, so do not copy their code until the license files are checked.
 - [ ] Record exact versions, attribution and license obligations before reusing code or assets.
 - [ ] Pin protocol compatibility to a tested Xray-core release and document export-format limitations.
