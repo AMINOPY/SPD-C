@@ -7,8 +7,7 @@ import android.database.sqlite.SQLiteOpenHelper
 import org.json.JSONObject
 
 /**
- * Small local-only configuration library. Credentials stay on-device; this is not encrypted
- * storage, so the app must not describe it as a secure vault.
+ * Local configuration library. Credentials are encrypted with Android Keystore AES-GCM.
  */
 class ConfigLibraryStore(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME, null, DATABASE_VERSION) {
     override fun onCreate(db: SQLiteDatabase) {
@@ -32,7 +31,26 @@ class ConfigLibraryStore(context: Context) : SQLiteOpenHelper(context, DATABASE_
     }
 
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
-        // No destructive migration is needed for version 1. Future schema changes must migrate.
+        if (oldVersion < 2) {
+            db.beginTransaction()
+            try {
+                db.rawQuery("SELECT id, credential FROM configs", null).use { cursor ->
+                    while (cursor.moveToNext()) {
+                        val id = cursor.getLong(0)
+                        val stored = cursor.getString(1)
+                        if (!CredentialCipher.isEncrypted(stored)) {
+                            val values = ContentValues().apply {
+                                put("credential", CredentialCipher.encrypt(stored))
+                            }
+                            db.update("configs", values, "id=?", arrayOf(id.toString()))
+                        }
+                    }
+                }
+                db.setTransactionSuccessful()
+            } finally {
+                db.endTransaction()
+            }
+        }
     }
 
     fun save(profile: ConfigProfile): Result<Unit> = runCatching {
@@ -43,7 +61,7 @@ class ConfigLibraryStore(context: Context) : SQLiteOpenHelper(context, DATABASE_
             put("protocol", profile.protocol.name)
             put("server", profile.server)
             put("port", profile.port)
-            put("credential", profile.credential)
+            put("credential", CredentialCipher.encrypt(profile.credential))
             put("network", profile.network)
             put("security", profile.security)
             put("remark", profile.remark)
@@ -81,7 +99,7 @@ class ConfigLibraryStore(context: Context) : SQLiteOpenHelper(context, DATABASE_
                         protocol = ConfigProtocol.valueOf(cursor.getString(1)),
                         server = cursor.getString(2),
                         port = cursor.getInt(3),
-                        credential = cursor.getString(4),
+                        credential = CredentialCipher.decrypt(cursor.getString(4)),
                         network = cursor.getString(5),
                         security = cursor.getString(6),
                         remark = if (cursor.isNull(7)) null else cursor.getString(7),
@@ -100,6 +118,6 @@ class ConfigLibraryStore(context: Context) : SQLiteOpenHelper(context, DATABASE_
 
     companion object {
         private const val DATABASE_NAME = "spdcon-configs.db"
-        private const val DATABASE_VERSION = 1
+        private const val DATABASE_VERSION = 2
     }
 }
