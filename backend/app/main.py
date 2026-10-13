@@ -297,12 +297,6 @@ class NodeConnectionReportIn(ConnectionReportIn):
     event_timestamp: int = Field(ge=0)
 
 
-class NodeAccessCheckIn(BaseModel):
-    user_id: str = Field(min_length=1, max_length=128)
-    client_ip: str = Field(min_length=3, max_length=64)
-    connection_id: str | None = Field(default=None, min_length=8, max_length=128)
-
-
 def validate_profile(profile: dict[str, Any]) -> str:
     encoded = json.dumps(profile, ensure_ascii=False, separators=(",", ":"))
     if len(encoded.encode("utf-8")) > MAX_CONFIG_BYTES:
@@ -772,82 +766,6 @@ def admin_set_node_enabled(node_id: str, enabled: bool,
         row = conn.execute("SELECT id,name,enabled,created_at,last_seen_at FROM nodes WHERE id=?",
                            (node_id,)).fetchone()
     return dict(row)
-
-
-@app.post("/nodes/{node_id}/access/check", tags=["nodes", "access"])
-def node_check_access(node_id: str, payload: NodeAccessCheckIn,
-                     authorization: str | None = Header(default=None)) -> dict[str, Any]:
-    """Pre-admission access decision for trusted runtimes; Xray does not call this automatically."""
-    import ipaddress
-
-    if not authorization or not authorization.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="Node bearer secret required")
-    node_secret = authorization[7:].strip()
-    try:
-        client_ip = str(ipaddress.ip_address(payload.client_ip))
-    except ValueError:
-        raise HTTPException(status_code=422, detail="client_ip must be a valid IPv4 or IPv6 address")
-
-    timestamp = now()
-    with db() as conn:
-        node = conn.execute("SELECT * FROM nodes WHERE id=?", (node_id,)).fetchone()
-        if node is None or not node["enabled"] or not hmac.compare_digest(
-            node["secret_hash"], hash_secret(node_secret)
-        ):
-            raise HTTPException(status_code=401, detail="Unknown, disabled or invalid node credentials")
-        user = conn.execute("SELECT * FROM users WHERE id=?", (payload.user_id,)).fetchone()
-        if user is None:
-            # Avoid turning this endpoint into a user-id enumeration oracle.
-            return {"allowed": False, "reasons": ["account_unavailable"], "retry_after_seconds": 30}
-        reasons: list[str] = []
-        if not user["enabled"]:
-            reasons.append("account_disabled")
-        if user["expires_at"] is not None and user["expires_at"] <= timestamp:
-            reasons.append("account_expired")
-        if user["quota_bytes"] > 0 and user["used_bytes"] >= user["quota_bytes"]:
-            reasons.append("quota_exhausted")
-
-        policy = conn.execute("SELECT * FROM connection_policies WHERE user_id=?",
-                              (payload.user_id,)).fetchone()
-        known_ip = conn.execute(
-            "SELECT 1 FROM connection_observations WHERE user_id=? AND client_ip=? "
-            "AND last_seen_at>=? LIMIT 1",
-            (payload.user_id, client_ip, timestamp - 24 * 60 * 60),
-        ).fetchone() is not None
-        distinct_ips = conn.execute(
-            "SELECT COUNT(DISTINCT client_ip) FROM connection_observations "
-            "WHERE user_id=? AND last_seen_at>=?",
-            (payload.user_id, timestamp - 24 * 60 * 60),
-        ).fetchone()[0]
-        active_query = (
-            "SELECT COUNT(*) FROM connection_observations WHERE user_id=? AND state='active' "
-            "AND last_seen_at>=?"
-        )
-        active_params: tuple[Any, ...] = (payload.user_id, timestamp - 5 * 60)
-        if payload.connection_id:
-            active_query += " AND connection_id<>?"
-            active_params += (payload.connection_id,)
-        active_connections = conn.execute(active_query, active_params).fetchone()[0]
-
-    if policy is not None:
-        if (policy["max_distinct_ips"] > 0 and not known_ip and
-                distinct_ips >= policy["max_distinct_ips"] and policy["action"] == "deny_new_ip"):
-            reasons.append("distinct_ip_limit_exceeded")
-        if (policy["max_concurrent_connections"] > 0 and
-                active_connections >= policy["max_concurrent_connections"]):
-            reasons.append("concurrent_connection_limit_exceeded")
-
-    return {
-        "allowed": not reasons,
-        "reasons": reasons,
-        "user_id": payload.user_id,
-        "node_id": node_id,
-        "observed_distinct_ips_24h": distinct_ips,
-        "observed_active_connections_5m": active_connections,
-        "policy_action": policy["action"] if policy is not None else "observe_only",
-        "checked_at": timestamp,
-        "enforcement": "decision_only_runtime_must_call_before_admission",
-    }
 
 
 @app.post("/nodes/{node_id}/connections/report", status_code=201,

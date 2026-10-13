@@ -99,61 +99,6 @@ class ConfigHubApiTests(unittest.TestCase):
         self.assertEqual(usage.status_code, 201, usage.text)
         self.assertEqual(self.client.get(subscription["url"]).status_code, 404)
 
-    def test_node_access_check_enforces_account_quota_and_ip_policy(self):
-        admin = self.register("access_admin")
-        bootstrap = self.client.post("/admin/bootstrap", headers={
-            "X-Bootstrap-Token": api.BOOTSTRAP_ADMIN_TOKEN
-        })
-        self.assertEqual(bootstrap.status_code, 201, bootstrap.text)
-        admin_headers = self.login("access_admin")
-        user_response = self.client.post("/auth/register", json={
-            "username": "access_user", "password": "a-very-long-test-password"
-        })
-        user_id = user_response.json()["user"]["id"]
-        node_response = self.client.post("/admin/nodes", headers=admin_headers,
-                                         json={"name": "access-node"})
-        self.assertEqual(node_response.status_code, 201, node_response.text)
-        node = node_response.json()
-        headers = {"Authorization": "Bearer " + node["node_secret"]}
-        payload = {"user_id": user_id, "client_ip": "192.0.2.1",
-                   "connection_id": "connection-access-1"}
-
-        allowed = self.client.post(f"/nodes/{node['id']}/access/check",
-                                   headers=headers, json=payload)
-        self.assertEqual(allowed.status_code, 200, allowed.text)
-        self.assertTrue(allowed.json()["allowed"])
-
-        policy = self.client.put(f"/admin/users/{user_id}/connection-policy",
-            headers=admin_headers, json={"max_distinct_ips": 1,
-                "max_concurrent_connections": 0, "action": "deny_new_ip"})
-        self.assertEqual(policy.status_code, 200, policy.text)
-        observed = self.client.post(f"/admin/users/{user_id}/connections/report",
-            headers=admin_headers, json={"connection_id": "connection-known-ip",
-                "node_id": node["id"], "client_ip": "192.0.2.1", "state": "active"})
-        self.assertEqual(observed.status_code, 201, observed.text)
-
-        denied = self.client.post(f"/nodes/{node['id']}/access/check",
-            headers=headers, json={**payload, "client_ip": "192.0.2.2"})
-        self.assertEqual(denied.status_code, 200, denied.text)
-        self.assertFalse(denied.json()["allowed"])
-        self.assertIn("distinct_ip_limit_exceeded", denied.json()["reasons"])
-
-        self.client.patch(f"/admin/users/{user_id}/limits", headers=admin_headers,
-            json={"quota_bytes": 10, "expires_at": None, "enabled": True})
-        self.client.post(f"/admin/users/{user_id}/usage", headers=admin_headers,
-            json={"node_id": node["id"], "delta_bytes": 10})
-        quota_denied = self.client.post(f"/nodes/{node['id']}/access/check",
-            headers=headers, json=payload)
-        self.assertFalse(quota_denied.json()["allowed"])
-        self.assertIn("quota_exhausted", quota_denied.json()["reasons"])
-
-    def test_node_access_check_requires_enrolled_node_secret(self):
-        response = self.client.post("/nodes/not-a-node/access/check",
-            headers={"Authorization": "Bearer incorrect"}, json={
-                "user_id": "missing-user", "client_ip": "192.0.2.5"
-            })
-        self.assertEqual(response.status_code, 401)
-
     def test_connection_policy_and_ip_observations_are_admin_scoped(self):
         admin_user = self.register("admin_user")
         bootstrap = self.client.post("/admin/bootstrap", headers={

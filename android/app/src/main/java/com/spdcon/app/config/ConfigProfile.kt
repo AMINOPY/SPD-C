@@ -77,7 +77,11 @@ data class ConfigProfile(
             }) {
             add("ALPN must be a comma-separated list of protocol tokens")
         }
-        val headerType = parameters["headerType"] ?: parameters["type"]
+        // In VLESS/Trojan share links, query parameter "type" means transport
+        // (for example type=ws). It is a TCP header type only in TCP/RAW profiles.
+        val headerType = parameters["headerType"]
+            ?: parameters["type"]?.takeIf { network.equals("tcp", ignoreCase = true) ||
+                network.equals("raw", ignoreCase = true) }
         if (!headerType.isNullOrBlank() &&
             headerType.lowercase() !in setOf("none", "tcp", "http")) {
             add("TCP header type must be none or http")
