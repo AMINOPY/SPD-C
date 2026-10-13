@@ -65,7 +65,6 @@ object DnsResolverScanner {
             val randomLabel = "spd-" + java.lang.Long.toString(SecureRandom().nextLong().ushr(1), 36) + "." + domain
             val random = query(address, port, randomLabel, 1, timeoutMs)
             if (random.rcode == 3) { score++; details += "NXD✓" }
-            else if (random.rcode == 0 && random.answers == 0) { score++; details += "RND✓" }
             else details += "NXD✗"
             return DnsResolverResult(ip, (System.nanoTime() - start) / 1_000_000L, score, 3,
                 if (score == 3) "DNS compatible" else details.joinToString(" "))
