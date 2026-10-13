@@ -174,6 +174,11 @@ async function handle(request, env) {
   }
   if (method === "GET" && path === "/api/v1/users/me") return json({ user: cleanUser(user) });
 
+  if (method === "GET" && path === "/api/v1/nodes") {
+    const result = await env.DB.prepare("SELECT id,name,address,port,country,protocol,network,security,sni,public_key,short_id,fingerprint FROM nodes WHERE enabled=1 ORDER BY country,name LIMIT 300").all();
+    return json({ nodes: (result.results || []).map((n) => ({ id:n.id,name:n.name,address:n.address,port:n.port,country:n.country,protocol:n.protocol,network:n.network,security:n.security,sni:n.sni,publicKey:n.public_key,shortId:n.short_id,fingerprint:n.fingerprint })) });
+  }
+
   if (path === "/api/v1/configs" && method === "GET") {
     const result = await env.DB.prepare("SELECT id,name,protocol,profile_json,created_at,updated_at FROM configs WHERE owner_id=? ORDER BY updated_at DESC").bind(user.id).all();
     return json({ configs: (result.results || []).map((r) => ({ ...r, profile: JSON.parse(r.profile_json) })) });
