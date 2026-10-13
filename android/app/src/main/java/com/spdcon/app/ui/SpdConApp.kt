@@ -156,7 +156,9 @@ fun SpdConApp(onOpenAdvancedPanel: () -> Unit = {}) {
                     .setAction(SpdConVpnService.ACTION_START)
                     .putExtra(SpdConVpnService.EXTRA_LINK, link)
                     .putExtra(SpdConVpnService.EXTRA_NAME, profile.name)
-                    .putExtra(SpdConVpnService.EXTRA_FRAGMENT_ENABLED, useFragment)
+                    .putExtra(SpdConVpnService.EXTRA_FRAGMENT_ENABLED, useFragment &&
+                        (profile.security.equals("tls", true) || profile.security.equals("reality", true)) &&
+                        profile.network.lowercase() !in setOf("udp", "quic"))
                 runCatching { context.startForegroundService(serviceIntent) }
                     .onSuccess { dialogMessage = "VPN startup requested. Android will show the active VPN notification; actual server reachability still needs verification." }
                     .onFailure { dialogMessage = "Could not start VPN service: ${it.message}" }
