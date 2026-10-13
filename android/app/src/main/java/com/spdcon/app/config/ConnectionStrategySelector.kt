@@ -1,5 +1,12 @@
 package com.spdcon.app.config
 
+enum class TunnelSelectionGoal {
+    STANDARD,
+    RESTRICTED_NETWORK,
+    CLOUDFLARE_CDN,
+    UDP_SPEED
+}
+
 /**
  * Ranks saved profiles using real probe results first, then explicit runtime and
  * transport compatibility. Recommendations never claim DPI resistance.
@@ -18,7 +25,7 @@ object ConnectionStrategySelector {
     fun rank(
         profiles: List<ConfigProfile>,
         reportsByProfileName: Map<String, ConnectionDiagnosticReport> = emptyMap(),
-        goal: SetupGoal = SetupGoal.STANDARD
+        goal: TunnelSelectionGoal = TunnelSelectionGoal.STANDARD
     ): List<RankedConnectionStrategy> =
         profiles.map { profile ->
             val compatibility = ConfigRuntimeCompatibility.inspectForBundledRuntime(profile)
@@ -46,7 +53,7 @@ object ConnectionStrategySelector {
 
     fun rankForLiveTesting(
         profiles: List<ConfigProfile>,
-        goal: SetupGoal = SetupGoal.STANDARD,
+        goal: TunnelSelectionGoal = TunnelSelectionGoal.STANDARD,
         limit: Int = 5
     ): List<ConfigProfile> {
         require(limit in 1..20) { "Candidate limit must be between 1 and 20" }
@@ -56,23 +63,23 @@ object ConnectionStrategySelector {
             .map { it.profile }
     }
 
-    private fun goalMatchScore(profile: ConfigProfile, goal: SetupGoal): Int {
+    private fun goalMatchScore(profile: ConfigProfile, goal: TunnelSelectionGoal): Int {
         val network = profile.network.lowercase()
         val security = profile.security.lowercase()
         return when (goal) {
-            SetupGoal.STANDARD -> if (security == "tls") 100 else 0
-            SetupGoal.RESTRICTED_NETWORK -> when {
+            TunnelSelectionGoal.STANDARD -> if (security == "tls") 100 else 0
+            TunnelSelectionGoal.RESTRICTED_NETWORK -> when {
                 profile.protocol == ConfigProtocol.VLESS && security == "reality" -> 350
                 profile.protocol == ConfigProtocol.VLESS && security == "tls" -> 250
                 security == "tls" -> 100
                 else -> 0
             }
-            SetupGoal.CLOUDFLARE_CDN -> if (
+            TunnelSelectionGoal.CLOUDFLARE_CDN -> if (
                 profile.protocol == ConfigProtocol.VLESS && network in setOf("ws", "websocket") &&
                 security == "tls" && !profile.parameters["host"].isNullOrBlank() &&
                 !profile.parameters["sni"].isNullOrBlank()
             ) 400 else 0
-            SetupGoal.UDP_SPEED -> if (
+            TunnelSelectionGoal.UDP_SPEED -> if (
                 profile.protocol in setOf(ConfigProtocol.HYSTERIA2, ConfigProtocol.TUIC) && network == "udp"
             ) 400 else 0
         }
