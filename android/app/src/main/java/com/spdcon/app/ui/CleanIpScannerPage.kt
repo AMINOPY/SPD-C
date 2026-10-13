@@ -45,6 +45,8 @@ fun CleanIpScannerPage(onBack: () -> Unit, onUseIp: (ip: String, sni: String) ->
     var recentIps by remember { mutableStateOf((prefs.getString("last_good_ips", "") ?: "").lines().filter(String::isNotBlank)) }
     var recentDnsIps by remember { mutableStateOf((prefs.getString("last_dns_ips", "") ?: "").lines().filter(String::isNotBlank)) }
     var history by remember { mutableStateOf(ScanHistoryStore.load(prefs)) }
+    var speedTestingIp by remember { mutableStateOf<String?>(null) }
+    var speedResults by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
     val scanningStatus = tr("Scanning candidates…")
     val downloadingCountryStatus = tr("Downloading country ranges and scanning…")
     val noCandidatesError = tr("No IP candidates to scan")
@@ -258,8 +260,40 @@ fun CleanIpScannerPage(onBack: () -> Unit, onUseIp: (ip: String, sni: String) ->
                                 color = if (result.tlsOk) NeonCyan else MaterialTheme.colorScheme.error, fontSize = 12.sp)
                         }
                         Text(tr(result.detail), color = TextSecondary, fontSize = 11.sp)
-                        if (result.tlsOk) TextButton(onClick = { onUseIp(result.ip, sni.trim()) }) {
-                            Text(tr("Use IP in config"))
+                        if (result.tlsOk) {
+                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                TextButton(onClick = { onUseIp(result.ip, sni.trim()) }) {
+                                    Text(tr("Use IP in config"))
+                                }
+                                TextButton(
+                                    enabled = speedTestingIp == null,
+                                    onClick = {
+                                        speedTestingIp = result.ip
+                                        scope.launch {
+                                            val outcome = withContext(Dispatchers.IO) {
+                                                runCatching { CloudflareEdgeSpeedTester.test(result.ip) }
+                                            }
+                                            speedTestingIp = null
+                                            speedResults = speedResults + (result.ip to outcome.fold(
+                                                onSuccess = { speed ->
+                                                    "Download %.2f Mbps • Upload %.2f Mbps • %d/%d ms".format(
+                                                        java.util.Locale.US, speed.downloadMbps, speed.uploadMbps,
+                                                        speed.downloadMs, speed.uploadMs
+                                                    )
+                                                },
+                                                onFailure = { failure ->
+                                                    "Speed test unavailable: ${failure.message ?: failure.javaClass.simpleName}"
+                                                }
+                                            ))
+                                        }
+                                    }
+                                ) {
+                                    Text(if (speedTestingIp == result.ip) tr("Testing speed…") else tr("Download / upload test"))
+                                }
+                            }
+                            speedResults[result.ip]?.let { speedText ->
+                                Text(speedText, color = NeonCyan, fontSize = 11.sp)
+                            }
                         }
                     }
                 }
