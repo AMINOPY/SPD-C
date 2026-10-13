@@ -841,8 +841,8 @@ private fun LibraryPage(
     }
     val noCompatibleProfileMessage = tr("No saved profile is compatible with the bundled Xray core.")
     val noCompatibleProfileSelectedMessage = tr("No compatible profile could be selected.")
-    val verifiedOnCurrentNetworkTemplate = verifiedOnCurrentNetworkTemplate
-    val unverifiedRecommendationTemplate = unverifiedRecommendationTemplate
+    val verifiedOnCurrentNetworkTemplate = tr("Verified on this network: {name}. DPI resistance is not proven.")
+    val unverifiedRecommendationTemplate = tr("No tunnel was verified. Suggested compatible profile: {name}; test result is unverified.")
     Column(modifier = Modifier.fillMaxSize().padding(horizontal = 20.dp).padding(top = 8.dp, bottom = 112.dp)) {
         Text(tr("Library"), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
         Text(tr("Saved configurations on this device"), color = TextSecondary, fontSize = 13.sp)
@@ -897,11 +897,9 @@ private fun LibraryPage(
                                 selectionStatus = when {
                                     best == null -> noCompatibleProfileSelectedMessage
                                     best.confidence == com.spdcon.app.config.TunnelSelectionConfidence.LIVE_VERIFIED ->
-                                        tr("Verified on this network: {name}. DPI resistance is not proven.")
-                                            .replace("{name}", best.profileName)
+                                        verifiedOnCurrentNetworkTemplate.replace("{name}", best.profileName)
                                     else ->
-                                        tr("No tunnel was verified. Suggested compatible profile: {name}; test result is unverified.")
-                                            .replace("{name}", best.profileName)
+                                        unverifiedRecommendationTemplate.replace("{name}", best.profileName)
                                 }
                             }
                             autoSelectionProgress = null
