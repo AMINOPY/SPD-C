@@ -147,7 +147,7 @@ class ConfigHubApiTests(unittest.TestCase):
         repeat = self.client.post(f"/admin/users/{user_id}/connections/report",
             headers=admin_headers, json={
                 "connection_id": "connection-repeat", "node_id": "node-a",
-                "client_ip": "198.51.100.11", "state": "active",
+                "client_ip": "2001:db8::10", "state": "active",
                 "upload_bytes": 0, "download_bytes": 0,
             })
         self.assertEqual(repeat.status_code, 201, repeat.text)
