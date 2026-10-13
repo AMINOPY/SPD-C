@@ -56,11 +56,12 @@ Traffic quotas must be enforced by a trusted node/runtime counter, not by client
 
 Already present on the development branch:
 - Android profile library, common link parsing/serialization, QR/copy/share, REALITY fields and guided config recommendations.
-- A basic bounded IPv4/TLS scanner with built-in, custom and recent candidates, a supported-port allowlist, SNI validation, and a maximum of 256 candidates.
+- A bounded IPv4/TLS scanner with built-in, custom IP/CIDR/range and recent candidates, supported TLS ports, SNI validation, and a maximum of 256 candidates.
+- A new DNS resolver quick scan inspired by SlipNet: curated public resolver candidates, custom IP/CIDR input, UDP A/TXT/random-subdomain probes, a 0–3 compatibility score, latency sorting, and remembered successful candidates. This is a DNS compatibility probe only—not SlipNet's full DNS scanner or an end-to-end tunnel test.
 - Optional FastAPI and Cloudflare Worker foundations for accounts/configs/subscriptions.
 
 Still incomplete and must not be presented as finished:
-- Country-based candidate sourcing, IPv6 scanner support, pausing/resuming scans, durable scan history/export, and end-to-end profile compatibility tests.
+- Country-based candidate sourcing, IPv6 scanner support, TCP DNS fallback, pausing/resuming scans, durable scan history/export, speed tests, and end-to-end profile compatibility tests. The current DNS probe does not implement SlipNet's full Simple/Advanced/E2E/Prism modes or its signed server-verification protocol.
 - Android-to-cloud account/config sync and production-grade Cloudflare deployment management.
 - A bundled/running Xray core, actual live tunnel checks, trusted server-side quota enforcement and tested automatic endpoint failover.
 - Complete node lifecycle, production audit/rate-limit/security review, and end-to-end subscription testing.
