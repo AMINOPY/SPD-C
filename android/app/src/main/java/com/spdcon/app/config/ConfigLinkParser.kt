@@ -63,24 +63,49 @@ object ConfigLinkParser {
 
     private fun parseShadowsocks(input: String): ConfigProfile {
         val withoutScheme = input.substring(5)
-        val payload = withoutScheme.substringBefore("#").substringBefore("?")
+        val beforeFragment = withoutScheme.substringBefore("#")
+        val payload = beforeFragment.substringBefore("?")
+        val query = beforeFragment.substringAfter("?", "").takeIf { it.isNotBlank() }
         require(payload.isNotBlank()) { "Shadowsocks credentials are missing" }
-        val decoded = runCatching {
-            String(Base64.getUrlDecoder().decode(payload), StandardCharsets.UTF_8)
-        }.getOrNull() ?: runCatching {
-            String(Base64.getDecoder().decode(payload), StandardCharsets.UTF_8)
-        }.getOrNull()
-        val authority = decoded ?: payload
-        val at = authority.lastIndexOf('@')
-        require(at > 0 && at < authority.lastIndex) {
-            "Shadowsocks link must contain method:password@host:port"
+
+        fun decodeBase64(value: String): String? {
+            val normalized = value.replace('-', '+').replace('_', '/')
+            val padded = normalized + "=".repeat((4 - normalized.length % 4) % 4)
+            return runCatching { String(Base64.getDecoder().decode(padded), StandardCharsets.UTF_8) }.getOrNull()
         }
-        val methodPassword = authority.substring(0, at)
-        val serverPart = authority.substring(at + 1)
-        val colon = serverPart.lastIndexOf(':')
-        require(colon > 0) { "Shadowsocks server port is missing" }
-        val server = serverPart.substring(0, colon).removePrefix("[").removeSuffix("]")
-        val port = serverPart.substring(colon + 1).toIntOrNull() ?: -1
+
+        val methodPassword: String
+        val serverPart: String
+        if (payload.contains("@")) {
+            val userInfo = payload.substringBeforeLast("@")
+            serverPart = payload.substringAfterLast("@")
+            methodPassword = decodeBase64(userInfo)?.takeIf { it.contains(":") } ?: userInfo
+        } else {
+            val decoded = decodeBase64(payload)
+                ?: throw IllegalArgumentException("Shadowsocks payload is not valid Base64")
+            require(decoded.contains("@")) {
+                "Shadowsocks link must contain method:password@host:port or SIP002 userinfo@host:port"
+            }
+            methodPassword = decoded.substringBeforeLast("@")
+            serverPart = decoded.substringAfterLast("@")
+        }
+
+        val server: String
+        val portText: String
+        if (serverPart.startsWith("[")) {
+            val closingBracket = serverPart.indexOf(']')
+            require(closingBracket > 1 && serverPart.getOrNull(closingBracket + 1) == ':') {
+                "Shadowsocks IPv6 address must use [address]:port"
+            }
+            server = serverPart.substring(1, closingBracket)
+            portText = serverPart.substring(closingBracket + 2)
+        } else {
+            val colon = serverPart.lastIndexOf(':')
+            require(colon > 0) { "Shadowsocks server port is missing" }
+            server = serverPart.substring(0, colon)
+            portText = serverPart.substring(colon + 1)
+        }
+        val port = portText.toIntOrNull() ?: -1
         val methodColon = methodPassword.indexOf(':')
         require(methodColon > 0 && methodColon < methodPassword.lastIndex) {
             "Shadowsocks method or password is missing"
@@ -89,6 +114,10 @@ object ConfigLinkParser {
         val password = methodPassword.substring(methodColon + 1)
         val remark = withoutScheme.substringAfter("#", "").takeIf { it.isNotBlank() }
             ?.let { URLDecoder.decode(it, StandardCharsets.UTF_8.name()) }
+        val parameters = buildMap {
+            put("method", method)
+            parseQuery(query).forEach { (key, value) -> put(key, value) }
+        }
         val profile = ConfigProfile(
             name = remark ?: "Shadowsocks • $server",
             protocol = ConfigProtocol.SHADOWSOCKS,
@@ -98,7 +127,7 @@ object ConfigLinkParser {
             network = "tcp",
             security = "none",
             remark = remark,
-            parameters = mapOf("method" to method)
+            parameters = parameters
         )
         val errors = profile.validate()
         require(errors.isEmpty()) { errors.joinToString("; ") }
