@@ -30,6 +30,24 @@ class ConfigLinkSerializerTest {
     }
 
     @Test
+    fun preservesExplicitlyEmptyRealityShortIdInShareLink() {
+        val profile = ConfigProfile(
+            name = "Reality empty SID",
+            protocol = ConfigProtocol.VLESS,
+            server = "example.com",
+            port = 443,
+            credential = "00000000-0000-0000-0000-000000000000",
+            network = "tcp",
+            security = "reality",
+            parameters = mapOf("sni" to "example.com", "pbk" to "public-key", "sid" to "")
+        )
+        val link = ConfigLinkSerializer.serialize(profile).getOrThrow()
+        assertTrue(link.contains("sid="))
+        val parsed = ConfigLinkParser.parse(link).getOrThrow()
+        assertEquals("", parsed.parameters["sid"])
+    }
+
+    @Test
     fun serializesAdvancedTransportAndTlsFields() {
         val profile = ConfigProfile(
             name = "WebSocket TLS",
