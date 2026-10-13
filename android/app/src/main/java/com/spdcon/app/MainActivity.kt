@@ -890,6 +890,12 @@ private fun SpdConDashboard() {
                                         parseResult = "ساخت لینک ناموفق بود: ${serialized.exceptionOrNull()?.message ?: "خطای نامشخص"}"
                                     } else {
                                         val link = serialized.getOrThrow()
+                                        val autoSaveResult = libraryStore.save(profile)
+                                        savedProfiles = libraryStore.loadAll()
+                                        libraryMessage = autoSaveResult.fold(
+                                            onSuccess = { "کانفیگ ساخته و خودکار در کتابخانه ذخیره شد." },
+                                            onFailure = { "کانفیگ ساخته شد، اما ذخیره خودکار ناموفق بود: ${it.message}" }
+                                        )
                                         parsedProfile = profile
                                         parsedSummary = listOf(
                                             "نام: ${profile.name}",
@@ -900,7 +906,11 @@ private fun SpdConDashboard() {
                                             "بررسی اولیه:",
                                             com.spdcon.app.config.ConfigDiagnostics.format(profile, cdnEnabled = manualCdnEnabled)
                                         ).joinToString("\n")
-                                        parseResult = "لینک ساخته شد. برای اتصال واقعی، همین پروتکل و اطلاعات کاربر باید روی نود سرور نیز تنظیم شده باشند."
+                                        parseResult = if (autoSaveResult.isSuccess) {
+                                            "کانفیگ ساخته شد، در کتابخانه ذخیره شد و آماده کپی/اشتراک است. برای اتصال واقعی، اطلاعات همین کاربر باید روی نود سرور هم ثبت شده باشند."
+                                        } else {
+                                            "کانفیگ ساخته شد، اما ذخیره خودکار انجام نشد: ${autoSaveResult.exceptionOrNull()?.message}. می‌توانی بعداً از بخش ذخیره‌ها دوباره ذخیره‌اش کنی."
+                                        }
                                         shareLink = link
                                         generatedOutput = link
                                         qrContent = link
