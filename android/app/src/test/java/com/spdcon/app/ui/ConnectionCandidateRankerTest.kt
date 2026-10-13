@@ -32,6 +32,16 @@ class ConnectionCandidateRankerTest {
     }
 
     @Test
+    fun realTunnelPassRanksAboveFasterTlsOnlyCandidate() {
+        val results = listOf(
+            CleanIpResult("192.0.2.10", 15, true, "TLS verified"),
+            CleanIpResult("192.0.2.11", 500, true, "TLS verified")
+        )
+        val ranked = ConnectionCandidateRanker.rankTlsResults(results, setOf("192.0.2.11"))
+        assertEquals(listOf("192.0.2.11", "192.0.2.10"), ranked.map { it.ip })
+    }
+
+    @Test
     fun tlsScannerResultsPrioritizeVerifiedHandshakeThenLatency() {
         val results = listOf(
             CleanIpResult("192.0.2.2", 10, false, "TLS failed"),
