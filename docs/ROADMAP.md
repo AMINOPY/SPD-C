@@ -15,7 +15,8 @@ This roadmap is the acceptance checklist for evolving the current Android config
 - [x] Wire the guided setup wizard into the actual config form so network goal presets populate protocol, transport, security, port and ALPN.
 - [x] Add an optional Cloudflare CDN mode that aligns VLESS + WS + TLS, Host, SNI and Path defaults, with domain validation.
 - [x] Fix IPv4-literal detection in hostname hints.
-- [ ] Add an actual node/runtime agent for connection-time source-IP observation, per-user IP/device limits and enforcement. A generated share link cannot independently discover a connecting user's public IP; the proxy node must observe and enforce it.
+- [x] Add backend storage/API foundations for admin-defined connection policies, source-IP observations, connection state and reported byte counters; report evaluation emits policy alerts.
+- [ ] Add a dedicated authenticated node/runtime agent for connection-time source-IP observation, per-user IP/device limits and enforcement. Current report endpoints are admin-authenticated scaffolding only; a generated share link cannot independently discover a connecting user's public IP, and policy actions are not enforced until the node runtime applies them.
 - [ ] Add live DNS/Cloudflare proxy-state and origin compatibility checks before labeling a CDN profile as ready.
 
 ## Phase 1 — Android configuration foundation
