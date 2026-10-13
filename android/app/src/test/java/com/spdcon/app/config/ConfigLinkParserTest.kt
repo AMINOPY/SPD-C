@@ -31,4 +31,14 @@ class ConfigLinkParserTest {
         val result = ConfigLinkParser.parse("vless://" + "a".repeat(33_000))
         assertTrue(result.isFailure)
     }
+
+    @Test
+    fun preservesLiteralPlusInUriQueryValues() {
+        val parsed = ConfigLinkParser.parse(
+            "vless://abc@example.com:443?type=ws&security=tls&path=%2Fws%2Ba%2Bb&host=edge.example.com#Plus"
+        )
+        assertTrue(parsed.isSuccess)
+        assertEquals("/ws+a+b", parsed.getOrThrow().parameters["path"])
+    }
+
 }
