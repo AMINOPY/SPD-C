@@ -98,7 +98,7 @@ object XrayClientConfigGenerator {
                     val tls = JSONObject()
                     profile.parameters["sni"]?.takeIf { it.isNotBlank() }?.let { tls.put("serverName", it) }
                     profile.parameters["alpn"]?.takeIf { it.isNotBlank() }?.let {
-                        tls.put("alpn", JSONArray(it.split(",").map(String::trim).filter(String::isNotBlank))
+                        tls.put("alpn", JSONArray(it.split(",").map(String::trim).filter(String::isNotBlank)))
                     }
                     if (profile.parameters["allowInsecure"] == "1" ||
                         profile.parameters["insecure"] == "1" ||
