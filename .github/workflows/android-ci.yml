@@ -26,9 +26,12 @@ on:
       - ".github/workflows/android-ci.yml"
   workflow_dispatch:
 
+# Keep the active validation run alive while newer commits wait.
+# With cancel-in-progress=true, every push to the PR cancels Android/Xray checks,
+# producing misleading 'operation was canceled' annotations instead of results.
 concurrency:
   group: spd-con-ci-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   cloudflare-worker-check:
