@@ -20,8 +20,11 @@ This roadmap is the acceptance checklist for evolving the current Android config
 - [x] Encrypt saved credentials with Android Keystore AES-GCM; migrate plaintext credentials from database v1.
 - [ ] Full manual builder coverage for each supported protocol and transport/security combination.
 - [x] Simplify VLESS/VMess creation by generating UUID automatically; keep password input only for Trojan/Shadowsocks.
+- [x] Add a simple country target and adult-filter checkbox to the manual builder.
+- [x] Add optional Xray geosite-category-porn routing to a blackhole outbound in VLESS+REALITY JSON export when the adult filter is selected.
 - [x] Collapse advanced Fragment and REALITY controls by default; use safe defaults for REALITY fingerprint and spiderX.
 - [ ] Add real transport auto-detection by testing candidate transports against a configured server; TCP is only the current manual-builder fallback.
+- [ ] Add a real country-aware IP candidate pool and bounded health/latency/TLS checks; country selection is currently metadata only and must not claim an IP is clean.
 - [ ] Add tests for the new local search, tags and favorites flow; add duplicate detection and configuration change history.
 - [ ] File import/export, bulk operations, backup and restore.
 - [ ] Navigation, accessibility, polished RTL layouts and selectable themes.
@@ -41,7 +44,8 @@ This roadmap is the acceptance checklist for evolving the current Android config
 ## Phase 3 — optional cloud services (Android-first, no web panel required)
 - [x] Add an initial FastAPI API for account registration/login/logout, own-config CRUD, role checks, subscription creation/revocation, expiry and admin quota metadata.
 - [x] Add Android account login, optional profile upload/download, and subscription-link actions for the Cloudflare Worker API (initial sync; conflicts are skipped, not merged).
-- [x] Add a mobile-first Cloudflare `/panel` for login, config CRUD, subscription links and basic admin user controls.
+- [x] Add a mobile-first Cloudflare `/panel` for login, config CRUD, subscription links, usage summary and basic admin user controls.
+- [x] Add web controls to update saved config country/adult-filter preferences.
 - [x] Add a Cloudflare Worker route test for `/panel`.
 - [ ] Add integration tests and production controls to the Cloudflare Worker; deploy only after setting a real D1 database ID and secrets.
 - [x] Keep FastAPI/Docker as an optional local-development alternative; Cloudflare is the no-personal-VPS option.
@@ -80,7 +84,9 @@ This roadmap is the acceptance checklist for evolving the current Android config
 - Connectivity status is based on a real test/runtime, not inferred from syntactic validity.
 
 ## Current verified limitations
-- The Android app has an optional Cloudflare sync card; the Worker now serves a basic `/panel` page as well. The FastAPI/Docker backend is a local-development alternative and uses SQLite in one instance.
+- The Android app has an optional Cloudflare sync card; the Worker serves `/panel` with basic config controls and account usage summary. The FastAPI/Docker backend is a local-development alternative and uses SQLite in one instance.
+- Country choice currently records the requested country; it does not find or guarantee a clean IP. Actual IP selection requires a curated candidate pool or authorized nodes plus DNS/TLS/connectivity checks.
+- Adult-domain filtering is added to the VLESS+REALITY Xray JSON export only when selected and depends on an Xray-compatible geosite data file. It is not a device-wide content filter and is not enforced by Cloudflare profile metadata alone.
 - Quota/usage is currently based on trusted admin usage reports; no node agent exists to independently measure or enforce tunnel traffic.
 - Subscription response is a normalized JSON profile list, not yet a tested v2rayNG/Hiddify/Clash/sing-box/NPV-specific subscription encoding.
 - Before public deployment, configure strong APP_SECRET and bootstrap token, HTTPS, request rate limits, audit logging, and production-grade database migrations.
