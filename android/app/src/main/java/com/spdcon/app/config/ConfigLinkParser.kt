@@ -230,12 +230,14 @@ object ConfigLinkParser {
 
     private fun parseQuery(query: String?): Map<String, String> {
         if (query.isNullOrBlank()) return emptyMap()
-        return query.split("&")
-            .filter { it.isNotBlank() }
-            .associate { part ->
+        return buildMap {
+            query.split("&").filter { it.isNotBlank() }.forEach { part ->
                 val key = decodePercentEncoded(part.substringBefore("="))
                 val value = decodePercentEncoded(part.substringAfter("=", ""))
-                key to value
+                require(key.isNotBlank()) { "Query parameter name is empty" }
+                require(!containsKey(key)) { "Duplicate query parameter: $key" }
+                put(key, value)
             }
+        }
     }
 }
