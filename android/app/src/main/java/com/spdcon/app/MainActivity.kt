@@ -38,6 +38,11 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -52,7 +57,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
+import com.spdcon.app.config.CloudSyncClient
 import com.spdcon.app.config.ConfigLibraryStore
+import com.spdcon.app.config.CredentialCipher
 import com.spdcon.app.config.ConfigLinkParser
 import com.spdcon.app.config.ConfigLinkSerializer
 import com.spdcon.app.config.ConfigProfile
@@ -89,6 +96,19 @@ private fun SpdConDashboard() {
     var savedProfiles by remember { mutableStateOf(libraryStore.loadAll()) }
     var librarySearch by remember { mutableStateOf("") }
     var tagDrafts by remember { mutableStateOf(emptyMap<String, String>()) }
+    val cloudPrefs = remember(context) { context.getSharedPreferences("spdcon-cloud", 0) }
+    val coroutineScope = rememberCoroutineScope()
+    var cloudBaseUrl by remember { mutableStateOf(cloudPrefs.getString("base_url", "") ?: "") }
+    var cloudUsername by remember { mutableStateOf(cloudPrefs.getString("username", "") ?: "") }
+    var cloudPassword by remember { mutableStateOf("") }
+    var cloudToken by remember {
+        mutableStateOf(runCatching {
+            cloudPrefs.getString("token_enc", null)?.let { CredentialCipher.decrypt(it) } ?: ""
+        }.getOrDefault(""))
+    }
+    var cloudBusy by remember { mutableStateOf(false) }
+    var cloudMessage by remember { mutableStateOf<String?>(null) }
+    var cloudSubscription by remember { mutableStateOf<String?>(null) }
     var libraryMessage by remember { mutableStateOf<String?>(null) }
     var manualProtocol by remember { mutableStateOf(ConfigProtocol.VLESS) }
     var manualProtocolMenuExpanded by remember { mutableStateOf(false) }
@@ -148,6 +168,162 @@ private fun SpdConDashboard() {
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
+            item {
+                Card(modifier = Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("همگام‌سازی ابری اختیاری", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                        Text("برای استفاده از این بخش وب‌پنل لازم نیست. آدرس Cloudflare Worker خودت را وارد کن؛ کانفیگ‌ها به‌صورت انتخابی با حساب آنلاین همگام می‌شوند.")
+                        OutlinedTextField(
+                            value = cloudBaseUrl,
+                            onValueChange = { cloudBaseUrl = it },
+                            modifier = Modifier.fillMaxWidth(),
+                            label = { Text("آدرس API (HTTPS)") },
+                            placeholder = { Text("https://spd-con-api.example.workers.dev") },
+                            singleLine = true
+                        )
+                        OutlinedTextField(
+                            value = cloudUsername,
+                            onValueChange = { cloudUsername = it },
+                            modifier = Modifier.fillMaxWidth(),
+                            label = { Text("نام کاربری") },
+                            singleLine = true
+                        )
+                        OutlinedTextField(
+                            value = cloudPassword,
+                            onValueChange = { cloudPassword = it },
+                            modifier = Modifier.fillMaxWidth(),
+                            label = { Text("رمز عبور (حداقل ۱۲ نویسه)") },
+                            visualTransformation = PasswordVisualTransformation(),
+                            singleLine = true
+                        )
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            OutlinedButton(
+                                enabled = !cloudBusy && cloudBaseUrl.startsWith("https://") && cloudUsername.isNotBlank() && cloudPassword.length >= 12,
+                                onClick = {
+                                    cloudBusy = true
+                                    coroutineScope.launch {
+                                        val result = runCatching {
+                                            withContext(Dispatchers.IO) {
+                                                CloudSyncClient.register(cloudBaseUrl, cloudUsername, cloudPassword)
+                                            }
+                                        }
+                                        cloudMessage = result.fold(
+                                            onSuccess = { "حساب ساخته شد؛ حالا وارد شو." },
+                                            onFailure = { "ثبت‌نام ناموفق: ${it.message}" }
+                                        )
+                                        cloudBusy = false
+                                    }
+                                }
+                            ) { Text("ثبت‌نام") }
+                            Button(
+                                enabled = !cloudBusy && cloudBaseUrl.startsWith("https://") && cloudUsername.isNotBlank() && cloudPassword.isNotBlank(),
+                                onClick = {
+                                    cloudBusy = true
+                                    coroutineScope.launch {
+                                        val result = runCatching {
+                                            withContext(Dispatchers.IO) {
+                                                CloudSyncClient.login(cloudBaseUrl, cloudUsername, cloudPassword)
+                                            }
+                                        }
+                                        result.onSuccess { session ->
+                                            cloudToken = session.token
+                                            cloudUsername = session.username
+                                            cloudPrefs.edit()
+                                                .putString("base_url", cloudBaseUrl.trim())
+                                                .putString("username", session.username)
+                                                .putString("token_enc", CredentialCipher.encrypt(session.token))
+                                                .apply()
+                                            cloudPassword = ""
+                                        }
+                                        cloudMessage = result.fold(
+                                            onSuccess = { "ورود انجام شد؛ نشست به‌صورت رمزگذاری‌شده روی دستگاه ذخیره شد." },
+                                            onFailure = { "ورود ناموفق: ${it.message}" }
+                                        )
+                                        cloudBusy = false
+                                    }
+                                }
+                            ) { Text(if (cloudBusy) "در حال انجام…" else "ورود") }
+                        }
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            OutlinedButton(
+                                enabled = !cloudBusy && cloudToken.isNotBlank(),
+                                onClick = {
+                                    cloudBusy = true
+                                    cloudPrefs.edit().putString("base_url", cloudBaseUrl.trim()).apply()
+                                    coroutineScope.launch {
+                                        val result = runCatching {
+                                            withContext(Dispatchers.IO) {
+                                                CloudSyncClient.upload(cloudBaseUrl, cloudToken, libraryStore.loadAll())
+                                            }
+                                        }
+                                        cloudMessage = result.fold(
+                                            onSuccess = { "ارسال تمام شد: ${it.uploaded} مورد ارسال شد، ${it.skipped} مورد تکراری/ردشده بود." },
+                                            onFailure = { "همگام‌سازی ناموفق: ${it.message}" }
+                                        )
+                                        cloudBusy = false
+                                    }
+                                }
+                            ) { Text("ارسال به ابر") }
+                            OutlinedButton(
+                                enabled = !cloudBusy && cloudToken.isNotBlank(),
+                                onClick = {
+                                    cloudBusy = true
+                                    cloudPrefs.edit().putString("base_url", cloudBaseUrl.trim()).apply()
+                                    coroutineScope.launch {
+                                        val result = runCatching {
+                                            withContext(Dispatchers.IO) {
+                                                CloudSyncClient.download(cloudBaseUrl, cloudToken, libraryStore)
+                                            }
+                                        }
+                                        result.onSuccess { savedProfiles = libraryStore.loadAll() }
+                                        cloudMessage = result.fold(
+                                            onSuccess = { "دریافت تمام شد: ${it.downloaded} کانفیگ ذخیره شد؛ ${it.skipped} مورد رد شد." },
+                                            onFailure = { "دریافت ناموفق: ${it.message}" }
+                                        )
+                                        cloudBusy = false
+                                    }
+                                }
+                            ) { Text("دریافت از ابر") }
+                        }
+                        OutlinedButton(
+                            enabled = !cloudBusy && cloudToken.isNotBlank(),
+                            onClick = {
+                                cloudBusy = true
+                                coroutineScope.launch {
+                                    val result = runCatching {
+                                        withContext(Dispatchers.IO) {
+                                            CloudSyncClient.createSubscription(cloudBaseUrl, cloudToken)
+                                        }
+                                    }
+                                    cloudSubscription = result.getOrNull()
+                                    cloudMessage = result.fold(
+                                        onSuccess = { "لینک اشتراک ساخته شد. آن را محرمانه نگه دار." },
+                                        onFailure = { "ساخت اشتراک ناموفق: ${it.message}" }
+                                    )
+                                    cloudBusy = false
+                                }
+                            }
+                        ) { Text("ساخت لینک اشتراک") }
+                        cloudSubscription?.let { url ->
+                            Text(url, style = MaterialTheme.typography.bodySmall)
+                            TextButton(onClick = {
+                                clipboardManager.setText(AnnotatedString(url))
+                                cloudMessage = "لینک اشتراک کپی شد."
+                            }) { Text("کپی لینک اشتراک") }
+                        }
+                        cloudMessage?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
+                        if (cloudToken.isNotBlank()) {
+                            TextButton(onClick = {
+                                cloudToken = ""
+                                cloudSubscription = null
+                                cloudPrefs.edit().remove("token_enc").apply()
+                                cloudMessage = "از حساب خارج شدی؛ نشست محلی حذف شد."
+                            }) { Text("خروج از حساب ابری") }
+                        }
+                    }
+                }
+            }
+
             item {
                 Card(
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
