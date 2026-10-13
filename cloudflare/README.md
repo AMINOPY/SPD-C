@@ -10,7 +10,7 @@ Requirements: a Cloudflare account and Node.js/npm with Wrangler. No personal VP
 2. Authenticate once: `npx wrangler login`.
 3. Create the D1 database: `npx wrangler d1 create spd-con-db`.
 4. Copy the returned database ID into `wrangler.toml`, replacing `REPLACE_WITH_D1_DATABASE_ID`.
-5. Apply the schema: `npx wrangler d1 migrations apply spd-con-db --remote`.
+5. Apply the schema: `npx wrangler d1 migrations apply spd-con-db --remote` (applies the initial schema and the node registry migration).
 6. Set secrets (use different random values, each at least 32 characters):
    `npx wrangler secret put APP_SECRET`
    `npx wrangler secret put BOOTSTRAP_ADMIN_TOKEN`
@@ -29,6 +29,8 @@ Call `POST /api/v1/admin/bootstrap` with JSON `{"username":"admin","password":"u
 - `GET/POST /api/v1/configs`, `PUT/DELETE /api/v1/configs/{id}`
 - `POST /api/v1/subscriptions`, `GET /api/v1/subscriptions/{token}`, `DELETE /api/v1/subscriptions/id/{id}`
 - `GET /api/v1/admin/users`, `PATCH /api/v1/admin/users/{id}/limits`
+- `GET/POST /api/v1/admin/nodes`, `PATCH/DELETE /api/v1/admin/nodes/{id}` (admin-only node metadata registry)
+- `GET /api/v1/nodes` (enabled node connection metadata for authenticated clients)
 
 Auth uses opaque bearer tokens; only keyed hashes of sessions and subscription tokens are stored. Passwords use PBKDF2-SHA256 with unique random salts. Config ownership is checked server-side. The Worker returns generic server errors instead of leaking exception details.
 
@@ -38,4 +40,4 @@ Auth uses opaque bearer tokens; only keyed hashes of sessions and subscription t
 - Quotas and expiry metadata do not enforce live VPN traffic until a trusted node agent reports usage. Do not present them as independently measured traffic usage.
 - Subscription payloads are normalized JSON profiles, not yet the tested client-specific base64/Clash/sing-box formats.
 - Add rate limiting, monitoring/audit events, schema/API integration tests, account recovery and node-agent authentication before public production use.
-- The web panel is intentionally lightweight and is not a full Xray runtime manager. Node enrollment, live connectivity checks, actual traffic enforcement, advanced user lifecycle actions and client-specific subscription encodings are not implemented yet. Cloudflare D1/Workers do not run Xray processes; real VPN nodes need a separate authorized server/runtime.
+- The web panel is intentionally lightweight and is not a full Xray runtime manager. The node registry stores connection metadata and can auto-fill SNI/public-key/shortId in the web builder, but it does not install Xray or provision users on a running node. Node enrollment, live connectivity checks, actual traffic enforcement, advanced user lifecycle actions and client-specific subscription encodings are not implemented yet. A REALITY SNI/domain never derives a valid public key or shortId; these must be copied from that node's real server configuration. Cloudflare D1/Workers do not run Xray processes; real VPN nodes need a separate authorized server/runtime.
