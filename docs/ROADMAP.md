@@ -4,6 +4,7 @@ This roadmap is the acceptance checklist for evolving the current Android config
 
 ## Phase 0 — compatibility, security and license review
 - [ ] Review source trees, licenses, dependencies, APIs and release activity of SpiderPanel, Blue-Knight-Panel, 3x-ui, Xray-core, Scan-Cloud and DicodeConfigChecker.
+- [x] Initial scanner license metadata check: Clean-IP-Scanner and cfray report MIT; SpiderPanel, Blue-Knight-Panel, WhiteDNS-cleanip-finder and Exelite-Scanner do not expose a recognized SPDX license in repository metadata, so do not copy their code until the license files are checked.
 - [ ] Record exact versions, attribution and license obligations before reusing code or assets.
 - [ ] Pin protocol compatibility to a tested Xray-core release and document export-format limitations.
 
@@ -23,8 +24,8 @@ This roadmap is the acceptance checklist for evolving the current Android config
 - [x] Add a simple country target and adult-filter checkbox to the manual builder.
 - [x] Add optional Xray geosite-category-porn routing to a blackhole outbound in VLESS+REALITY JSON export when the adult filter is selected.
 - [x] Collapse advanced Fragment and REALITY controls by default; use safe defaults for REALITY fingerprint and spiderX.
-- [ ] Add real transport auto-detection by testing candidate transports against a configured server; TCP is only the current manual-builder fallback.
-- [ ] Add a real country-aware IP candidate pool and bounded health/latency/TLS checks; country selection is currently metadata only and must not claim an IP is clean.
+- [ ] Add real transport auto-detection by testing candidate transports with a valid Xray runtime and server credentials; manual builder currently falls back to TCP, while imported links retain their declared transport.
+- [ ] Add a real country-aware IP candidate pool and bounded health/latency/TLS checks; country selection is a preference only. Cloudflare anycast IPs cannot be guaranteed to belong to the selected country.
 - [ ] Add tests for the new local search, tags and favorites flow; add duplicate detection and configuration change history.
 - [ ] File import/export, bulk operations, backup and restore.
 - [ ] Navigation, accessibility, polished RTL layouts and selectable themes.
@@ -44,7 +45,7 @@ This roadmap is the acceptance checklist for evolving the current Android config
 ## Phase 3 — optional cloud services (Android-first, no web panel required)
 - [x] Add an initial FastAPI API for account registration/login/logout, own-config CRUD, role checks, subscription creation/revocation, expiry and admin quota metadata.
 - [x] Add Android account login, optional profile upload/download, and subscription-link actions for the Cloudflare Worker API (initial sync; conflicts are skipped, not merged).
-- [x] Add a mobile-first Cloudflare `/panel` for login, config CRUD, subscription links, usage summary and basic admin user controls.
+- [x] Add a mobile-first Cloudflare `/panel` for login, config CRUD, subscription links, usage summary, per-config link display/copy and basic admin user controls.
 - [x] Add web controls to update saved config country/adult-filter preferences.
 - [x] Add a Cloudflare Worker route test for `/panel`.
 - [ ] Add integration tests and production controls to the Cloudflare Worker; deploy only after setting a real D1 database ID and secrets.
