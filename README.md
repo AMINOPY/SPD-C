@@ -1,63 +1,76 @@
 # Spd con
 
-**Spd con** is an Android-first configuration builder and management console for VPN/Xray configurations, nodes, users, subscriptions, scanning, and checking.
+**Spd con** is an Android-first configuration builder and management client. It is being built incrementally: offline configuration tools first, followed by scanning/checking and an optional backend for remote nodes, users, and subscriptions.
 
-> This repository is the foundation, not a finished production VPN panel. Remote node management requires a deployed backend and explicit credentials for each managed server.
+> Current status: initial Android dashboard, typed configuration model, VLESS/Trojan URI parser, and VMess Base64-JSON parser are in the feature branch. The project is not yet a production-ready VPN panel.
 
-## Project goals
+## Product goals
 
-- Build and validate VLESS, VMess, Trojan, and Shadowsocks profiles.
-- Import/export supported share links and JSON, copy links, and display QR codes.
-- Organize configuration profiles and maintain local history.
-- Add node health, user/group management, subscriptions, scanner, and checker in staged releases.
-- Keep server credentials out of the Android client; use an authenticated backend and node agent for remote operations.
+- Android app using Kotlin, Jetpack Compose, and Material 3.
+- Read and validate common VLESS, VMess, and Trojan share links; add complete serializers, Shadowsocks support, QR, and local storage next.
+- Persian RTL interface with localization separated from business logic.
+- Later: node health/management, user and group management, subscriptions, scan/check jobs, audit history, role-based access, and backups.
+- Optional FastAPI backend with PostgreSQL, Redis workers, and controlled node-agent integration.
 
 ## Architecture
 
-- **Android:** Kotlin, Jetpack Compose, Material 3, Navigation Compose, Room, Retrofit/OkHttp, Kotlin coroutines.
-- **Backend (planned):** FastAPI, PostgreSQL, Redis, background workers, version-pinned Xray adapters.
-- **Deployment (planned):** Docker Compose for API, worker, database, and Redis. Node agents are deployed separately on managed nodes.
+```text
+Android (Compose UI)
+  ├── config domain/parser + feature modules
+  ├── core: design system, Room, network, security, common utilities
+  └── repository interfaces
+          │ HTTPS (later, optional)
+          ▼
+FastAPI API ── PostgreSQL
+     └─────── Redis + background worker
+                     │
+                authenticated node agent
+                     │
+                 version-pinned Xray adapter
+```
+
+The Android client should work locally without a personal server. Remote multi-node management requires deploying the backend and configuring nodes.
 
 ## Repository layout
 
-```text
-android/                 Android application
-backend/                 API service and deployment scaffolding
-shared/config-schemas/   Shared config format notes and fixtures
-docs/                    Architecture, API, security, roadmap
-.github/workflows/       CI workflows
-```
+- `android/` — Kotlin Android application.
+- `backend/` — FastAPI health endpoint and local Compose scaffold.
+- `docs/` — architecture, roadmap, and config format notes.
+- `.github/workflows/` — Android CI.
 
-## Start the Android app
+## Build Android app
 
-Open the `android/` directory in Android Studio (current stable version), allow Gradle sync, then run the `app` configuration on an emulator or device. Install the SDK requested by Gradle if prompted.
+Open `android/` in Android Studio, install the Android SDK version requested by Gradle, sync, and run the `app` configuration. CI builds a debug APK.
 
-## Start the backend scaffold
+## Run backend locally
 
 From the repository root:
 
-1. Copy `backend/.env.example` to `backend/.env` and replace development secrets.
+1. Copy `backend/.env.example` to `backend/.env` and replace the development password.
 2. Run `docker compose --env-file backend/.env -f backend/compose.yaml up --build`.
+3. Check `http://localhost:8000/health/live`.
 
-The API scaffold exposes `/health/live` and `/health/ready`. It is for local development only: do not expose it publicly until authentication, authorization, TLS, rate limiting, migrations, and secret management are implemented.
+The compose stack is for local development, not production. Do not expose PostgreSQL or Redis publicly. The API does not yet implement authentication or remote node operations.
 
 ## Development status
 
-- [x] Project structure and initial Android shell
-- [x] Backend health-check scaffold and local Compose services
-- [ ] Configuration model, parser, validator, QR and import/export
-- [ ] Room persistence and configuration library
-- [ ] Scanner/checker job pipeline
-- [ ] Auth, roles, node management, users and subscriptions
-- [ ] Security review, CI, tests and release packaging
+- [x] Android dashboard shell.
+- [x] Typed configuration model and required-field validation.
+- [x] Initial VLESS and Trojan URI parsing.
+- [x] Initial VMess Base64 JSON parsing.
+- [x] Parser/model unit-test source.
+- [x] Backend health endpoint and local Compose scaffold.
+- [ ] Run CI and resolve any build/test failures.
+- [ ] Shadowsocks parser, protocol serializers, QR, clipboard, and import/export UI.
+- [ ] Room persistence, config library, search, tags, and history.
+- [ ] Scanner/checker job pipeline.
+- [ ] Authentication, roles, node management, users, and subscriptions.
+- [ ] Security review, release packaging, and deployment runbook.
 
-## Licensing and integrations
+## Security and upstream integration
 
-Before copying code or assets from SpiderPanel, Blue-Knight-Panel, 3x-ui, Xray-core, Scan-Cloud, or DicodeConfigChecker, review each repository's current license and required notices. Prefer adapters and documented interfaces over blindly merging unrelated source trees.
-
-## Security notes
-
-- Never commit real API keys, node credentials, subscription secrets, or production environment files.
-- Treat imported configuration links as untrusted input.
-- Redact credentials and UUIDs from logs.
-- Require explicit confirmation before remote changes to nodes or users.
+- Never commit API keys, node credentials, private keys, or production environment files.
+- Treat imported links as untrusted input; parsing does not prove a connection will work.
+- Redact UUIDs, credentials, and subscription tokens from logs.
+- Scanner/checker must only test targets the operator is authorized to assess.
+- Review each upstream repository's current license and required notices before reusing code. Prefer adapters over copying entire source trees.
