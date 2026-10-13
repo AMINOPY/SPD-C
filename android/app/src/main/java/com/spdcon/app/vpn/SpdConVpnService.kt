@@ -108,9 +108,9 @@ class SpdConVpnService : VpnService() {
         val proxyTag = "spdcon-proxy"
         val fragmentTag = "spdcon-fragment"
         proxyOutbound.put("tag", proxyTag)
-        val streamSettings = proxyOutbound.optJSONObject("streamSettings")
-        val security = streamSettings?.optString("security").orEmpty()
-        val network = streamSettings?.optString("network").orEmpty()
+        val streamSettings = proxyOutbound.optJSONObject("streamSettings") ?: JSONObject()
+        val security = streamSettings.optString("security")
+        val network = streamSettings.optString("network")
         if (useFragment) {
             require(security.equals("tls", ignoreCase = true) || security.equals("reality", ignoreCase = true)) {
                 "TLS Fragment needs a TLS or REALITY profile. Turn Fragment off or use a TLS/REALITY config."
