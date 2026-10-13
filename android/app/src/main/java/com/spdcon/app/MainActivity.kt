@@ -107,6 +107,7 @@ private fun SpdConDashboard() {
         }.getOrDefault(""))
     }
     var cloudBusy by remember { mutableStateOf(false) }
+    var showCloudSettings by remember { mutableStateOf(false) }
     var cloudMessage by remember { mutableStateOf<String?>(null) }
     var cloudSubscription by remember { mutableStateOf<String?>(null) }
     var libraryMessage by remember { mutableStateOf<String?>(null) }
@@ -190,9 +191,21 @@ private fun SpdConDashboard() {
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             item {
-                Card(modifier = Modifier.fillMaxWidth()) {
-                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text("همگام‌سازی ابری اختیاری", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("همگام‌سازی ابری (اختیاری)", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                        TextButton(onClick = { showCloudSettings = !showCloudSettings }) {
+                            Text(if (showCloudSettings) "بستن تنظیمات" else "تنظیمات ابری")
+                        }
+                    }
+                    if (showCloudSettings) {
+                        Card(modifier = Modifier.fillMaxWidth()) {
+                            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Text("همگام‌سازی ابری اختیاری", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                         Text("برای استفاده از این بخش وب‌پنل لازم نیست. آدرس Cloudflare Worker خودت را وارد کن؛ کانفیگ‌ها به‌صورت انتخابی با حساب آنلاین همگام می‌شوند.")
                         OutlinedTextField(
                             value = cloudBaseUrl,
@@ -362,6 +375,8 @@ private fun SpdConDashboard() {
                                     cloudBusy = false
                                 }
                             }) { Text("خروج از حساب ابری") }
+                        }
+                            }
                         }
                     }
                 }
@@ -553,22 +568,32 @@ private fun SpdConDashboard() {
                         if (manualProtocol == ConfigProtocol.HYSTERIA2 || manualProtocol == ConfigProtocol.TUIC) {
                             Text("این پروتکل با UDP و TLS ساخته می‌شود.", style = MaterialTheme.typography.bodySmall)
                         } else {
-                            OutlinedTextField(
-                                value = manualNetwork,
-                                onValueChange = { manualNetwork = it },
-                                modifier = Modifier.fillMaxWidth(),
-                                label = { Text("انتقال (tcp / ws / grpc / xhttp)") },
-                                supportingText = { Text("پیشنهاد پیش‌فرض WS + TLS است؛ سمت سرور باید دقیقاً با این انتقال هماهنگ باشد.") },
-                                singleLine = true
+                            Text(
+                                "انتقال و امنیت به‌صورت پیشنهادی تنظیم می‌شوند. فقط اگر اطلاعات نود را می‌دانی، از تنظیمات تکمیلی تغییرشان بده.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
-                            OutlinedTextField(value = manualSecurity, onValueChange = { manualSecurity = it }, modifier = Modifier.fillMaxWidth(), label = { Text("امنیت (none/tls/reality)") }, singleLine = true)
                         }
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Checkbox(checked = showAdvancedBuilder, onCheckedChange = { showAdvancedBuilder = it })
                             Text("تنظیمات تکمیلی ساخت کانفیگ")
                         }
                         if (showAdvancedBuilder) {
-                            Text("فقط فیلدهای مربوط به ترنسپورت انتخابی را پر کن.", style = MaterialTheme.typography.bodySmall)
+                            Text("معمولاً لازم نیست این موارد را تغییر بدهی.", style = MaterialTheme.typography.bodySmall)
+                            OutlinedTextField(
+                                value = manualNetwork,
+                                onValueChange = { manualNetwork = it },
+                                modifier = Modifier.fillMaxWidth(),
+                                label = { Text("انتقال (tcp / ws / grpc / xhttp)") },
+                                singleLine = true
+                            )
+                            OutlinedTextField(
+                                value = manualSecurity,
+                                onValueChange = { manualSecurity = it },
+                                modifier = Modifier.fillMaxWidth(),
+                                label = { Text("امنیت (none / tls / reality)") },
+                                singleLine = true
+                            )
                             OutlinedTextField(value = manualHost, onValueChange = { manualHost = it }, modifier = Modifier.fillMaxWidth(), label = { Text("Host / HTTP Host") }, singleLine = true)
                             OutlinedTextField(value = manualPath, onValueChange = { manualPath = it }, modifier = Modifier.fillMaxWidth(), label = { Text("Path (WS / XHTTP)") }, singleLine = true)
                             OutlinedTextField(value = manualServiceName, onValueChange = { manualServiceName = it }, modifier = Modifier.fillMaxWidth(), label = { Text("gRPC serviceName") }, singleLine = true)
