@@ -156,6 +156,50 @@ class ConfigHubApiTests(unittest.TestCase):
             f"/admin/users/{user_id}/connections", headers=self.login("vpn_user"))
         self.assertEqual(non_admin.status_code, 403)
 
+    def test_enrolled_node_can_report_once_and_disabled_node_is_rejected(self):
+        self.register("node_admin")
+        self.assertEqual(self.client.post("/admin/bootstrap", headers={
+            "X-Bootstrap-Token": api.BOOTSTRAP_ADMIN_TOKEN
+        }).status_code, 201)
+        admin_headers = self.login("node_admin")
+        user = self.client.post("/auth/register", json={
+            "username": "node_user", "password": "a-very-long-test-password"
+        }).json()["user"]
+        enrolled = self.client.post("/admin/nodes", headers=admin_headers,
+            json={"name": "edge-test"})
+        self.assertEqual(enrolled.status_code, 201, enrolled.text)
+        node = enrolled.json()
+        self.assertIn("node_secret", node)
+        self.assertEqual(self.client.get("/admin/nodes", headers=admin_headers).status_code, 200)
+
+        event = {
+            "event_id": "event-unique-123456789", "event_timestamp": api.now(),
+            "user_id": user["id"], "connection_id": "node-connection-123",
+            "node_id": node["id"], "client_ip": "2001:db8::8",
+            "state": "active", "upload_bytes": 100, "download_bytes": 300
+        }
+        headers = {"Authorization": "Bearer " + node["node_secret"]}
+        first = self.client.post(f"/nodes/{node['id']}/connections/report",
+                                 headers=headers, json=event)
+        self.assertEqual(first.status_code, 201, first.text)
+        self.assertTrue(first.json()["accepted"])
+        self.assertEqual(first.json()["client_ip"], "2001:db8::8")
+
+        replay = self.client.post(f"/nodes/{node['id']}/connections/report",
+                                  headers=headers, json=event)
+        self.assertEqual(replay.status_code, 409)
+
+        stale = dict(event, event_id="event-stale-123456789", event_timestamp=api.now() - 600)
+        self.assertEqual(self.client.post(f"/nodes/{node['id']}/connections/report",
+            headers=headers, json=stale).status_code, 401)
+
+        disabled = self.client.patch(f"/admin/nodes/{node['id']}/enabled",
+            headers=admin_headers, params={"enabled": "false"})
+        self.assertEqual(disabled.status_code, 200, disabled.text)
+        blocked = dict(event, event_id="event-disabled-123456")
+        self.assertEqual(self.client.post(f"/nodes/{node['id']}/connections/report",
+            headers=headers, json=blocked).status_code, 401)
+
     def test_admin_bootstrap_and_server_side_limits(self):
         user = self.register()
         bootstrap = self.client.post("/admin/bootstrap", headers={
