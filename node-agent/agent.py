@@ -89,6 +89,7 @@ def main() -> int:
         print("Set SPD_CON_API_BASE_URL, SPD_CON_NODE_ID and SPD_CON_NODE_SECRET.", file=sys.stderr)
         return 2
 
+    failures = 0
     for line_number, line in enumerate(sys.stdin, start=1):
         if not line.strip():
             continue
@@ -103,8 +104,9 @@ def main() -> int:
                               "enforcement": result.get("enforcement")}, separators=(",", ":")),
                   flush=True)
         except (ValueError, json.JSONDecodeError, RuntimeError) as exc:
+            failures += 1
             print(f"line {line_number}: {exc}", file=sys.stderr, flush=True)
-    return 0
+    return 1 if failures else 0
 
 
 if __name__ == "__main__":
