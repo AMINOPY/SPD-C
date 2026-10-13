@@ -37,10 +37,13 @@ This roadmap is the acceptance checklist for evolving the current Android config
 
 ## Phase 3 — optional cloud services (Android-first, no web panel required)
 - [x] Add an initial FastAPI API for account registration/login/logout, own-config CRUD, role checks, subscription creation/revocation, expiry and admin quota metadata.
-- [x] Add Android account login, optional profile upload/download, and subscription-link actions for the Cloudflare Worker API (initial sync; conflicts are skipped, not merged).\n- [ ] Add integration tests and production controls to the Cloudflare Worker; deploy only after setting a real D1 database ID and secrets.\n- [ ] Keep FastAPI/Docker as an optional local-development alternative; the web dashboard is not a product requirement.
+- [x] Add Android account login, optional profile upload/download, and subscription-link actions for the Cloudflare Worker API (initial sync; conflicts are skipped, not merged).
+- [ ] Add integration tests and production controls to the Cloudflare Worker; deploy only after setting a real D1 database ID and secrets.
+- [ ] Keep FastAPI/Docker as an optional local-development alternative; the web dashboard is not a product requirement.
 - [x] Add initial opaque bearer sessions, password hashing, Admin/User authorization checks and owner-scoped config access.
 - [ ] Add rate limiting, comprehensive audit logs, account recovery and production session-management controls.
-- [x] Add an initial responsive web dashboard for login, basic config CRUD, subscription creation and admin quota controls.\n- [ ] Build a production-ready web admin interface with full lifecycle workflows, validation, accessibility and visual polish; keep mobile Android as a first-class client.
+- [x] Add an initial responsive web dashboard for login, basic config CRUD, subscription creation and admin quota controls.
+- [ ] Build a production-ready web admin interface with full lifecycle workflows, validation, accessibility and visual polish; keep mobile Android as a first-class client.
 - [ ] Define API contracts, encryption and conflict handling before enabling multi-device sync.
 
 ## Phase 4 — nodes, scanner and checker
