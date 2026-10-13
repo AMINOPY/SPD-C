@@ -127,6 +127,19 @@ object XrayClientConfigGenerator {
 
         val root = JSONObject()
             .put("log", JSONObject().put("loglevel", "warning"))
+            .put("inbounds", JSONArray()
+                .put(JSONObject()
+                    .put("tag", "socks-in")
+                    .put("listen", "127.0.0.1")
+                    .put("port", 10808)
+                    .put("protocol", "socks")
+                    .put("settings", JSONObject().put("auth", "noauth").put("udp", true)))
+                .put(JSONObject()
+                    .put("tag", "http-in")
+                    .put("listen", "127.0.0.1")
+                    .put("port", 10809)
+                    .put("protocol", "http")
+                    .put("settings", JSONObject())))
             .put("outbounds", JSONArray().put(outbound).put(
                 JSONObject().put("tag", "direct").put("protocol", "freedom")
             ).put(
