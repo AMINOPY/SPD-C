@@ -13,6 +13,18 @@ test("health endpoint checks D1 and returns service status", async () => {
   assert.equal(response.headers.get("cache-control"), "no-store");
 });
 
+test("serves the responsive web panel without requiring a session", async () => {
+  const response = await worker.fetch(new Request("https://unit.test/panel"), {
+    APP_SECRET: "a".repeat(48),
+    DB: { prepare: () => ({ first: async () => ({ ok: 1 }) }) },
+  });
+  assert.equal(response.status, 200);
+  assert.match(response.headers.get("content-type") || "", /text\/html/);
+  const html = await response.text();
+  assert.match(html, /پنل آنلاین ساده/);
+  assert.match(html, /data-tab="configs"/);
+});
+
 test("refuses to run without a strong app secret", async () => {
   const response = await worker.fetch(new Request("https://unit.test/api/v1/health"), {
     APP_SECRET: "too-short",
