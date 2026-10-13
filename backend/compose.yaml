@@ -2,37 +2,16 @@ services:
   api:
     build:
       context: .
+    env_file:
+      - .env
     environment:
       APP_ENV: development
+      DATABASE_PATH: /data/spdcon.db
     ports:
       - "127.0.0.1:8000:8000"
-    depends_on:
-      - db
-      - redis
-    restart: unless-stopped
-
-  db:
-    image: postgres:17-alpine
-    environment:
-      POSTGRES_DB: ${POSTGRES_DB:-spdcon}
-      POSTGRES_USER: ${POSTGRES_USER:-spdcon}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in backend/.env}
     volumes:
-      - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-spdcon} -d ${POSTGRES_DB:-spdcon}"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    restart: unless-stopped
-
-  redis:
-    image: redis:7-alpine
-    command: ["redis-server", "--save", "60", "1", "--appendonly", "yes"]
-    volumes:
-      - redis_data:/data
+      - api_data:/data
     restart: unless-stopped
 
 volumes:
-  postgres_data:
-  redis_data:
+  api_data:
