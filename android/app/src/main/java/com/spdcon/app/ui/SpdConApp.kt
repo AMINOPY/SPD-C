@@ -106,6 +106,7 @@ import com.spdcon.app.config.ConnectionDiagnosticRunner
 import com.spdcon.app.config.ConnectionStrategySelector
 import com.spdcon.app.config.TunnelSelectionGoal
 import com.spdcon.app.config.TunnelMethodAdvisor
+import com.spdcon.app.config.AiConEngine
 import com.spdcon.app.vpn.SpdConVpnService
 
 private val screenItems = listOf(
@@ -270,9 +271,26 @@ fun SpdConApp(onOpenAdvancedPanel: () -> Unit = {}) {
                             configCount = profiles.size,
                             favoriteCount = profiles.count { it.favorite },
                             onCreate = { selected = "create" },
+                            onAiCon = { selected = "ai-con" },
                             onLibrary = { selected = "library" },
                             onScan = onOpenAdvancedPanel,
                             onTools = { selected = "tools" }
+                        )
+                        "ai-con" -> AiConPage(
+                            profiles = profiles,
+                            onBack = { selected = "home" },
+                            onBuild = { aiProfile ->
+                                store.save(aiProfile).fold(
+                                    onSuccess = {
+                                        reloadProfiles()
+                                        selected = "library"
+                                        requestVpn(aiProfile, true)
+                                    },
+                                    onFailure = {
+                                        dialogMessage = "AI_CON ساخته شد، اما ذخیره نشد: ${it.message}"
+                                    }
+                                )
+                            }
                         )
                         "library" -> LibraryPage(
                             profiles = profiles,
@@ -452,11 +470,128 @@ fun SpdConApp(onOpenAdvancedPanel: () -> Unit = {}) {
     }
 }
 
+
+@Composable
+private fun AiConPage(
+    profiles: List<ConfigProfile>,
+    onBack: () -> Unit,
+    onBuild: (ConfigProfile) -> Unit
+) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var snapshot by remember { mutableStateOf<com.spdcon.app.config.AiConNetworkSnapshot?>(null) }
+    var downloadMbps by remember { mutableStateOf<Double?>(null) }
+    var running by remember { mutableStateOf(false) }
+    var progress by remember { mutableStateOf<String?>(null) }
+    var result by remember { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(Unit) {
+        snapshot = withContext(Dispatchers.IO) { AiConEngine.inspectNetwork(context) }
+    }
+
+    Column(
+        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState())
+            .padding(horizontal = 20.dp).padding(top = 8.dp, bottom = 112.dp),
+        verticalArrangement = Arrangement.spacedBy(13.dp)
+    ) {
+        Text("AI_CON", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.ExtraBold, color = NeonCyan)
+        Text("ساخت محلی و خودکار؛ بدون دانلود یا واردکردن کانفیگ آماده", color = TextSecondary, fontSize = 13.sp)
+        GlassCard(modifier = Modifier.fillMaxWidth(), cornerRadius = 18.dp) {
+            Text("وضعیت اینترنت کاربر", fontWeight = FontWeight.SemiBold)
+            Text(snapshot?.detailFa ?: "در حال خواندن اطلاعات شبکه…", color = TextSecondary, fontSize = 12.sp)
+            if (snapshot?.radioBand == null) {
+                Text("باند دقیق سیم‌کارت فقط وقتی نمایش داده می‌شود که Android اطلاعات سلول را با مجوز لازم در اختیار برنامه بگذارد.",
+                    color = TextSecondary, fontSize = 11.sp)
+            }
+            Spacer(Modifier.height(5.dp))
+            Text(
+                downloadMbps?.let { "سرعت دانلود اندازه‌گیری‌شده: ${"%.2f".format(it)} Mbps" }
+                    ?: "سرعت واقعی هنگام شروع بررسی کوتاه اندازه‌گیری می‌شود؛ پهنای‌باند اعلام‌شدهٔ گوشی فقط تخمینی است.",
+                color = TextSecondary, fontSize = 11.sp
+            )
+        }
+        GlassCard(modifier = Modifier.fillMaxWidth(), cornerRadius = 18.dp) {
+            Text("AI چه‌کار می‌کند؟", fontWeight = FontWeight.SemiBold)
+            Text("• نوع شبکه، اطلاعات قابل‌دسترسی سیم‌کارت، DNS و پهنای‌باند را بررسی می‌کند.", color = TextSecondary, fontSize = 12.sp)
+            Text("• تا ۵ کانفیگِ متصل به نودهای واقعیِ از قبل تنظیم‌شده را با تونل واقعی آزمایش می‌کند.", color = TextSecondary, fontSize = 12.sp)
+            Text("• بر اساس موفقیت تونل، تأخیر و سازگاری هسته، گزینهٔ مناسب را انتخاب می‌کند.", color = TextSecondary, fontSize = 12.sp)
+            Text("• پروفایل محلی را با نام AI_CON ذخیره می‌کند و سپس درخواست اتصال می‌دهد.", color = TextSecondary, fontSize = 12.sp)
+        }
+        if (profiles.isEmpty()) {
+            GlassCard(modifier = Modifier.fillMaxWidth(), cornerRadius = 18.dp) {
+                Text("برای ساخت کانفیگِ واقعاً قابل‌اتصال، ابتدا باید یک نود/سرور معتبر در برنامه تنظیم شود.",
+                    fontWeight = FontWeight.SemiBold)
+                Text("AI_CON خودش کانفیگ را از اینترنت دانلود نمی‌کند؛ بدون آدرس سرور و اطلاعاتی که با سمت سرور هماهنگ باشند، ساختن UUID یا کلید تصادفی اتصال فعال ایجاد نمی‌کند.",
+                    color = TextSecondary, fontSize = 12.sp)
+            }
+        }
+        progress?.let { Text(it, color = NeonCyan, fontSize = 12.sp) }
+        result?.let { Text(it, color = TextSecondary, fontSize = 12.sp) }
+        Button(
+            onClick = {
+                if (!running) {
+                    running = true
+                    result = null
+                    scope.launch {
+                        try {
+                            val network = withContext(Dispatchers.IO) { AiConEngine.inspectNetwork(context) }
+                            snapshot = network
+                            progress = "در حال اندازه‌گیری کوتاه سرعت اینترنت…"
+                            downloadMbps = withContext(Dispatchers.IO) { AiConEngine.measureDownloadMbps() }
+                            val candidates = ConnectionStrategySelector.rankForLiveTesting(
+                                profiles,
+                                goal = if (network.transport == "cellular") TunnelSelectionGoal.RESTRICTED_NETWORK else TunnelSelectionGoal.STANDARD,
+                                limit = 5
+                            )
+                            if (candidates.isEmpty()) {
+                                result = "هیچ نود سازگار با هستهٔ داخلی پیدا نشد. ابتدا یک پروفایل با اطلاعات واقعی و کامل سرور تنظیم کن."
+                            } else {
+                                val reports = linkedMapOf<String, com.spdcon.app.config.ConnectionDiagnosticReport>()
+                                candidates.forEachIndexed { index, candidate ->
+                                    progress = "آزمایش تونل واقعی ${index + 1}/${candidates.size}: ${candidate.name}"
+                                    val report = withContext(Dispatchers.IO) {
+                                        runCatching { ConnectionDiagnosticRunner.run(candidate) }.getOrNull()
+                                    }
+                                    if (report != null) reports[candidate.name] = report
+                                }
+                                val best = AiConEngine.rankCandidates(profiles, reports, network).firstOrNull()
+                                if (best == null) {
+                                    result = "هیچ تونلی در این بررسی تأیید نشد؛ برای جلوگیری از ساخت کانفیگِ ظاهراً آماده اما خراب، AI_CON چیزی را به‌عنوان کانفیگِ کارا ذخیره نکرد."
+                                } else {
+                                    val generated = AiConEngine.createAiProfile(best.sourceProfile)
+                                    progress = "اتصال تأیید شد؛ در حال ذخیرهٔ AI_CON و رفتن به اتصال…"
+                                    onBuild(generated)
+                                }
+                            }
+                        } catch (error: Throwable) {
+                            result = "بررسی AI_CON کامل نشد: ${error.message ?: error.javaClass.simpleName}"
+                        } finally {
+                            progress = null
+                            running = false
+                        }
+                    }
+                }
+            },
+            enabled = !running && profiles.isNotEmpty(),
+            modifier = Modifier.fillMaxWidth(),
+            colors = ButtonDefaults.buttonColors(containerColor = NeonBlue)
+        ) {
+            Text(if (running) "در حال بررسی…" else "شروع ساخت AI_CON")
+        }
+        OutlinedButton(onClick = onBack, enabled = !running, modifier = Modifier.fillMaxWidth()) {
+            Text("بازگشت")
+        }
+        Text("نکته: پینگ پایین به‌تنهایی تضمین سرعت دانلود، پایداری یا عبور از DPI نیست. تشخیص مرکز دادهٔ مسیر اینترنت از روی سیم‌کارت به‌تنهایی قابل‌اعتماد نیست؛ AI_CON فقط سرورهایی را می‌تواند انتخاب کند که واقعاً در برنامه تعریف و آزمایش شده‌اند.",
+            color = TextSecondary, fontSize = 11.sp)
+    }
+}
+
 @Composable
 private fun HomePage(
     configCount: Int,
     favoriteCount: Int,
     onCreate: () -> Unit,
+    onAiCon: () -> Unit,
     onLibrary: () -> Unit,
     onScan: () -> Unit,
     onTools: () -> Unit
@@ -485,6 +620,25 @@ private fun HomePage(
         }
 
         Text(tr("Quick Actions"), color = TextSecondary, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+        GlassCard(modifier = Modifier.fillMaxWidth(), cornerRadius = 20.dp) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.size(48.dp).clip(RoundedCornerShape(14.dp)).background(Color(0xFF123D4B)),
+                    contentAlignment = Alignment.Center) {
+                    Icon(Icons.Filled.Star, contentDescription = null, tint = NeonCyan, modifier = Modifier.size(27.dp))
+                }
+                Spacer(Modifier.width(12.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("AI_CON", fontWeight = FontWeight.ExtraBold, fontSize = 18.sp, color = NeonCyan)
+                    Text("شبکه را بررسی می‌کند، نودهای واقعی را آزمایش می‌کند و بهترین اتصال تأییدشده را می‌سازد.",
+                        color = TextSecondary, fontSize = 12.sp)
+                }
+            }
+            Spacer(Modifier.height(10.dp))
+            Button(onClick = onAiCon, modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(containerColor = NeonBlue)) {
+                Text("ساخت خودکار با AI_CON")
+            }
+        }
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
             ActionCard(tr("New Config"), Icons.Filled.Add, Modifier.weight(1f), onCreate)
             ActionCard(tr("Library"), Icons.Filled.Folder, Modifier.weight(1f), onLibrary)
