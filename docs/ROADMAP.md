@@ -16,7 +16,9 @@ This roadmap is the acceptance checklist for evolving the current Android config
 - [x] Add an optional Cloudflare CDN mode that aligns VLESS + WS + TLS, Host, SNI and Path defaults, with domain validation.
 - [x] Fix IPv4-literal detection in hostname hints.
 - [x] Add backend storage/API foundations for admin-defined connection policies, source-IP observations, connection state and reported byte counters; report evaluation emits policy alerts.
-- [ ] Add a dedicated authenticated node/runtime agent for connection-time source-IP observation, per-user IP/device limits and enforcement. Current report endpoints are admin-authenticated scaffolding only; a generated share link cannot independently discover a connecting user's public IP, and policy actions are not enforced until the node runtime applies them.
+- [x] Add enrolled-node credentials and a first telemetry bridge with one-time secret display, enabled/disabled nodes, source-IP validation, event freshness and duplicate rejection.
+- [ ] Connect a trusted Xray runtime adapter to access logs and StatsService; current bridge consumes normalized JSONL events and does not yet tail arbitrary logs or query the core automatically.
+- [ ] Add per-core policy enforcement for supported actions. The current bridge is telemetry-only; a generated share link cannot independently discover a connecting user's public IP, and policy actions are not yet applied to a running proxy.
 - [ ] Add live DNS/Cloudflare proxy-state and origin compatibility checks before labeling a CDN profile as ready.
 
 ## Phase 1 — Android configuration foundation
@@ -104,6 +106,7 @@ This roadmap is the acceptance checklist for evolving the current Android config
 - Subscription response is a normalized JSON profile list, not yet a tested v2rayNG/Hiddify/Clash/sing-box/NPV-specific subscription encoding. The Cloudflare panel has initial Hysteria2/TUIC form and share-link support, but it is not yet compatibility-tested against those clients.
 - Before public deployment, configure strong APP_SECRET and bootstrap token, HTTPS, request rate limits, audit logging, and production-grade database migrations.
 - This is still an Android-first prototype plus optional cloud API scaffolds, not a production-ready Config Hub.
+- [x] Document engine/runtime gaps and acceptance gates in `docs/CORE-STATUS.md`.
 - No Xray-core runtime is currently bundled or running; generated Xray JSON is a preview/export.
 - The generated Fragment Freedom outbound is separate; automatic routing/chaining to a selected VLESS connection is not implemented.
 - Network-labelled Fragment presets are editable heuristics, not measured ISP profiles and do not guarantee connectivity or bypass.
