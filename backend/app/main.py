@@ -23,6 +23,7 @@ from pydantic import BaseModel, Field
 
 APP_SECRET = os.getenv("APP_SECRET", "")
 BOOTSTRAP_ADMIN_TOKEN = os.getenv("BOOTSTRAP_ADMIN_TOKEN", "")
+PUBLIC_BASE_URL = os.getenv("PUBLIC_BASE_URL", "").rstrip("/")
 DATABASE_PATH = os.getenv("DATABASE_PATH", "/data/spdcon.db")
 TOKEN_TTL_SECONDS = 60 * 60 * 12
 PBKDF2_ROUNDS = 310_000
@@ -56,6 +57,8 @@ def db() -> Iterator[sqlite3.Connection]:
 
 
 def init_db() -> None:
+    if len(APP_SECRET) < 32:
+        raise RuntimeError("APP_SECRET must be configured to at least 32 characters")
     with db() as conn:
         conn.executescript("""
         CREATE TABLE IF NOT EXISTS users (
@@ -103,7 +106,7 @@ def now() -> int:
 
 
 def hash_secret(value: str) -> str:
-    return hashlib.sha256(value.encode("utf-8")).hexdigest()
+    return hmac.new(APP_SECRET.encode("utf-8"), value.encode("utf-8"), hashlib.sha256).hexdigest()
 
 
 def password_hash(password: str, salt: bytes | None = None) -> str:
@@ -314,7 +317,9 @@ def create_subscription(payload: SubscriptionIn, user: sqlite3.Row = Depends(cur
     with db() as conn:
         conn.execute("INSERT INTO subscriptions(id,token_hash,owner_id,expires_at,created_at) VALUES(?,?,?,?,?)",
                      (sub_id, hash_secret(token), user["id"], payload.expires_at, timestamp))
-    return {"id": sub_id, "url": f"/subscriptions/{token}", "expires_at": payload.expires_at,
+    url_path = f"/subscriptions/{token}"
+    subscription_url = f"{PUBLIC_BASE_URL}{url_path}" if PUBLIC_BASE_URL else url_path
+    return {"id": sub_id, "url": subscription_url, "expires_at": payload.expires_at,
             "warning": "Keep this URL private; the secret is shown only once."}
 
 
