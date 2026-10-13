@@ -91,6 +91,8 @@ dependencies {
     implementation("androidx.compose.material:material-icons-extended")
     implementation("androidx.navigation:navigation-compose:2.10.2")
     implementation("com.google.zxing:core:3.5.4")
+    // Bundled into the APK so X25519 key generation works without runtime network access.
+    implementation("org.bouncycastle:bcprov-jdk18on:1.80")
     implementation(files(xrayCoreAar.asFile))
 
     debugImplementation("androidx.compose.ui:ui-tooling")
