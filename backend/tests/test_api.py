@@ -138,7 +138,20 @@ class ConfigHubApiTests(unittest.TestCase):
         self.assertEqual(second.status_code, 201, second.text)
         self.assertIn("distinct_ip_limit_exceeded", second.json()["alerts"])
         self.assertEqual(second.json()["requested_policy_action"], "deny_new_ip")
-        self.assertEqual(second.json()["enforcement"], "not_enforced_node_agent_required")
+        self.assertEqual(second.json()["decision"], "deny_new_ip")
+        self.assertEqual(
+            second.json()["enforcement"],
+            "decision_signal_only_runtime_must_enforce_before_session_admission",
+        )
+        # A repeat from the same already-seen IP is not classified as a new-IP denial.
+        repeat = self.client.post(f"/admin/users/{user_id}/connections/report",
+            headers=admin_headers, json={
+                "connection_id": "connection-repeat", "node_id": "node-a",
+                "client_ip": "198.51.100.11", "state": "active",
+                "upload_bytes": 0, "download_bytes": 0,
+            })
+        self.assertEqual(repeat.status_code, 201, repeat.text)
+        self.assertEqual(repeat.json()["decision"], "allow")
 
         connections = self.client.get(
             f"/admin/users/{user_id}/connections", headers=admin_headers)
