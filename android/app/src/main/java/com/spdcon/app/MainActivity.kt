@@ -215,7 +215,7 @@ private fun SpdConDashboard() {
         manualServer = node.address
         manualPort = node.port.toString()
         manualProtocol = runCatching { ConfigProtocol.valueOf(node.protocol.uppercase()) }.getOrDefault(ConfigProtocol.VLESS)
-        manualNetwork = node.network
+        manualNetwork = if (node.network.equals("raw", true)) "tcp" else node.network
         manualSecurity = node.security
         manualSni = node.sni
         realityServerName = node.sni
@@ -253,6 +253,7 @@ private fun SpdConDashboard() {
                             Text(when (selectedSection) {
                                 "library" -> "کانفیگ‌های ذخیره‌شده‌ات را پیدا و مدیریت کن."
                                 "cloud" -> "همگام‌سازی و لینک اشتراک؛ فقط در صورت نیاز."
+                                "nodes" -> "نودها را مدیریت کن و با یک انتخاب، فرم ساخت کانفیگ را پر کن."
                                 "tools" -> "ابزارهای جانبی و قابلیت‌های در حال توسعه."
                                 else -> "ساخت کانفیگ در چند قدم ساده؛ بدون شلوغی تنظیمات."
                             }, style = MaterialTheme.typography.bodyMedium)
