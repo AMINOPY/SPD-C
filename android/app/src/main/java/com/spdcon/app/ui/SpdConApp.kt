@@ -86,6 +86,7 @@ import com.spdcon.app.config.ConfigLibraryStore
 import com.spdcon.app.config.ConfigLinkSerializer
 import com.spdcon.app.config.ConfigProfile
 import com.spdcon.app.config.ConfigProtocol
+import com.spdcon.app.config.OfflineConfigBuilderEngine
 import com.spdcon.app.ui.theme.DeepNavy
 import com.spdcon.app.ui.theme.NeonBlue
 import com.spdcon.app.ui.theme.NeonCyan
@@ -128,6 +129,7 @@ fun SpdConApp(onOpenAdvancedPanel: () -> Unit = {}) {
     var scannerServerIp by remember { mutableStateOf<String?>(null) }
     var scannerSni by remember { mutableStateOf<String?>(null) }
     var generatedLink by remember { mutableStateOf<String?>(null) }
+    var generatedServerSetup by remember { mutableStateOf<String?>(null) }
     var dialogMessage by remember { mutableStateOf<String?>(null) }
     var selectedProfileName by remember { mutableStateOf<String?>(null) }
     val generatedQr = remember(generatedLink) {
@@ -285,6 +287,10 @@ fun SpdConApp(onOpenAdvancedPanel: () -> Unit = {}) {
                             existingProfiles = profiles,
                             scannerServerIp = scannerServerIp,
                             scannerSni = scannerSni,
+                            onGenerateOfflineReality = { link, serverSetup ->
+                                generatedLink = link
+                                generatedServerSetup = serverSetup
+                            },
                             onGenerate = { generatedProfiles ->
                                 val errors = generatedProfiles.flatMap { profile ->
                                     profile.validate().map { "${profile.name}: $it" }
@@ -372,7 +378,10 @@ fun SpdConApp(onOpenAdvancedPanel: () -> Unit = {}) {
                     modifier = Modifier.fillMaxWidth().height(170.dp).verticalScroll(rememberScrollState()),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Text(tr("Saved locally. Scan the QR code or copy the link into your VPN client:"), color = TextSecondary)
+                    Text(
+                        tr(if (generatedServerSetup == null) "Temporary link created in memory. Scan the QR code or copy it into your VPN client:" else "Temporary output created in memory. The link is below; server-side material is shown after it."),
+                        color = TextSecondary
+                    )
                     generatedQr?.let { bitmap ->
                         Image(
                             bitmap = bitmap,
@@ -382,6 +391,10 @@ fun SpdConApp(onOpenAdvancedPanel: () -> Unit = {}) {
                         )
                     }
                     Text(generatedLink.orEmpty(), fontSize = 12.sp)
+                    if (generatedServerSetup != null) {
+                        Text(tr("Server setup material (private key — keep secret)"), fontWeight = FontWeight.SemiBold)
+                        Text(generatedServerSetup.orEmpty(), fontSize = 11.sp)
+                    }
                 }
             },
             confirmButton = {
@@ -394,7 +407,21 @@ fun SpdConApp(onOpenAdvancedPanel: () -> Unit = {}) {
                     Text(tr("Copy link"))
                 }
             },
-            dismissButton = { TextButton(onClick = { generatedLink = null }) { Text(tr("Close")) } }
+            dismissButton = {
+                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    if (generatedServerSetup != null) {
+                        TextButton(onClick = {
+                            clipboard.setText(AnnotatedString(generatedServerSetup.orEmpty()))
+                            generatedServerSetup = null
+                            generatedLink = null
+                        }) { Text(tr("Copy server setup")) }
+                    }
+                    TextButton(onClick = {
+                        generatedServerSetup = null
+                        generatedLink = null
+                    }) { Text(tr("Close")) }
+                }
+            }
         )
     }
     if (dialogMessage != null) {
@@ -471,6 +498,7 @@ private fun CreatePage(
     existingProfiles: List<ConfigProfile>,
     scannerServerIp: String?,
     scannerSni: String?,
+    onGenerateOfflineReality: (String, String) -> Unit,
     onGenerate: (List<ConfigProfile>) -> Unit
 ) {
     val template = existingProfiles.firstOrNull()
@@ -627,6 +655,42 @@ private fun CreatePage(
                     }
                     Text(tr("Use the public key and short ID configured on your server. They cannot be guessed by the app."),
                         color = TextSecondary, fontSize = 12.sp)
+                    NeonButton(
+                        tr("Generate offline REALITY keys + link"),
+                        {
+                            runCatching {
+                                val portNumber = port.toIntOrNull()
+                                    ?: throw IllegalArgumentException("Enter a valid server port first.")
+                                val material = OfflineConfigBuilderEngine.generateMaterial()
+                                val link = OfflineConfigBuilderEngine.buildVlessRealityLink(
+                                    server = server.trim(),
+                                    port = portNumber,
+                                    uuid = material.clientUuid,
+                                    serverName = sni.trim(),
+                                    publicKey = material.realityKeyPair.publicKey,
+                                    shortId = material.realityShortId,
+                                    name = name.trim().ifBlank { "Spd con offline REALITY" }
+                                )
+                                val serverSetup = org.json.JSONObject()
+                                    .put("clientUuid", material.clientUuid)
+                                    .put("realityPrivateKey", material.realityKeyPair.privateKey)
+                                    .put("realityPublicKey", material.realityKeyPair.publicKey)
+                                    .put("shortId", material.realityShortId)
+                                    .put("serverName", sni.trim())
+                                    .put("note", "Merge these values into the existing server inbound. Configure a real dest separately; this output does not provision the server.")
+                                    .toString(2)
+                                onGenerateOfflineReality(link, serverSetup)
+                            }.onFailure {
+                                // Keep generated values ephemeral and report only the validation/error message.
+                                android.util.Log.w("SpdConOfflineBuilder", "Offline REALITY generation failed", it)
+                            }
+                        },
+                        Modifier.fillMaxWidth()
+                    )
+                    Text(
+                        tr("Runs locally without internet or saving to the config library. The server must be configured with the generated UUID/private key and a real destination before this link can connect."),
+                        color = TextSecondary, fontSize = 12.sp
+                    )
                 }
                 if (template != null && !editServerSettings &&
                     selectedProtocol in listOf("VLESS + WS + TLS", "Trojan + WS + TLS", "VLESS + TLS", "VLESS + Reality", "Trojan")) {
