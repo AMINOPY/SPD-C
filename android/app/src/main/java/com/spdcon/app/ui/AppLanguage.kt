@@ -50,6 +50,25 @@ private val persian = mapOf(
     "Language" to "زبان", "Choose the app language. Persian and Arabic use right-to-left layout." to "زبان برنامه را انتخاب کنید. فارسی و عربی با چینش راست‌به‌چپ نمایش داده می‌شوند.",
     "Appearance" to "ظاهر", "SPD-C Neon Glass • dark navy • cyan glow" to "SPD-C نئون گلس • سرمه‌ای تیره • درخشش فیروزه‌ای",
     "Advanced / legacy panel" to "پنل پیشرفته / قدیمی", "Nodes, Cloud sync, Backhaul, Telegram proxy and extended settings" to "نودها، همگام‌سازی ابری، Backhaul، پروکسی تلگرام و تنظیمات بیشتر"
+    "Storage" to "ذخیره‌سازی", "Builder" to "سازنده", "By default" to "به‌صورت پیش‌فرض",
+    "Step {step} of 3" to "مرحلهٔ {step} از ۳", "SELECTED" to "انتخاب‌شده",
+    "Continue" to "ادامه", "Configuration name" to "نام کانفیگ", "Server hostname / IP" to "دامنه یا IP سرور",
+    "Port" to "پورت", "Credential (leave blank to generate)" to "شناسه یا رمز (برای ساخت خودکار خالی بگذارید)",
+    "REALITY SNI / serverName" to "SNI / نام سرور REALITY", "TLS SNI (optional)" to "SNI برای TLS (اختیاری)",
+    "REALITY public key (pbk)" to "کلید عمومی REALITY (pbk)", "REALITY short ID (0–16 hex chars; may be empty)" to "شناسهٔ کوتاه REALITY (۰ تا ۱۶ رقم هگز؛ می‌تواند خالی باشد)",
+    "Use the public key and short ID configured on your server. They cannot be guessed by the app." to "از کلید عمومی و شناسهٔ کوتاه تنظیم‌شده روی سرور استفاده کنید؛ برنامه نمی‌تواند آن‌ها را حدس بزند.",
+    "Back" to "بازگشت", "Review" to "بازبینی", "Protocol" to "پروتکل", "Name" to "نام",
+    "Server" to "سرور", "Credential" to "اطلاعات دسترسی", "Generated automatically" to "ساخته‌شده به‌صورت خودکار",
+    "Provided manually" to "واردشده به‌صورت دستی", "SNI" to "SNI", "Public key" to "کلید عمومی",
+    "Required" to "الزامی", "Provided" to "وارد شده", "(empty)" to "(خالی)", "Generate & Save" to "ساخت و ذخیره",
+    "Library" to "کتابخانه", "Saved configurations on this device" to "کانفیگ‌های ذخیره‌شده روی این دستگاه",
+    "Search configs, servers, tags" to "جست‌وجوی کانفیگ، سرور و برچسب", "No configurations yet" to "هنوز کانفیگی وجود ندارد",
+    "No matches found" to "موردی پیدا نشد", "Create a config to see it here. Nothing is prefilled with fake servers." to "برای نمایش کانفیگ، یکی بسازید. هیچ سرور ساختگی از قبل وارد نشده است.",
+    "Toggle favorite" to "تغییر علاقه‌مندی", "Delete" to "حذف",
+    "TLS transport security" to "امنیت انتقال TLS", "Requires the server public key and SNI" to "به کلید عمومی سرور و SNI نیاز دارد",
+    "Password-based TLS proxy" to "پروکسی TLS مبتنی بر رمز عبور", "Encrypted proxy with a cipher method" to "پروکسی رمزگذاری‌شده با روش رمزنگاری",
+    "QUIC-based UDP transport" to "انتقال UDP مبتنی بر QUIC", "QUIC transport with a separate password" to "انتقال QUIC با رمز عبور جداگانه",
+    "VPN configuration" to "تنظیمات VPN"
 )
 
 private val arabic = mapOf(
@@ -71,4 +90,23 @@ private val arabic = mapOf(
     "Language" to "اللغة", "Choose the app language. Persian and Arabic use right-to-left layout." to "اختر لغة التطبيق. تستخدم الفارسية والعربية تخطيطًا من اليمين إلى اليسار.",
     "Appearance" to "المظهر", "SPD-C Neon Glass • dark navy • cyan glow" to "SPD-C نيون زجاجي • كحلي داكن • توهج سماوي",
     "Advanced / legacy panel" to "اللوحة المتقدمة / القديمة", "Nodes, Cloud sync, Backhaul, Telegram proxy and extended settings" to "العقد ومزامنة السحابة وBackhaul ووكيل Telegram والإعدادات الموسعة"
+    "Storage" to "التخزين", "Builder" to "المنشئ", "By default" to "افتراضيًا",
+    "Step {step} of 3" to "الخطوة {step} من ٣", "SELECTED" to "محدد",
+    "Continue" to "متابعة", "Configuration name" to "اسم الإعداد", "Server hostname / IP" to "اسم المضيف أو IP للخادم",
+    "Port" to "المنفذ", "Credential (leave blank to generate)" to "بيانات الاعتماد (اتركها فارغة للتوليد)",
+    "REALITY SNI / serverName" to "SNI / اسم خادم REALITY", "TLS SNI (optional)" to "SNI لـ TLS (اختياري)",
+    "REALITY public key (pbk)" to "المفتاح العام لـ REALITY (pbk)", "REALITY short ID (0–16 hex chars; may be empty)" to "المعرّف القصير لـ REALITY (من ٠ إلى ١٦ رمزًا سداسيًا؛ يمكن تركه فارغًا)",
+    "Use the public key and short ID configured on your server. They cannot be guessed by the app." to "استخدم المفتاح العام والمعرّف القصير المضبوطين على الخادم؛ لا يمكن للتطبيق تخمينهما.",
+    "Back" to "رجوع", "Review" to "مراجعة", "Protocol" to "البروتوكول", "Name" to "الاسم",
+    "Server" to "الخادم", "Credential" to "بيانات الاعتماد", "Generated automatically" to "تم التوليد تلقائيًا",
+    "Provided manually" to "تم إدخاله يدويًا", "SNI" to "SNI", "Public key" to "المفتاح العام",
+    "Required" to "مطلوب", "Provided" to "تم توفيره", "(empty)" to "(فارغ)", "Generate & Save" to "إنشاء وحفظ",
+    "Library" to "المكتبة", "Saved configurations on this device" to "الإعدادات المحفوظة على هذا الجهاز",
+    "Search configs, servers, tags" to "ابحث عن الإعدادات والخوادم والوسوم", "No configurations yet" to "لا توجد إعدادات بعد",
+    "No matches found" to "لم يتم العثور على نتائج", "Create a config to see it here. Nothing is prefilled with fake servers." to "أنشئ إعدادًا لعرضه هنا. لا تتم إضافة خوادم وهمية مسبقًا.",
+    "Toggle favorite" to "تبديل المفضلة", "Delete" to "حذف",
+    "TLS transport security" to "أمان نقل TLS", "Requires the server public key and SNI" to "يتطلب المفتاح العام للخادم وSNI",
+    "Password-based TLS proxy" to "وكيل TLS قائم على كلمة المرور", "Encrypted proxy with a cipher method" to "وكيل مشفر باستخدام طريقة تشفير",
+    "QUIC-based UDP transport" to "نقل UDP قائم على QUIC", "QUIC transport with a separate password" to "نقل QUIC بكلمة مرور منفصلة",
+    "VPN configuration" to "إعداد VPN"
 )

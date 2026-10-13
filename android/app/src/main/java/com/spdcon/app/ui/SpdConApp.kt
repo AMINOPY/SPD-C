@@ -320,9 +320,9 @@ private fun HomePage(
                     color = TextSecondary, fontSize = 12.sp)
                 Spacer(Modifier.height(18.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(24.dp)) {
-                    MiniStat("Local", "Storage", Icons.Filled.Folder)
-                    MiniStat("Ready", "Builder", Icons.Filled.AddCircle)
-                    MiniStat("Private", "By default", Icons.Filled.Security)
+                    MiniStat(tr("Local"), tr("Storage"), Icons.Filled.Folder)
+                    MiniStat(tr("Ready"), tr("Builder"), Icons.Filled.AddCircle)
+                    MiniStat(tr("Private"), tr("By default"), Icons.Filled.Security)
                 }
             }
         }
@@ -341,7 +341,7 @@ private fun HomePage(
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
             StatCard("$configCount", tr("Configs"), Modifier.weight(1f))
             StatCard("$favoriteCount", tr("Favorites"), Modifier.weight(1f))
-            StatCard("Local", tr("Sync"), Modifier.weight(1f))
+            StatCard(tr("Local"), tr("Sync"), Modifier.weight(1f))
         }
     }
 }
@@ -371,7 +371,7 @@ private fun CreatePage(onGenerate: (ConfigProfile) -> Unit) {
                     .background(if (n <= step) NeonCyan else Color(0xFF203149)))
             }
         }
-        Text("Step $step of 3", color = TextSecondary, fontSize = 12.sp)
+        Text(tr("Step {step} of 3").replace("{step}", step.toString()), color = TextSecondary, fontSize = 12.sp)
 
         when (step) {
             1 -> {
@@ -388,46 +388,46 @@ private fun CreatePage(onGenerate: (ConfigProfile) -> Unit) {
                                 Text(option, fontWeight = FontWeight.SemiBold)
                                 Text(protocolHint(option), color = TextSecondary, fontSize = 12.sp)
                             }
-                            if (selectedProtocol == option) Text("SELECTED", color = NeonCyan, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                            if (selectedProtocol == option) Text(tr("SELECTED"), color = NeonCyan, fontSize = 10.sp, fontWeight = FontWeight.Bold)
                         }
                     }
                 }
-                NeonButton("Continue", { step = 2 }, Modifier.fillMaxWidth())
+                NeonButton(tr("Continue"), { step = 2 }, Modifier.fillMaxWidth())
             }
             2 -> {
-                GlassField(name, { name = it }, "Configuration name")
-                GlassField(server, { server = it }, "Server hostname / IP")
-                GlassField(port, { port = it.filter(Char::isDigit).take(5) }, "Port", numeric = true)
-                GlassField(credential, { credential = it }, "Credential (leave blank to generate)")
+                GlassField(name, { name = it }, tr("Configuration name"))
+                GlassField(server, { server = it }, tr("Server hostname / IP"))
+                GlassField(port, { port = it.filter(Char::isDigit).take(5) }, tr("Port"), numeric = true)
+                GlassField(credential, { credential = it }, tr("Credential (leave blank to generate)"))
                 if (selectedProtocol != "Shadowsocks") {
-                    GlassField(sni, { sni = it }, if (selectedProtocol == "VLESS + Reality") "REALITY SNI / serverName" else "TLS SNI (optional)")
+                    GlassField(sni, { sni = it }, if (selectedProtocol == "VLESS + Reality") tr("REALITY SNI / serverName") else tr("TLS SNI (optional)"))
                 }
                 if (selectedProtocol == "VLESS + Reality") {
-                    GlassField(publicKey, { publicKey = it }, "REALITY public key (pbk)")
-                    GlassField(shortId, { shortId = it }, "REALITY short ID (0–16 hex chars; may be empty)")
-                    Text("Use the public key and short ID configured on your server. They cannot be guessed by the app.",
+                    GlassField(publicKey, { publicKey = it }, tr("REALITY public key (pbk)"))
+                    GlassField(shortId, { shortId = it }, tr("REALITY short ID (0–16 hex chars; may be empty)"))
+                    Text(tr("Use the public key and short ID configured on your server. They cannot be guessed by the app."),
                         color = TextSecondary, fontSize = 12.sp)
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-                    OutlinedButton(onClick = { step = 1 }, modifier = Modifier.weight(1f)) { Text("Back") }
-                    NeonButton("Review", { step = 3 }, Modifier.weight(1f))
+                    OutlinedButton(onClick = { step = 1 }, modifier = Modifier.weight(1f)) { Text(tr("Back")) }
+                    NeonButton(tr("Review"), { step = 3 }, Modifier.weight(1f))
                 }
             }
             else -> {
                 GlassCard(modifier = Modifier.fillMaxWidth()) {
-                    ReviewLine("Protocol", selectedProtocol)
-                    ReviewLine("Name", name.ifBlank { "Spd con config" })
-                    ReviewLine("Server", "${server.ifBlank { "—" }}:${port.ifBlank { "443" }}")
-                    ReviewLine("Credential", if (credential.isBlank()) "Generated automatically" else "Provided manually")
+                    ReviewLine(tr("Protocol"), tr(selectedProtocol))
+                    ReviewLine(tr("Name"), name.ifBlank { "Spd con config" })
+                    ReviewLine(tr("Server"), "${server.ifBlank { "—" }}:${port.ifBlank { "443" }}")
+                    ReviewLine(tr("Credential"), tr(if (credential.isBlank()) "Generated automatically" else "Provided manually"))
                     if (selectedProtocol == "VLESS + Reality") {
-                        ReviewLine("SNI", sni)
-                        ReviewLine("Public key", if (publicKey.isBlank()) "Required" else "Provided")
-                        ReviewLine("Short ID", if (shortId.isBlank()) "(empty)" else shortId)
+                        ReviewLine(tr("SNI"), sni)
+                        ReviewLine(tr("Public key"), tr(if (publicKey.isBlank()) "Required" else "Provided"))
+                        ReviewLine(tr("Short ID"), if (shortId.isBlank()) tr("(empty)") else shortId)
                     }
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
                     OutlinedButton(onClick = { step = 2 }, modifier = Modifier.weight(1f)) { Text("Back") }
-                    NeonButton("Generate & Save", {
+                    NeonButton(tr("Generate & Save"), {
                         val protocol = when (selectedProtocol) {
                             "Trojan" -> ConfigProtocol.TROJAN
                             "Shadowsocks" -> ConfigProtocol.SHADOWSOCKS
@@ -491,16 +491,16 @@ private fun LibraryPage(
             profile.tags.any { it.contains(search, true) }
     }
     Column(modifier = Modifier.fillMaxSize().padding(horizontal = 20.dp).padding(top = 8.dp, bottom = 112.dp)) {
-        Text("Library", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-        Text("Saved configurations on this device", color = TextSecondary, fontSize = 13.sp)
+        Text(tr("Library"), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+        Text(tr("Saved configurations on this device"), color = TextSecondary, fontSize = 13.sp)
         Spacer(Modifier.height(12.dp))
-        GlassField(search, { search = it }, "Search configs, servers, tags")
+        GlassField(search, { search = it }, tr("Search configs, servers, tags"))
         Spacer(Modifier.height(10.dp))
         if (filtered.isEmpty()) {
             GlassCard(modifier = Modifier.fillMaxWidth()) {
-                Text(if (profiles.isEmpty()) "No configurations yet" else "No matches found",
+                Text(tr(if (profiles.isEmpty()) "No configurations yet" else "No matches found"),
                     fontWeight = FontWeight.SemiBold)
-                Text("Create a config to see it here. Nothing is prefilled with fake servers.",
+                Text(tr("Create a config to see it here. Nothing is prefilled with fake servers."),
                     color = TextSecondary, fontSize = 12.sp)
             }
         } else {
@@ -519,10 +519,10 @@ private fun LibraryPage(
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                 androidx.compose.material3.IconButton(onClick = { onFavorite(profile) }) {
                                     Icon(if (profile.favorite) Icons.Filled.Star else Icons.Outlined.StarBorder,
-                                        contentDescription = "Toggle favorite",
+                                        contentDescription = tr("Toggle favorite"),
                                         tint = if (profile.favorite) NeonCyan else TextSecondary)
                                 }
-                                TextButton(onClick = { onDelete(profile) }) { Text("Delete", color = Color(0xFFFF6C82), fontSize = 11.sp) }
+                                TextButton(onClick = { onDelete(profile) }) { Text(tr("Delete"), color = Color(0xFFFF6C82), fontSize = 11.sp) }
                             }
                         }
                     }
@@ -696,7 +696,7 @@ private fun NeonButton(text: String, onClick: () -> Unit, modifier: Modifier = M
     ) { Text(text, fontWeight = FontWeight.Bold, fontSize = 14.sp) }
 }
 
-private fun protocolHint(protocol: String): String = when (protocol) {
+@Composable\nprivate fun protocolHint(protocol: String): String = tr(when (protocol) {
     "VLESS + TLS" -> "TLS transport security"
     "VLESS + Reality" -> "Requires the server public key and SNI"
     "Trojan" -> "Password-based TLS proxy"
