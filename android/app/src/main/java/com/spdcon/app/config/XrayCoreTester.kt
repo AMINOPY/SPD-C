@@ -21,6 +21,7 @@ object XrayCoreTester {
     private const val API_VERSION = 3
     private const val TEST_URL = "https://cp.cloudflare.com/"
     private const val TIMEOUT_SECONDS = 8
+    private const val CORE_VERSION = "Xray-core v26.10.10"
 
     fun testProfile(profile: ConfigProfile): XrayCoreTestResult {
         val validationErrors = profile.validate()
@@ -77,9 +78,7 @@ object XrayCoreTester {
             ?: throw IllegalStateException("Xray connectivity probe returned an empty result")
         val delay = item.optLong("delay", 10_000L)
         val connected = item.optBoolean("success", delay in 0 until 10_000L)
-        val coreVersion = runCatching { LibXray.xrayVersion().trim() }
-            .getOrDefault("Xray-core")
-            .ifBlank { "Xray-core" }
+        val coreVersion = CORE_VERSION
 
         return if (connected) {
             XrayCoreTestResult(
