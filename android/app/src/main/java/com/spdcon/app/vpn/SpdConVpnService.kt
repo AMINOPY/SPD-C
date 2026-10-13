@@ -86,6 +86,11 @@ class SpdConVpnService : VpnService() {
         }
         publishStatus("connecting", "Preparing Android VPN interface")
 
+        val parsedProfile = ConfigLinkParser.parse(link).getOrElse {
+            throw IllegalArgumentException("Invalid configuration link: ${it.message ?: "parse failed"}")
+        }
+        ConfigRuntimeCompatibility.requireBundledRuntimeSupport(parsedProfile)
+
         val conversion = invoke("convertShareLinksToXrayJson", JSONObject().put("text", link))
         val outbounds = if (conversion.optBoolean("success", false)) {
             conversion.optJSONObject("data")?.optJSONArray("outbounds")
