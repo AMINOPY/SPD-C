@@ -29,8 +29,8 @@ Inspired by SpiderPanel's scanner workflow and Zeus's integrated scanner, but im
 - Bounded concurrency, supported TLS ports, timeouts, visible errors and measured handshake latency.
 - Separate **TCP reachable**, **TLS hostname verified**, and **end-to-end profile tested**. A TLS handshake alone is not proof of a working proxy or a permanently clean IP.
 - Add pause/cancel, progress checkpoints, persistent scan history, CSV/TXT export and re-scan.
-- Country mode must use a documented allocation source and show the sample count before scanning. IP geolocation cannot be inferred from a country label or a Cloudflare anycast address.
-- Reject private, loopback, link-local, multicast and other reserved destinations by default. Never perform broad port sweeps; keep explicit per-run limits.
+- Country mode uses a documented registration source and reports sampled prefix count after the scan. IP geolocation cannot be inferred from a country label or a Cloudflare anycast address.
+- The country sampler excludes common private, loopback, link-local, multicast and documentation ranges. Keep scan candidates and per-run limits explicit; never perform broad port sweeps.
 
 ### 3. Account, subscription and node management
 
@@ -63,7 +63,7 @@ Already present on the development branch:
 - Optional FastAPI and Cloudflare Worker foundations for accounts/configs/subscriptions.
 
 Still incomplete and must not be presented as finished:
-- IPv6 scanner support and download/upload speed benchmarks. The current DNS probe does not implement SlipNet's full Simple/Advanced/E2E/Prism modes or its signed server-verification protocol.
+- IPv6 scanner support. The bandwidth test is Cloudflare-edge-only; it is not a benchmark for arbitrary custom origins. The current DNS probe does not implement SlipNet's full Simple/Advanced/E2E/Prism modes or its signed server-verification protocol.
 - Device-wide VPN operation via Android `VpnService`/TUN, automatic route and DNS handling, and real device-traffic verification. Xray outbound ping is not a substitute for a live full-device tunnel.
 - Android-to-cloud account/config sync and production-grade Cloudflare deployment management.
 - Full-device Android tunnel operation is not yet implemented. The native Xray core is bundled for config construction and outbound connectivity tests, but `VpnService`/TUN routing, runtime lifecycle UI, and device traffic verification remain unfinished. Trusted server-side quota enforcement and tested automatic endpoint failover also remain unfinished.
