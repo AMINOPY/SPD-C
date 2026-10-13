@@ -80,7 +80,8 @@ This roadmap is the acceptance checklist for evolving the current Android config
 
 ## Phase 5 — users, quotas and subscriptions
 - [ ] User/group lifecycle and node assignments.
-- [ ] Per-user traffic quota, expiry date, enable/disable state and usage accounting.
+- [x] Account authenticated node-reported per-connection byte-counter deltas into usage events and per-user used-byte totals.
+- [ ] Enforce quota/expiry/disable policies in live tunnel sessions; automatic Xray log/StatsService collection and per-core session termination are still missing.
 - [ ] Unique, high-entropy subscription URLs with revocation, expiry, access controls and access logs.
 - [ ] Subscription output in supported client formats, with format-specific tests.
 - [ ] Backup/restore for configuration and metadata, including integrity checks and documented secret handling.
