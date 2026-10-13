@@ -6,7 +6,7 @@
 
 ## Current config-engine work
 
-- Parse VLESS, Trojan and common VMess share links, plus legacy and SIP002-style Shadowsocks links (common subset).
+- Parse VLESS, Trojan and common VMess share links, plus legacy and SIP002-style Shadowsocks links (common subset).\n- Build a basic profile manually without importing a link.
 - Serialize VLESS, Trojan, VMess and supported Shadowsocks links; preserve Shadowsocks plugin query parameters and bracket IPv6 hosts.
 - Validate basic config fields and imported input size.
 - Edit Fragment parameters and select labelled starting presets for همراه اول, ایرانسل, and نت ملی / اتصال محدود.
