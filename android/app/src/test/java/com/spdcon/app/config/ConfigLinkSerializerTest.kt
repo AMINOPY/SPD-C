@@ -30,6 +30,62 @@ class ConfigLinkSerializerTest {
     }
 
     @Test
+    fun serializesAdvancedTransportAndTlsFields() {
+        val profile = ConfigProfile(
+            name = "WebSocket TLS",
+            protocol = ConfigProtocol.VLESS,
+            server = "edge.example.com",
+            port = 443,
+            credential = "00000000-0000-0000-0000-000000000000",
+            network = "ws",
+            security = "tls",
+            parameters = mapOf(
+                "host" to "cdn.example.com",
+                "path" to "/tunnel",
+                "sni" to "cdn.example.com",
+                "alpn" to "h2,http/1.1",
+                "fp" to "chrome"
+            )
+        )
+        val serialized = ConfigLinkSerializer.serialize(profile)
+        assertTrue(serialized.isSuccess)
+        val link = serialized.getOrThrow()
+        assertTrue(link.contains("type=ws"))
+        assertTrue(link.contains("security=tls"))
+        assertTrue(link.contains("host=cdn.example.com"))
+        assertTrue(link.contains("path=%2Ftunnel"))
+        assertTrue(link.contains("sni=cdn.example.com"))
+        assertTrue(link.contains("alpn=h2%2Chttp%2F1.1"))
+    }
+
+    @Test
+    fun serializesVmessTlsAndTransportMetadata() {
+        val profile = ConfigProfile(
+            name = "VMess WS",
+            protocol = ConfigProtocol.VMESS,
+            server = "edge.example.com",
+            port = 443,
+            credential = "00000000-0000-0000-0000-000000000000",
+            network = "ws",
+            security = "tls",
+            parameters = mapOf(
+                "host" to "cdn.example.com",
+                "path" to "/tunnel",
+                "sni" to "cdn.example.com",
+                "alpn" to "h2,http/1.1",
+                "fp" to "chrome"
+            )
+        )
+        val link = ConfigLinkSerializer.serialize(profile).getOrThrow()
+        val payload = link.removePrefix("vmess://")
+        val json = org.json.JSONObject(String(java.util.Base64.getDecoder().decode(payload)))
+        assertEquals("cdn.example.com", json.getString("sni"))
+        assertEquals("h2,http/1.1", json.getString("alpn"))
+        assertEquals("chrome", json.getString("fp"))
+        assertEquals("/tunnel", json.getString("path"))
+    }
+
+    @Test
     fun parsesAndSerializesShadowsocks() {
         val input = "ss://" + java.util.Base64.getUrlEncoder().withoutPadding()
             .encodeToString("chacha20-ietf-poly1305:password@example.com:8388".toByteArray()) + "#Test"
