@@ -67,10 +67,23 @@ object XrayClientConfigGenerator {
                     endpoint.put("users", JSONArray().put(user))
                 ))
             )
-            ConfigProtocol.TROJAN, ConfigProtocol.SHADOWSOCKS -> outbound.put(
+            ConfigProtocol.TROJAN -> outbound.put(
                 "settings",
                 JSONObject().put("servers", JSONArray().put(
-                    endpoint.put("users", JSONArray().put(user))
+                    JSONObject()
+                        .put("address", profile.server)
+                        .put("port", profile.port)
+                        .put("password", profile.credential)
+                ))
+            )
+            ConfigProtocol.SHADOWSOCKS -> outbound.put(
+                "settings",
+                JSONObject().put("servers", JSONArray().put(
+                    JSONObject()
+                        .put("address", profile.server)
+                        .put("port", profile.port)
+                        .put("method", profile.parameters["method"] ?: "chacha20-ietf-poly1305")
+                        .put("password", profile.credential)
                 ))
             )
             else -> error("Unsupported Xray protocol")
@@ -119,14 +132,7 @@ object XrayClientConfigGenerator {
             ).put(
                 JSONObject().put("tag", "block").put("protocol", "blackhole")
             ))
-            .put("routing", JSONObject().put("domainStrategy", "AsIs").put(
-                "rules", JSONArray().put(
-                    JSONObject().put("type", "field")
-                        .put("outboundTag", "direct")
-                        .put("network", "udp")
-                        .put("port", "0-65535")
-                )
-            ))
+            .put("routing", JSONObject().put("domainStrategy", "AsIs").put("rules", JSONArray()))
 
         if (profile.parameters["blockAdult"].equals("true", ignoreCase = true)) {
             root.getJSONObject("routing").getJSONArray("rules").put(
