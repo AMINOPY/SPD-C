@@ -191,6 +191,7 @@ object XrayClientConfigGenerator {
             "xhttp" -> "xhttpSettings" to JSONObject()
                 .put("path", parameters["path"] ?: "/")
                 .put("mode", parameters["mode"] ?: "auto")
+            else -> throw IllegalArgumentException("Unsupported Xray transport: ${profile.network}")
         }
     }
 }
