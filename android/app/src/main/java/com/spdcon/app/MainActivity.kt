@@ -444,7 +444,7 @@ private fun SpdConDashboard() {
                         OutlinedTextField(value = manualServer, onValueChange = { manualServer = it }, modifier = Modifier.fillMaxWidth(), label = { Text("دامنه یا IP سرور") }, singleLine = true)
                         OutlinedTextField(value = manualPort, onValueChange = { manualPort = it }, modifier = Modifier.fillMaxWidth(), label = { Text("پورت") }, singleLine = true)
                         OutlinedButton(onClick = { countryMenuExpanded = true }, modifier = Modifier.fillMaxWidth()) {
-                            Text("کشور هدف (انتخاب IP واقعی هنوز به فهرست نودها نیاز دارد): " + when (selectedCountry) {
+                            Text("کشور هدف: " + when (selectedCountry) {
                                 "US" -> "آمریکا"; "DE" -> "آلمان"; "NL" -> "هلند"; "FR" -> "فرانسه"
                                 "GB" -> "بریتانیا"; "TR" -> "ترکیه"; "FI" -> "فنلاند"; "SE" -> "سوئد"
                                 "JP" -> "ژاپن"; "SG" -> "سنگاپور"; else -> "خودکار"
@@ -455,6 +455,7 @@ private fun SpdConDashboard() {
                                 DropdownMenuItem(text = { Text(label) }, onClick = { selectedCountry = code; countryMenuExpanded = false })
                             }
                         }
+                        Text("انتخاب IP واقعی از کشور موردنظر به فهرست نودها یا IPهای آزمایش‌شده نیاز دارد.", style = MaterialTheme.typography.bodySmall)
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Checkbox(checked = blockAdultSites, onCheckedChange = { blockAdultSites = it })
                             Column {
