@@ -259,6 +259,14 @@ class ConfigHubApiTests(unittest.TestCase):
                       upload_bytes=5, download_bytes=7))
         self.assertEqual(replay.status_code, 409)
 
+        # Do not allow connection-level counters and aggregate StatsService counters to double-charge.
+        mixed_source = self.client.post(f"/nodes/{node['id']}/connections/report", headers=headers,
+            json={"event_id": "mixed-source-event-1234", "event_timestamp": api.now(),
+                  "user_id": user["id"], "connection_id": "stats-mixed-connection",
+                  "node_id": node["id"], "client_ip": "192.0.2.55",
+                  "state": "active", "upload_bytes": 10, "download_bytes": 10})
+        self.assertEqual(mixed_source.status_code, 409)
+
         invalid = self.client.post(f"/nodes/{node['id']}/usage/report",
             headers={"Authorization": "Bearer wrong-secret"},
             json=dict(base, event_id="stats-event-invalid-1234"))
