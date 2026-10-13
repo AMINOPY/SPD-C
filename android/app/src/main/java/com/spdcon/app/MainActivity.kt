@@ -108,6 +108,7 @@ private fun SpdConDashboard() {
     }
     var cloudBusy by remember { mutableStateOf(false) }
     var showCloudSettings by remember { mutableStateOf(false) }
+    var selectedSection by remember { mutableStateOf("create") }
     var cloudMessage by remember { mutableStateOf<String?>(null) }
     var cloudSubscription by remember { mutableStateOf<String?>(null) }
     var libraryMessage by remember { mutableStateOf<String?>(null) }
@@ -190,6 +191,31 @@ private fun SpdConDashboard() {
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
+            item {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer), modifier = Modifier.fillMaxWidth()) {
+                        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text("Spd con", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+                            Text(when (selectedSection) {
+                                "library" -> "کانفیگ‌های ذخیره‌شده‌ات را پیدا و مدیریت کن."
+                                "cloud" -> "همگام‌سازی و لینک اشتراک؛ فقط در صورت نیاز."
+                                "tools" -> "ابزارهای جانبی و قابلیت‌های در حال توسعه."
+                                else -> "ساخت کانفیگ در چند قدم ساده؛ بدون شلوغی تنظیمات."
+                            }, style = MaterialTheme.typography.bodyMedium)
+                        }
+                    }
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        listOf("create" to "ساخت", "library" to "ذخیره‌ها", "cloud" to "ابر", "tools" to "ابزارها").forEach { (section, label) ->
+                            if (selectedSection == section) {
+                                Button(onClick = { selectedSection = section }, modifier = Modifier.weight(1f), contentPadding = PaddingValues(horizontal = 4.dp, vertical = 10.dp)) { Text(label, maxLines = 1) }
+                            } else {
+                                OutlinedButton(onClick = { selectedSection = section }, modifier = Modifier.weight(1f), contentPadding = PaddingValues(horizontal = 4.dp, vertical = 10.dp)) { Text(label, maxLines = 1) }
+                            }
+                        }
+                    }
+                }
+            }
+            if (selectedSection == "cloud") {
             item {
                 Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Row(
@@ -382,6 +408,8 @@ private fun SpdConDashboard() {
                 }
             }
 
+            }
+            if (selectedSection == "create") {
             item {
                 Card(
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
@@ -702,6 +730,8 @@ private fun SpdConDashboard() {
                 }
             }
 
+            }
+            if (selectedSection == "library") {
             item {
                 Card(modifier = Modifier.fillMaxWidth()) {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -801,6 +831,9 @@ private fun SpdConDashboard() {
                 }
             }
 
+            }
+            }
+            if (selectedSection == "create") {
             item {
                 Card(modifier = Modifier.fillMaxWidth()) {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -995,6 +1028,8 @@ private fun SpdConDashboard() {
                 }
             }
 
+            }
+            if (selectedSection == "tools") {
             item { BackhaulTunnelCard() }
             item { TelegramCloudflareProxyCard() }
 
@@ -1004,6 +1039,7 @@ private fun SpdConDashboard() {
             item { FeatureCard(icon = { Icon(Icons.Default.Group, contentDescription = null) }, title = "کاربران و اشتراک‌ها", description = "مدیریت کاربر، محدودیت، انقضا و لینک اشتراک در مراحل بعد.") }
             item { FeatureCard(icon = { Icon(Icons.Default.Security, contentDescription = null) }, title = "Scanner و Checker", description = "بررسی ساختاری و تست‌های کنترل‌شده برای نودهای مجاز؛ در حال توسعه.") }
             item { Text("نسخه 0.2.0 • موتور کانفیگ در حال تکمیل", style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(top = 8.dp)) }
+            }
         }
     }
 }
