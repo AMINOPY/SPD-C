@@ -112,6 +112,11 @@ def init_db() -> None:
             updated_at INTEGER NOT NULL,
             PRIMARY KEY(node_id, user_id)
         );
+        CREATE TABLE IF NOT EXISTS node_usage_modes (
+            node_id TEXT PRIMARY KEY REFERENCES nodes(id) ON DELETE CASCADE,
+            mode TEXT NOT NULL CHECK(mode IN ('connections','stats')),
+            selected_at INTEGER NOT NULL
+        );
         CREATE TABLE IF NOT EXISTS connection_policies (
             user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
             max_distinct_ips INTEGER NOT NULL DEFAULT 0 CHECK(max_distinct_ips >= 0 AND max_distinct_ips <= 256),
@@ -152,6 +157,18 @@ def startup() -> None:
 
 def now() -> int:
     return int(time.time())
+
+def claim_node_usage_mode(conn: sqlite3.Connection, node_id: str, mode: str) -> None:
+    """Prevent per-connection and aggregate StatsService counters from double-charging one node."""
+    row = conn.execute("SELECT mode FROM node_usage_modes WHERE node_id=?", (node_id,)).fetchone()
+    if row is None:
+        conn.execute("INSERT INTO node_usage_modes(node_id,mode,selected_at) VALUES(?,?,?)",
+                     (node_id, mode, now()))
+    elif row["mode"] != mode:
+        raise HTTPException(
+            status_code=409,
+            detail=f"Node usage source is already locked to {row['mode']}; refusing mixed accounting sources",
+        )
 
 
 def hash_secret(value: str) -> str:
@@ -559,6 +576,7 @@ def node_report_usage(node_id: str, payload: NodeUsageReportIn,
             node["secret_hash"], hash_secret(node_secret)
         ):
             raise HTTPException(status_code=401, detail="Unknown, disabled or invalid node credentials")
+        claim_node_usage_mode(conn, node_id, "stats")
         if conn.execute("SELECT 1 FROM node_events WHERE event_id=?", (payload.event_id,)).fetchone():
             raise HTTPException(status_code=409, detail="Duplicate telemetry event")
         user = conn.execute("SELECT * FROM users WHERE id=?", (payload.user_id,)).fetchone()
@@ -761,6 +779,7 @@ def node_report_connection(node_id: str, payload: NodeConnectionReportIn,
             node["secret_hash"], hash_secret(node_secret)
         ):
             raise HTTPException(status_code=401, detail="Unknown, disabled or invalid node credentials")
+        claim_node_usage_mode(conn, node_id, "connections")
         if conn.execute("SELECT 1 FROM node_events WHERE event_id=?", (payload.event_id,)).fetchone():
             raise HTTPException(status_code=409, detail="Duplicate telemetry event")
         if not conn.execute("SELECT 1 FROM users WHERE id=?", (payload.user_id,)).fetchone():
