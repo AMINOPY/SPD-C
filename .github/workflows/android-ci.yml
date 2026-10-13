@@ -78,7 +78,7 @@ jobs:
         with:
           python-version: "3.12"
       - name: Compile node agent
-        run: python -m py_compile node-agent/agent.py node-agent/test_agent.py
+        run: python -m py_compile node-agent/*.py
       - name: Run node agent tests
         run: python -m unittest discover -s node-agent -p 'test_*.py' -v
 
