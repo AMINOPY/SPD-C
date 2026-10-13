@@ -6,6 +6,7 @@ on:
     paths:
       - "android/**"
       - "backend/**"
+      - "node-agent/**"
       - "cloudflare/**"
       - ".github/workflows/android-ci.yml"
   pull_request:
@@ -56,6 +57,20 @@ jobs:
         run: python -m pip install -r requirements.txt
       - name: Run API tests
         run: python -m unittest discover -s tests -v
+
+  node-agent-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Compile node agent
+        run: python -m py_compile node-agent/agent.py node-agent/test_agent.py
+      - name: Run node agent tests
+        run: python -m unittest discover -s node-agent -p 'test_*.py' -v
 
   android-build:
     runs-on: ubuntu-latest
