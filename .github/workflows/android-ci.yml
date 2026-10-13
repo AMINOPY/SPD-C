@@ -6,6 +6,7 @@ on:
     paths:
       - "android/**"
       - "backend/**"
+      - "cloudflare/**"
       - ".github/workflows/android-ci.yml"
   pull_request:
     paths:
@@ -19,6 +20,21 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  cloudflare-worker-check:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: cloudflare
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Check Worker JavaScript syntax
+        run: node --check src/index.js
+
   backend-tests:
     runs-on: ubuntu-latest
     defaults:
