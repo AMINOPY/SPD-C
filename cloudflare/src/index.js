@@ -245,7 +245,8 @@ async function handle(request, env) {
       const name = String(body.name || "").trim();
       const address = String(body.address || "").trim();
       const port = Number(body.port || 443);
-      const country = String(body.country || "auto").toUpperCase();
+      const rawCountry = String(body.country || "auto");
+      const country = rawCountry.toLowerCase() === "auto" ? "auto" : rawCountry.toUpperCase();
       const protocol = String(body.protocol || "vless").toLowerCase();
       const network = String(body.network || "tcp").toLowerCase();
       const security = String(body.security || "tls").toLowerCase();
