@@ -9,7 +9,8 @@
 - Fragment settings with range validation and editable starting presets labelled همراه اول, ایرانسل, and نت ملی / اتصال محدود.
 - REALITY client fields for serverName/SNI, public key (pbk), shortId, fingerprint, spiderX and optional Vision flow validation.
 - Xray JSON outbound generator for VLESS + REALITY, with an optional documented Freedom outbound containing Fragment settings.
-- Android UI controls for manual profiles, link inspection, Fragment/REALITY editing, JSON preview, QR, clipboard and system share sheet.\n- Local SQLite library with AES-GCM encrypted credentials using Android Keystore.
+- Android UI controls for manual profiles, link inspection, Fragment/REALITY editing, JSON preview, QR, clipboard and system share sheet.
+- Local SQLite library with AES-GCM encrypted credentials using Android Keystore.
 
 ## Fragment and network presets
 
