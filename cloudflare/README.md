@@ -1,6 +1,6 @@
 # Spd con Cloudflare API
 
-This is the optional cloud backend for the Android-first Spd con app. It does not require a separate web panel. The Android app now has an optional cloud card for account registration/login, uploading/downloading profiles and creating subscription links. Most config building, QR generation, local storage, export, tags/search and favorites remain in Android; this Worker provides online accounts, sync primitives and subscription links.
+This is the optional Cloudflare service for the Android-first Spd con app. It includes a lightweight responsive web panel at `/panel` for basic account, config, subscription and admin-user actions. The Android app remains the main product: quick config creation, QR, local library, search, tags, favorites and day-to-day editing stay in Android. No personal VPS is required.
 
 ## Deploy with Cloudflare
 
@@ -16,7 +16,7 @@ Requirements: a Cloudflare account and Node.js/npm with Wrangler. No personal VP
    `npx wrangler secret put BOOTSTRAP_ADMIN_TOKEN`
 7. Deploy: `npx wrangler deploy`.
 
-The API will be available at the Worker URL, for example `https://spd-con-api.<your-subdomain>.workers.dev`. Do not assume the example hostname; use the URL printed by Wrangler. Keep both secrets private. Keep APP_SECRET stable because it is used to hash sessions and subscription tokens.
+The service will be available at the Worker URL printed by Wrangler. Open `/panel` for the web interface and `/api/v1/health` to check the API. Keep both secrets private. Keep APP_SECRET stable because it is used to hash sessions and subscription tokens.
 
 ## First admin account
 
@@ -38,4 +38,4 @@ Auth uses opaque bearer tokens; only keyed hashes of sessions and subscription t
 - Quotas and expiry metadata do not enforce live VPN traffic until a trusted node agent reports usage. Do not present them as independently measured traffic usage.
 - Subscription payloads are normalized JSON profiles, not yet the tested client-specific base64/Clash/sing-box formats.
 - Add rate limiting, monitoring/audit events, schema/API integration tests, account recovery and node-agent authentication before public production use.
-- No web panel is required; API can be called from the Android app. Cloudflare dashboard is used only for setup/operations.
+- The web panel is intentionally lightweight and is not a full Xray runtime manager. Node enrollment, live connectivity checks, actual traffic enforcement, advanced user lifecycle actions and client-specific subscription encodings are not implemented yet. Cloudflare D1/Workers do not run Xray processes; real VPN nodes need a separate authorized server/runtime.
