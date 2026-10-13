@@ -61,7 +61,7 @@ object SingBoxConfigGenerator {
             if (security == "tls" || security == "reality") {
                 profile.parameters["sni"]?.takeIf { it.isNotBlank() }?.let { tls.put("server_name", it) }
                 profile.parameters["alpn"]?.takeIf { it.isNotBlank() }?.let { value ->
-                    tls.put("alpn", JSONArray(value.split(",").map(String::trim).filter(String::isNotBlank))
+                    tls.put("alpn", JSONArray(value.split(",").map(String::trim).filter(String::isNotBlank)))
                 }
                 val fingerprint = (profile.parameters["fp"] ?: profile.parameters["fingerprint"])
                     ?.takeIf { it.isNotBlank() }
@@ -121,13 +121,8 @@ object SingBoxConfigGenerator {
             )
             .put("route", JSONObject().put("final", "proxy"))
 
-        if (profile.parameters["blockAdult"].equals("true", ignoreCase = true)) {
-            root.getJSONObject("route").put("rules", JSONArray().put(
-                JSONObject()
-                    .put("domain_suffix", JSONArray().put("porn"))
-                    .put("outbound", "block")
-            ))
-        }
+        // Do not translate the Xray geosite:category-porn option into a partial
+        // suffix list. A full sing-box rule-set mapping is required for parity.
         root.toString(2)
     }
 }
