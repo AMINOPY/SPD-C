@@ -69,10 +69,13 @@ internal object ConfigCompatibilityValidator {
         }
 
         val mux = parameters["muxConcurrency"] ?: parameters["mux"]
-        if (!mux.isNullOrBlank() && mux.toIntOrNull() == null) {
-            add("Mux concurrency must be an integer")
-        } else if (!mux.isNullOrBlank() && mux.toInt() !in 0..1024) {
-            add("Mux concurrency must be between 0 and 1024")
+        if (!mux.isNullOrBlank()) {
+            val muxValue = mux.toIntOrNull()
+            if (muxValue == null) {
+                add("Mux concurrency must be an integer")
+            } else if (muxValue !in 0..1024) {
+                add("Mux concurrency must be between 0 and 1024")
+            }
         }
     }
 }
