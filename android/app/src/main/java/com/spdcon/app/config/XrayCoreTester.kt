@@ -24,11 +24,7 @@ object XrayCoreTester {
     private const val CORE_VERSION = "Xray-core v26.10.10"
 
     fun testProfile(profile: ConfigProfile): XrayCoreTestResult {
-        val validationErrors = profile.validate()
-        require(validationErrors.isEmpty()) { validationErrors.joinToString("; ") }
-        require(profile.protocol != ConfigProtocol.TUIC && profile.protocol != ConfigProtocol.HYSTERIA2) {
-            "${profile.protocol} is not implemented by Xray-core; this profile requires a compatible sing-box-based runtime."
-        }
+        ConfigRuntimeCompatibility.requireBundledRuntimeSupport(profile)
 
         val shareLink = ConfigLinkSerializer.serialize(profile).getOrElse {
             throw IllegalArgumentException(it.message ?: "Could not serialize this profile")
