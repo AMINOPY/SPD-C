@@ -163,7 +163,7 @@ class SpdConVpnService : VpnService() {
                 .put("dns", JSONObject()
                     .put("servers", JSONArray()
                         .put("https://1.1.1.1/dns-query")
-                        .put("https://8.8.8.8/dns-query"))
+                        .put("https://1.0.0.1/dns-query"))
                     .put("queryStrategy", "UseIP")
                     .put("tag", "spdcon-dns"))
                 .put("inbounds", JSONArray().put(inbound))
