@@ -1,11 +1,13 @@
-# Implementation roadmap
+# Spd con — Config Hub roadmap
 
-## Phase 0 — repository and license review
-- Review source trees, licenses, dependencies, APIs and release activity of SpiderPanel, Blue-Knight-Panel, 3x-ui, Xray-core, Scan-Cloud and DicodeConfigChecker.
-- Record exact versions, attribution and license obligations before reusing code or assets.
-- Define protocol compatibility against a pinned Xray release.
+This roadmap is the acceptance checklist for evolving the current Android configuration builder into a full Config Hub. A checkbox means implemented and verified, not merely designed or shown in the UI.
 
-## Phase 1 — Android foundation (in progress)
+## Phase 0 — compatibility, security and license review
+- [ ] Review source trees, licenses, dependencies, APIs and release activity of SpiderPanel, Blue-Knight-Panel, 3x-ui, Xray-core, Scan-Cloud and DicodeConfigChecker.
+- [ ] Record exact versions, attribution and license obligations before reusing code or assets.
+- [ ] Pin protocol compatibility to a tested Xray-core release and document export-format limitations.
+
+## Phase 1 — Android configuration foundation
 - [x] Compose dashboard and application shell.
 - [x] Typed configuration model and required-field validation.
 - [x] Initial VLESS/Trojan URI and VMess Base64-JSON parsing.
@@ -13,39 +15,63 @@
 - [x] Share-link serializers for VLESS, Trojan, VMess and the supported Shadowsocks form.
 - [x] Fragment settings model, range validation and editable network-labelled starting presets.
 - [x] REALITY fields, validation, share-link mapping and VLESS + REALITY JSON preview.
-- [x] UI controls for importing, inspecting and generating preview output.
-- [x] Confirm GitHub Actions build and unit tests pass for CI run 38372318614.
-- [x] Add local SQLite library persistence and credential encryption with Android Keystore AES-GCM.
-- [ ] Add navigation, accessibility, and polished RTL layouts.
+- [x] QR generation, clipboard and Android share-sheet sharing for supported output.
+- [x] Local SQLite configuration library.
+- [x] Encrypt saved credentials with Android Keystore AES-GCM; migrate plaintext credentials from database v1.
+- [ ] Full manual builder coverage for each supported protocol and transport/security combination.
+- [ ] Search, tags/favourites, duplicate detection and configuration change history.
+- [ ] File import/export, bulk operations, backup and restore.
+- [ ] Navigation, accessibility, polished RTL layouts and selectable themes.
 
-## Phase 2 — complete configuration engine
-- [ ] Add broader Shadowsocks URI dialect support and protocol-specific transport/security validation.
-- Add tested Xray JSON import/export and explicit routing/chaining generation for Fragment.
-- [x] Add QR generation, clipboard and Android share sheet for link/JSON output.
-- [ ] Add file import/export, tags, search, duplicate detection and history.
-- Add malformed-input tests, compatibility fixtures and version-pinned Xray validation.
+## Phase 2 — protocol engine and interoperability
+- [ ] Define a shared internal profile model for all supported protocols and transport options.
+- [ ] Expand Shadowsocks method/plugin compatibility and add comprehensive import/export fixtures.
+- [ ] Add tested Xray JSON import/export and protocol-specific validation.
+- [ ] Add correct, explicitly validated Fragment routing/chaining rather than presenting a standalone outbound as connected Fragment support.
+- [ ] Add tested exporters/importers for v2rayNG, Hiddify, Clash/Mihomo, sing-box and NPV Tunnel where their documented formats allow it.
+- [ ] Add Hysteria2 and TUIC models, validation and tested share/export formats.
+- [ ] Add encrypted DNS configuration (DoH) with explicit resolver settings.
+- [ ] Generate REALITY client/server parameters only where the required key operations and roles are well-defined; validate dest, server name, public key, short ID and fingerprint.
+- [ ] Add compatibility fixtures and regression tests for malformed, oversized and dialect-specific inputs.
+- [ ] Integrate and pin Xray-core for actual configuration validation and connection/runtime features; a JSON preview alone is not a running VPN engine.
 
-## Phase 3 — scanner and checker
-- Create cancellable, bounded-concurrency jobs with progress and structured results.
-- Restrict scans to user-supplied or explicitly authorized targets.
-- Separate syntax validation from connectivity checks; report timeout and TLS/transport errors clearly.
+## Phase 3 — backend and web administration
+- [ ] Turn the FastAPI development scaffold into a versioned API with database migrations and PostgreSQL.
+- [ ] Add authentication, secure session/token handling, Admin/User roles, authorization checks, rate limits and audit logs.
+- [ ] Build a responsive web admin interface; keep mobile Android as a first-class client.
+- [ ] Define API contracts and Android sync behavior before enabling multi-device state.
 
-## Phase 4 — backend and nodes
-- Add PostgreSQL schema/migrations, authentication, role-based authorization, audit logging and rate limiting.
-- Add node enrollment, health checks, capability detection and sync previews.
-- Implement an Xray adapter pinned to a tested version; never silently overwrite remote configs.
+## Phase 4 — nodes, scanner and checker
+- [ ] Multi-node inventory, enrollment, capability detection, health checks and safe configuration sync previews.
+- [ ] Cancellable, bounded-concurrency IP/SNI checks with progress and structured results.
+- [ ] Restrict scans to user-supplied or explicitly authorized targets; apply timeouts and rate limits.
+- [ ] Separate syntax validation from live connectivity tests; clearly report timeout, DNS, TLS and transport failures.
+- [ ] Add live health/traffic metrics only when supported by a trusted runtime or node telemetry source.
 
-## Phase 5 — users and subscriptions
-- Add user/group lifecycle, limits, expiry, node assignments and usage records.
-- Add revocable subscription tokens, expiry and access logs.
-- Add backup/restore and export permissions.
+## Phase 5 — users, quotas and subscriptions
+- [ ] User/group lifecycle and node assignments.
+- [ ] Per-user traffic quota, expiry date, enable/disable state and usage accounting.
+- [ ] Unique, high-entropy subscription URLs with revocation, expiry, access controls and access logs.
+- [ ] Subscription output in supported client formats, with format-specific tests.
+- [ ] Backup/restore for configuration and metadata, including integrity checks and documented secret handling.
 
-## Phase 6 — hardening and release
-- Add integration tests, dependency scanning, secret scanning, CI and signed release artifacts.
-- Verify TLS, backup restoration, migration strategy and log redaction.
-- Document threat model and deployment runbook.
+## Phase 6 — multi-device sync and release hardening
+- [ ] Authenticated sync across devices with conflict handling and explicit secret protection.
+- [ ] Integration tests for API, migrations, quotas, subscription revocation and restore.
+- [ ] Dependency/security scanning, secret scanning, CI and signed release artifacts.
+- [ ] Verify TLS, restore procedures, migration strategy, log redaction and a deployment runbook.
 
-## Important limitations
-- Network-labelled Fragment presets are editable heuristics, not measured ISP-specific settings or guaranteed DPI bypasses.
-- The generated Fragment Freedom outbound is separate; automatic routing/chaining to a selected VLESS connection is not yet implemented.
-- REALITY JSON preview is not a live connection test. The app does not yet bundle or run Xray-core.
+## Acceptance criteria for a Config Hub
+- A profile can be created manually, imported, validated, edited, saved, searched, tagged, exported and represented as a QR code.
+- Every advertised client export is tested against that client's documented format; unsupported features are reported rather than silently dropped.
+- Subscription limits and expiry are enforced server-side, not only in the Android UI.
+- Node operations require authentication and authorization, have audit trails, and do not silently overwrite remote configuration.
+- Connectivity status is based on a real test/runtime, not inferred from syntactic validity.
+
+## Current verified limitations
+- This is still an Android-first prototype plus a minimal FastAPI scaffold, not a production-ready Config Hub.
+- No Xray-core runtime is currently bundled or running; generated Xray JSON is a preview/export.
+- The generated Fragment Freedom outbound is separate; automatic routing/chaining to a selected VLESS connection is not implemented.
+- Network-labelled Fragment presets are editable heuristics, not measured ISP profiles and do not guarantee connectivity or bypass.
+- Local credentials are encrypted at rest using Android Keystore AES-GCM; other SQLite metadata is not encrypted.
+- Remote nodes, server-enforced quotas, users/roles, subscription service, web admin, live scanner/checker and multi-device sync remain incomplete.
