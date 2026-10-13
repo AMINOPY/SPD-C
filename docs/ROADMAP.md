@@ -19,7 +19,7 @@ This roadmap is the acceptance checklist for evolving the current Android config
 - [x] Local SQLite configuration library.
 - [x] Encrypt saved credentials with Android Keystore AES-GCM; migrate plaintext credentials from database v1.
 - [ ] Full manual builder coverage for each supported protocol and transport/security combination.
-- [ ] Search, tags/favourites, duplicate detection and configuration change history.
+- [ ] Add tests for the new local search, tags and favorites flow; add duplicate detection and configuration change history.
 - [ ] File import/export, bulk operations, backup and restore.
 - [ ] Navigation, accessibility, polished RTL layouts and selectable themes.
 
@@ -35,13 +35,13 @@ This roadmap is the acceptance checklist for evolving the current Android config
 - [ ] Add compatibility fixtures and regression tests for malformed, oversized and dialect-specific inputs.
 - [ ] Integrate and pin Xray-core for actual configuration validation and connection/runtime features; a JSON preview alone is not a running VPN engine.
 
-## Phase 3 — backend and web administration
+## Phase 3 — optional cloud services (Android-first, no web panel required)
 - [x] Add an initial FastAPI API for account registration/login/logout, own-config CRUD, role checks, subscription creation/revocation, expiry and admin quota metadata.
-- [ ] Turn the API scaffold into a production versioned service with database migrations and PostgreSQL integration.
+- [ ] Integrate Android with the Cloudflare Worker API for optional account login and conflict-safe config sync.\n- [ ] Add integration tests and production controls to the Cloudflare Worker; deploy only after setting a real D1 database ID and secrets.\n- [ ] Keep FastAPI/Docker as an optional local-development alternative; the web dashboard is not a product requirement.
 - [x] Add initial opaque bearer sessions, password hashing, Admin/User authorization checks and owner-scoped config access.
 - [ ] Add rate limiting, comprehensive audit logs, account recovery and production session-management controls.
 - [x] Add an initial responsive web dashboard for login, basic config CRUD, subscription creation and admin quota controls.\n- [ ] Build a production-ready web admin interface with full lifecycle workflows, validation, accessibility and visual polish; keep mobile Android as a first-class client.
-- [ ] Define API contracts and Android sync behavior before enabling multi-device state.
+- [ ] Define API contracts, encryption and conflict handling before enabling multi-device sync.
 
 ## Phase 4 — nodes, scanner and checker
 - [ ] Multi-node inventory, enrollment, capability detection, health checks and safe configuration sync previews.
@@ -72,11 +72,11 @@ This roadmap is the acceptance checklist for evolving the current Android config
 - Connectivity status is based on a real test/runtime, not inferred from syntactic validity.
 
 ## Current verified limitations
-- The initial FastAPI account/config/subscription endpoints and tests exist, but are not yet connected to Android UI or a web admin interface. The backend uses SQLite in one instance; PostgreSQL/Redis in the original compose file were not integrated and the compose setup now uses a persistent SQLite volume.
+- The initial FastAPI account/config/subscription endpoints and the separate Cloudflare Worker scaffold exist, but neither is yet connected to Android UI. The web dashboard is optional. The backend uses SQLite in one instance; PostgreSQL/Redis in the original compose file were not integrated and the compose setup now uses a persistent SQLite volume.
 - Quota/usage is currently based on trusted admin usage reports; no node agent exists to independently measure or enforce tunnel traffic.
 - Subscription response is a normalized JSON profile list, not yet a tested v2rayNG/Hiddify/Clash/sing-box/NPV-specific subscription encoding.
 - Before public deployment, configure strong APP_SECRET and bootstrap token, HTTPS, request rate limits, audit logging, and production-grade database migrations.
-- This is still an Android-first prototype plus a minimal FastAPI scaffold, not a production-ready Config Hub.
+- This is still an Android-first prototype plus optional cloud API scaffolds, not a production-ready Config Hub.
 - No Xray-core runtime is currently bundled or running; generated Xray JSON is a preview/export.
 - The generated Fragment Freedom outbound is separate; automatic routing/chaining to a selected VLESS connection is not implemented.
 - Network-labelled Fragment presets are editable heuristics, not measured ISP profiles and do not guarantee connectivity or bypass.
