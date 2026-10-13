@@ -18,7 +18,8 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Iterator
 
-from fastapi import Depends, FastAPI, Header, HTTPException, Request
+from fastapi import Depends, FastAPI, Header, HTTPException
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 APP_SECRET = os.getenv("APP_SECRET", "")
@@ -32,6 +33,7 @@ MAX_SUBSCRIPTION_BYTES = 1_000_000
 
 app = FastAPI(title="Spd con Config Hub API", version="0.2.0",
               description="Accounts, config library, roles, quotas and revocable subscriptions.")
+app.mount("/panel", StaticFiles(directory=str(Path(__file__).parent / "static"), html=True), name="panel")
 
 
 def _db_path() -> str:
