@@ -1,6 +1,11 @@
 package com.spdcon.app.ui
 
+import android.app.Activity
 import android.content.Context
+import android.content.Intent
+import android.net.VpnService
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -93,6 +98,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import com.spdcon.app.config.XrayCoreTester
+import com.spdcon.app.vpn.SpdConVpnService
 
 private val screenItems = listOf(
     Triple("home", "Home", Icons.Outlined.Home to Icons.Filled.Home),
@@ -126,6 +132,58 @@ fun SpdConApp(onOpenAdvancedPanel: () -> Unit = {}) {
         generatedLink?.let { com.spdcon.app.createQrBitmap(it)?.asImageBitmap() }
     }
     val bothProtocolsSavedMessage = tr("Both VLESS and Trojan WebSocket profiles were saved. The QR dialog shows the first link; both are available in Library.")
+    var pendingVpnProfile by remember { mutableStateOf<ConfigProfile?>(null) }
+
+    fun beginVpn(profile: ConfigProfile) {
+        if (profile.protocol == ConfigProtocol.TUIC) {
+            dialogMessage = "TUIC is not supported by the bundled Xray-core. Choose VLESS, VMess, Trojan, Shadowsocks or Hysteria2."
+            return
+        }
+        ConfigLinkSerializer.serialize(profile).fold(
+            onSuccess = { link ->
+                val serviceIntent = Intent(context, SpdConVpnService::class.java)
+                    .setAction(SpdConVpnService.ACTION_START)
+                    .putExtra(SpdConVpnService.EXTRA_LINK, link)
+                    .putExtra(SpdConVpnService.EXTRA_NAME, profile.name)
+                runCatching { context.startForegroundService(serviceIntent) }
+                    .onSuccess { dialogMessage = "VPN startup requested. Android will show the active VPN notification; actual server reachability still needs verification." }
+                    .onFailure { dialogMessage = "Could not start VPN service: ${it.message}" }
+            },
+            onFailure = { dialogMessage = "Invalid config: ${it.message}" }
+        )
+    }
+
+    val vpnPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        val profile = pendingVpnProfile
+        pendingVpnProfile = null
+        if (result.resultCode == Activity.RESULT_OK && profile != null) {
+            beginVpn(profile)
+        } else {
+            dialogMessage = "VPN permission was not granted."
+        }
+    }
+
+    fun requestVpn(profile: ConfigProfile) {
+        val permissionIntent = VpnService.prepare(context)
+        if (permissionIntent == null) {
+            beginVpn(profile)
+        } else {
+            pendingVpnProfile = profile
+            vpnPermissionLauncher.launch(permissionIntent)
+        }
+    }
+
+    fun disconnectVpn() {
+        runCatching {
+            context.startService(Intent(context, SpdConVpnService::class.java).setAction(SpdConVpnService.ACTION_STOP))
+        }.onSuccess {
+            dialogMessage = "Disconnect requested. Check the VPN notification for the final status."
+        }.onFailure {
+            dialogMessage = "Could not request disconnect: ${it.message}"
+        }
+    }
 
     fun reloadProfiles() { profiles = store.loadAll() }
     fun openProfile(profile: ConfigProfile) {
@@ -183,6 +241,8 @@ fun SpdConApp(onOpenAdvancedPanel: () -> Unit = {}) {
                                 reloadProfiles()
                             },
                             onOpen = ::openProfile,
+                            onConnect = ::requestVpn,
+                            onDisconnect = ::disconnectVpn,
                             onDelete = { profile ->
                                 store.delete(profile)
                                 reloadProfiles()
@@ -641,6 +701,8 @@ private fun LibraryPage(
     profiles: List<ConfigProfile>,
     onFavorite: (ConfigProfile) -> Unit,
     onOpen: (ConfigProfile) -> Unit,
+    onConnect: (ConfigProfile) -> Unit,
+    onDisconnect: () -> Unit,
     onDelete: (ConfigProfile) -> Unit
 ) {
     var search by remember { mutableStateOf("") }
@@ -655,6 +717,9 @@ private fun LibraryPage(
     Column(modifier = Modifier.fillMaxSize().padding(horizontal = 20.dp).padding(top = 8.dp, bottom = 112.dp)) {
         Text(tr("Library"), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
         Text(tr("Saved configurations on this device"), color = TextSecondary, fontSize = 13.sp)
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedButton(onClick = onDisconnect, modifier = Modifier.weight(1f)) { Text(tr("Disconnect VPN")) }
+        }
         Spacer(Modifier.height(12.dp))
         GlassField(search, { search = it }, tr("Search configs, servers, tags"))
         Spacer(Modifier.height(10.dp))
@@ -688,6 +753,13 @@ private fun LibraryPage(
                             }
                         }
                         Spacer(Modifier.height(8.dp))
+                        OutlinedButton(
+                            onClick = { onConnect(profile) },
+                            enabled = profile.protocol != ConfigProtocol.TUIC && testingProfileName == null,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(if (profile.protocol == ConfigProtocol.TUIC) tr("TUIC needs a compatible core") else tr("Connect through Android VPN"))
+                        }
                         OutlinedButton(
                             onClick = {
                                 if (testingProfileName == null) {
