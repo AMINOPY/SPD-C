@@ -132,6 +132,9 @@ class ConfigLinkSerializerTest {
             .put("id", "00000000-0000-0000-0000-000000000000")
             .put("net", "ws")
             .put("tls", "tls")
+            .put("sni", "cdn.example.com")
+            .put("alpn", "h2,http/1.1")
+            .put("fp", "chrome")
             .toString()
         val encoded = java.util.Base64.getUrlEncoder().withoutPadding()
             .encodeToString(json.toByteArray())
@@ -140,6 +143,9 @@ class ConfigLinkSerializerTest {
         assertEquals("example.com", parsed.getOrThrow().server)
         assertEquals("ws", parsed.getOrThrow().network)
         assertEquals("tls", parsed.getOrThrow().security)
+        assertEquals("cdn.example.com", parsed.getOrThrow().parameters["sni"])
+        assertEquals("h2,http/1.1", parsed.getOrThrow().parameters["alpn"])
+        assertEquals("chrome", parsed.getOrThrow().parameters["fp"])
     }
 
     @Test
