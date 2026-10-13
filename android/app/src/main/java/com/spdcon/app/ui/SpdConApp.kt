@@ -949,7 +949,7 @@ private fun LibraryPage(
                             onSuccess = { clipboard.setText(AnnotatedString(it.text)) },
                             onFailure = { exportError = it.message ?: "Could not export this configuration." }
                         )
-                        if (exportError == null) exportProfile = null
+                        exportProfile = null
                     }
                 ) { Text(tr("Copy v2rayNG link")) }
             },
