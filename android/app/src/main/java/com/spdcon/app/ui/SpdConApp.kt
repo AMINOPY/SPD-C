@@ -60,6 +60,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -95,6 +96,7 @@ import com.spdcon.app.ui.theme.SurfaceGlassLight
 import com.spdcon.app.ui.theme.TextSecondary
 import java.util.UUID
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import com.spdcon.app.config.XrayCoreTester
@@ -709,6 +711,17 @@ private fun LibraryPage(
     var testingProfileName by remember { mutableStateOf<String?>(null) }
     var testMessage by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+    var vpnStatus by remember { mutableStateOf("disconnected • VPN is off") }
+    LaunchedEffect(Unit) {
+        while (true) {
+            val prefs = context.getSharedPreferences(SpdConVpnService.PREFS, Context.MODE_PRIVATE)
+            val state = prefs.getString("status", "disconnected") ?: "disconnected"
+            val detail = prefs.getString("detail", "") ?: ""
+            vpnStatus = if (detail.isBlank()) state else "$state • $detail"
+            delay(1_000)
+        }
+    }
     val filtered = profiles.filter { profile ->
         search.isBlank() || profile.name.contains(search, true) ||
             profile.server.contains(search, true) || profile.protocol.name.contains(search, true) ||
@@ -719,6 +732,10 @@ private fun LibraryPage(
         Text(tr("Saved configurations on this device"), color = TextSecondary, fontSize = 13.sp)
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedButton(onClick = onDisconnect, modifier = Modifier.weight(1f)) { Text(tr("Disconnect VPN")) }
+        }
+        GlassCard(modifier = Modifier.fillMaxWidth(), cornerRadius = 16.dp) {
+            Text(tr("VPN status"), fontWeight = FontWeight.SemiBold)
+            Text(vpnStatus, color = if (vpnStatus.startsWith("connected")) NeonCyan else TextSecondary, fontSize = 12.sp)
         }
         Spacer(Modifier.height(12.dp))
         GlassField(search, { search = it }, tr("Search configs, servers, tags"))
