@@ -30,6 +30,7 @@ fun CleanIpScannerPage(onBack: () -> Unit, onUseIp: (ip: String, sni: String) ->
     var input by remember { mutableStateOf("") }
     var sni by remember { mutableStateOf("") }
     var dnsDomain by remember { mutableStateOf("example.com") }
+    var dnsTransport by remember { mutableStateOf(DnsTransport.UDP) }
     var port by remember { mutableStateOf("443") }
     var workers by remember { mutableFloatStateOf(8f) }
     var scanning by remember { mutableStateOf(false) }
@@ -107,6 +108,19 @@ fun CleanIpScannerPage(onBack: () -> Unit, onUseIp: (ip: String, sni: String) ->
                 singleLine = true, label = { Text(tr("DNS test domain")) },
                 placeholder = { Text("example.com") }
             )
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                DnsTransport.values().forEach { transportOption ->
+                    FilterChip(
+                        selected = dnsTransport == transportOption,
+                        onClick = { dnsTransport = transportOption },
+                        label = { Text(when (transportOption) {
+                            DnsTransport.UDP -> "UDP"
+                            DnsTransport.TCP -> "TCP"
+                            DnsTransport.BOTH -> "UDP + TCP fallback"
+                        }) }
+                    )
+                }
+            }
         }
         OutlinedTextField(
             value = port, onValueChange = { port = it.filter(Char::isDigit).take(5) },
@@ -122,7 +136,7 @@ fun CleanIpScannerPage(onBack: () -> Unit, onUseIp: (ip: String, sni: String) ->
                 scope.launch {
                     val outcome = executeCleanIpScan(
                         mode, source, input, recentIps, recentDnsIps, sni.trim(), dnsDomain.trim(),
-                        port.toIntOrNull() ?: 0, workers.toInt(), noCandidatesError, scanFailedMessage,
+                        port.toIntOrNull() ?: 0, workers.toInt(), dnsTransport, noCandidatesError, scanFailedMessage,
                         finishedTemplate, finishedDnsTemplate
                     )
                     error = outcome.errorMessage
@@ -217,6 +231,7 @@ private suspend fun executeCleanIpScan(
     dnsDomain: String,
     port: Int,
     workers: Int,
+    dnsTransport: DnsTransport,
     noCandidatesError: String,
     scanFailedMessage: String,
     finishedTlsTemplate: String,
@@ -233,7 +248,7 @@ private suspend fun executeCleanIpScan(
     require(port in 1..65535) { "Port must be between 1 and 65535" }
     if (mode == "dns") {
         val scanned = withContext(Dispatchers.IO) {
-            DnsResolverScanner.scan(candidates, dnsDomain, port, workers = workers)
+            DnsResolverScanner.scan(candidates, dnsDomain, port, workers = workers, transport = dnsTransport)
         }
         val good = scanned.filter { it.score >= 2 }.map { it.ip }.distinct()
         CleanIpScanOutcome(
