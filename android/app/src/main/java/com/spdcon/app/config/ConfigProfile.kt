@@ -105,6 +105,6 @@ data class ConfigProfile(
             add("TUIC requires its separate password")
         }
 
-        addAll(ConfigCompatibilityValidator.validate(this))
+        addAll(ConfigCompatibilityValidator.validate(this@ConfigProfile))
     }
 }
