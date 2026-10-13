@@ -43,6 +43,7 @@ fun CleanIpScannerPage(onBack: () -> Unit, onUseIp: (ip: String, sni: String) ->
     val noCandidatesError = tr("No IP candidates to scan")
     val scanFailedMessage = tr("Scan failed")
     val finishedTemplate = tr("Finished: {good} verified TLS IPs from {total} candidates")
+    val finishedDnsTemplate = tr("Finished: {good} DNS-compatible resolvers from {total} candidates")
 
     Column(
         modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState())
@@ -138,7 +139,7 @@ fun CleanIpScannerPage(onBack: () -> Unit, onUseIp: (ip: String, sni: String) ->
                             val good = scanned.filter { it.score >= 2 }.map { it.ip }.distinct()
                             recentDnsIps = good
                             prefs.edit().putString("last_dns_ips", good.joinToString("\n")).apply()
-                            status = tr("Finished: {good} DNS-compatible resolvers from {total} candidates")
+                            status = finishedDnsTemplate
                                 .replace("{good}", good.size.toString()).replace("{total}", scanned.size.toString())
                         } else {
                             val scanned = withContext(Dispatchers.IO) {
