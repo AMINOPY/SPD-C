@@ -36,3 +36,20 @@ Xray documents Fragment as outgoing TCP fragmentation under the Freedom outbound
 - End-to-end validation against a pinned Xray-core version.
 
 A successful parse or generated JSON does not prove that a configuration will connect. Keep Xray versions pinned and validate generated output against that version. Imported values are untrusted; do not log credentials, public/private keys, or subscription tokens.
+
+## Multi-inbound generation service
+
+`ConfigGenerationService` turns explicitly configured inbounds into a per-user list of VLESS share profiles:
+
+- **REALITY:** TCP and/or XHTTP; requires the actual server SNI, public key (`pbk`) and a valid even-length hexadecimal `shortId`. The server private key is never needed by the client generator and must stay server-side.
+- **TLS relay:** creates WS and XHTTP profiles using the configured relay routes (`/ws/{uuid}` and `/xhttp-siz10/{mode}/{uuid}`). Optional alternate addresses are only used when supplied by an operator/scanner; the configured TLS Host/SNI is preserved for IP variants.
+- **Cloudflare Worker:** expands explicitly configured Worker route templates such as `/ws/{uuid}` or country-specific paths. A route is emitted only when it is configured in the input; the generator does not assume that a Worker serves a route merely because the URL looks plausible.
+- **Stable identity:** the caller supplies a persisted user UUID. All links produced for that user reuse the same UUID across inbounds. `newStableUserId()` is a one-time provisioning helper; callers must persist its result rather than call it for every refresh.
+- **Metadata:** generator-only labels are omitted from share-link query parameters. Adult-filter preference is retained on the profile, but a share link alone cannot enforce it; the generated client JSON/runtime and its domain lists must support the policy.
+
+This service does not create the user on Xray, configure a FastAPI relay, deploy a Cloudflare Worker, scan Clean IPs, or test DPI behavior. Server-side provisioning and route compatibility must be completed separately. It produces candidate profiles only for the exact inbounds/routes supplied to it.
+
+## DPI-resilience policy
+
+No protocol, transport, SNI, fingerprint, Fragment preset or CDN route can guarantee resistance to DPI or availability on every carrier. The generator therefore does not fabricate REALITY keys, SNI values, short IDs, country paths or successful scanner results. Use a server-backed profile, validate it against the deployed core version, test connectivity on the target network, and prefer the profile that actually works there. CDN mode is valid only when DNS proxying, TLS certificate, origin and route are configured together. Cloudflare's ordinary HTTP proxy is not a generic UDP tunnel for Hysteria2/TUIC.
+
