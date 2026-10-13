@@ -163,7 +163,7 @@ class SpdConVpnService : VpnService() {
                         .put(JSONObject()
                             .put("type", "field")
                             .put("inboundTag", JSONArray().put("tun"))
-                            .put("port", 53)
+                            .put("port", "53")
                             .put("outboundTag", "dns"))
                         .put(JSONObject()
                             .put("type", "field")
