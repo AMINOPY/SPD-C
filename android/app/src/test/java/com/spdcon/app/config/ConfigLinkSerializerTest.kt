@@ -56,4 +56,40 @@ class ConfigLinkSerializerTest {
         assertTrue(serialized.getOrThrow().contains("plugin=obfs-local%3Bobfs%3Dhttp"))
     }
 
+    @Test
+    fun preservesPlusInVlessCredentialAndParsesQuery() {
+        val parsed = ConfigLinkParser.parse(
+            "vless://abc+def@example.com:443?type=tcp&security=none#Plus%20Test"
+        )
+        assertTrue(parsed.isSuccess)
+        assertEquals("abc+def", parsed.getOrThrow().credential)
+        assertEquals("Plus Test", parsed.getOrThrow().name)
+    }
+
+    @Test
+    fun parsesUrlSafeUnpaddedVmessPayload() {
+        val json = org.json.JSONObject()
+            .put("v", "2")
+            .put("ps", "VMess test")
+            .put("add", "example.com")
+            .put("port", "443")
+            .put("id", "00000000-0000-0000-0000-000000000000")
+            .put("net", "ws")
+            .put("tls", "tls")
+            .toString()
+        val encoded = java.util.Base64.getUrlEncoder().withoutPadding()
+            .encodeToString(json.toByteArray())
+        val parsed = ConfigLinkParser.parse("vmess://$encoded")
+        assertTrue(parsed.isSuccess)
+        assertEquals("example.com", parsed.getOrThrow().server)
+        assertEquals("ws", parsed.getOrThrow().network)
+        assertEquals("tls", parsed.getOrThrow().security)
+    }
+
+    @Test
+    fun rejectsMalformedAndOversizedInputs() {
+        assertTrue(ConfigLinkParser.parse("vless://").isFailure)
+        assertTrue(ConfigLinkParser.parse("vless://" + "x".repeat(33_000)).isFailure)
+    }
+
 }
