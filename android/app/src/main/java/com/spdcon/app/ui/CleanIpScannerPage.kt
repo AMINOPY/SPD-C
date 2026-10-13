@@ -387,10 +387,11 @@ fun CleanIpScannerPage(onBack: () -> Unit, onUseIp: (ip: String, sni: String) ->
                                                             }
                                                             "$mark ${stage.name.uppercase()}: ${stage.detail}"
                                                         }
+                                                        val dpi = report.dpiAssessment
                                                         if (report.tunnelConnected) {
-                                                            "TUNNEL VERIFIED • ${report.tunnelLatencyMs ?: 0} ms\nDPI status: UNKNOWN (not tested across networks)\n$stageLines\nThis verifies this profile/IP on this network only; it does not prove DPI resistance everywhere."
+                                                            "TUNNEL VERIFIED • ${report.tunnelLatencyMs ?: 0} ms\nDPI status: ${dpi.titleFa}\n${dpi.explanationFa}\nNext step: ${dpi.nextStepFa}\n$stageLines"
                                                         } else {
-                                                            "${report.diagnosis?.titleFa ?: "Tunnel not verified"}\nDPI status: UNKNOWN (a failed test does not prove DPI blocking)\n${report.diagnosis?.nextStepFa.orEmpty()}\n$stageLines"
+                                                            "${report.diagnosis?.titleFa ?: "Tunnel not verified"}\nDPI status: ${dpi.titleFa}\n${dpi.explanationFa}\nNext step: ${dpi.nextStepFa}\n$stageLines"
                                                         }
                                                     },
                                                     onFailure = { "Test failed: ${it.message ?: it.javaClass.simpleName}" }
