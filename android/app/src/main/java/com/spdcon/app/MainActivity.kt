@@ -264,6 +264,11 @@ private fun SpdConDashboard() {
                                 )
                                 val errors = profile.validate()
                                 if (errors.isNotEmpty()) {
+                                    parsedProfile = null
+                                    parsedSummary = null
+                                    generatedOutput = null
+                                    qrContent = null
+                                    copyContent = null
                                     parseResult = errors.joinToString("; ")
                                 } else {
                                     parsedProfile = profile
