@@ -150,6 +150,7 @@ class SpdConVpnService : VpnService() {
 
             val inbound = JSONObject()
                 .put("tag", "tun")
+                .put("port", 0)
                 .put("protocol", "tun")
                 .put("settings", JSONObject()
                     .put("name", "spdcon0")
