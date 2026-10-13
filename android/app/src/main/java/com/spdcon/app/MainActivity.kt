@@ -1,5 +1,6 @@
 package com.spdcon.app
 
+import android.content.Intent
 import android.graphics.Bitmap
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -296,7 +297,7 @@ private fun SpdConDashboard() {
                 Card(modifier = Modifier.fillMaxWidth()) {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text("کتابخانه محلی کانفیگ", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                        Text("کانفیگ‌ها روی همین دستگاه ذخیره می‌شوند. این نسخه هنوز رمزگذاری مخصوص خزانهٔ امن ندارد؛ از دستگاه امن استفاده کن.")
+                        Text("اطلاعات ورود با AES-GCM و کلید محلی Android Keystore رمزگذاری می‌شوند. حذف داده‌های برنامه یا کلید دستگاه می‌تواند بازیابی را ناممکن کند.")
                         Button(
                             onClick = {
                                 val profile = parsedProfile
@@ -501,6 +502,20 @@ private fun SpdConDashboard() {
                                 onClick = { clipboardManager.setText(AnnotatedString(copyContent ?: it)) },
                                 modifier = Modifier.fillMaxWidth()
                             ) { Text("کپی خروجی") }
+                            OutlinedButton(
+                                onClick = {
+                                    val raw = copyContent ?: qrContent
+                                    if (!raw.isNullOrBlank()) {
+                                        val intent = Intent(Intent.ACTION_SEND).apply {
+                                            type = "text/plain"
+                                            putExtra(Intent.EXTRA_TEXT, raw)
+                                        }
+                                        context.startActivity(Intent.createChooser(intent, "اشتراک‌گذاری کانفیگ"))
+                                    }
+                                },
+                                modifier = Modifier.fillMaxWidth(),
+                                enabled = !copyContent.isNullOrBlank() || !qrContent.isNullOrBlank()
+                            ) { Text("اشتراک‌گذاری لینک یا JSON") }
                         }
                         if (qrImage != null) {
                             Text("QR لینک کانفیگ")
