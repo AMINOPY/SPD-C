@@ -740,12 +740,12 @@ private fun SpdConDashboard() {
                                 DropdownMenuItem(text = { Text(label) }, onClick = { selectedCountry = code; countryMenuExpanded = false })
                             }
                         }
-                        Text("کشور انتخابی، ترجیح اسکن است.", style = MaterialTheme.typography.bodySmall)
+                        Text("انتخاب کشور فعلاً فقط یک ترجیح است؛ اسکن و انتخاب خودکار IP هنوز فعال نیست.", style = MaterialTheme.typography.bodySmall)
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Checkbox(checked = blockAdultSites, onCheckedChange = { blockAdultSites = it })
                             Column {
                                 Text("مسدودکردن سایت‌های بزرگسال")
-                                Text("برای خروجی Xray سازگار", style = MaterialTheme.typography.bodySmall)
+                                Text("فقط در خروجی JSON سازگار با Xray؛ لینک معمولی این فیلتر را اعمال نمی‌کند.", style = MaterialTheme.typography.bodySmall)
                             }
                         }
                         if (manualProtocol == ConfigProtocol.TROJAN || manualProtocol == ConfigProtocol.SHADOWSOCKS || manualProtocol == ConfigProtocol.HYSTERIA2) {
@@ -758,7 +758,7 @@ private fun SpdConDashboard() {
                                 singleLine = true
                             )
                         } else {
-                            Text("شناسه خودکار ساخته می‌شود.", style = MaterialTheme.typography.bodySmall)
+                            Text("شناسه به‌صورت خودکار و مخفی ساخته می‌شود؛ برای اتصال باید همان کاربر روی نود سرور ثبت شود.", style = MaterialTheme.typography.bodySmall)
                         }
                         if (manualProtocol == ConfigProtocol.TUIC) {
                             OutlinedTextField(value = manualTuicPassword, onValueChange = { manualTuicPassword = it }, modifier = Modifier.fillMaxWidth(), label = { Text("رمز عبور TUIC") }, visualTransformation = PasswordVisualTransformation(), singleLine = true)
