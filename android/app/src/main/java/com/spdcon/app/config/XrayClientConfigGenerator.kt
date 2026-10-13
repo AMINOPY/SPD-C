@@ -179,18 +179,35 @@ object XrayClientConfigGenerator {
                 else "tcpSettings" to JSONObject().put("header", JSONObject().put("type", headerType))
             }
             "ws" -> {
+                val path = parameters["path"] ?: "/"
+                require(path.startsWith("/") && !path.contains("..") && !path.any { it.isISOControl() }) {
+                    "WebSocket path must be an absolute safe path"
+                }
                 val headers = JSONObject()
-                parameters["host"]?.takeIf { it.isNotBlank() }?.let { headers.put("Host", it) }
+                parameters["host"]?.takeIf { it.isNotBlank() }?.let {
+                    require(!it.any { ch -> ch.isWhitespace() || ch.isISOControl() }) {
+                        "WebSocket Host must not contain whitespace or control characters"
+                    }
+                    headers.put("Host", it)
+                }
                 "wsSettings" to JSONObject()
-                    .put("path", parameters["path"] ?: "/")
+                    .put("path", path)
                     .put("headers", headers)
             }
             "grpc" -> "grpcSettings" to JSONObject()
                 .put("serviceName", parameters["serviceName"] ?: parameters["service-name"] ?: "")
                 .put("multiMode", parameters["mode"].equals("multi", ignoreCase = true))
-            "xhttp" -> "xhttpSettings" to JSONObject()
-                .put("path", parameters["path"] ?: "/")
-                .put("mode", parameters["mode"] ?: "auto")
+            "xhttp" -> {
+                val path = parameters["path"] ?: "/"
+                val mode = parameters["mode"] ?: "auto"
+                require(path.startsWith("/") && !path.contains("..") && !path.any { it.isISOControl() }) {
+                    "XHTTP path must be an absolute safe path"
+                }
+                require(mode in setOf("auto", "packet-up", "stream-up", "stream-one")) {
+                    "Unsupported XHTTP mode: $mode"
+                }
+                "xhttpSettings" to JSONObject().put("path", path).put("mode", mode)
+            }
             else -> throw IllegalArgumentException("Unsupported Xray transport: ${profile.network}")
         }
     }
