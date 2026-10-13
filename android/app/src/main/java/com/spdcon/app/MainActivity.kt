@@ -87,6 +87,8 @@ private fun SpdConDashboard() {
     val clipboardManager = LocalClipboardManager.current
     val libraryStore = remember(context) { ConfigLibraryStore(context) }
     var savedProfiles by remember { mutableStateOf(libraryStore.loadAll()) }
+    var librarySearch by remember { mutableStateOf("") }
+    var tagDrafts by remember { mutableStateOf(emptyMap<String, String>()) }
     var libraryMessage by remember { mutableStateOf<String?>(null) }
     var manualProtocol by remember { mutableStateOf(ConfigProtocol.VLESS) }
     var manualProtocolMenuExpanded by remember { mutableStateOf(false) }
@@ -117,6 +119,18 @@ private fun SpdConDashboard() {
     var realityFingerprint by remember { mutableStateOf("chrome") }
     var realitySpiderX by remember { mutableStateOf("/") }
     var realityFlow by remember { mutableStateOf("") }
+    val visibleProfiles = savedProfiles.filter { profile ->
+        val query = librarySearch.trim()
+        query.isEmpty() ||
+            profile.name.contains(query, ignoreCase = true) ||
+            profile.server.contains(query, ignoreCase = true) ||
+            profile.protocol.name.contains(query, ignoreCase = true) ||
+            profile.tags.any { it.contains(query, ignoreCase = true) }
+    }.let { profiles ->
+        if (librarySearch.trim().equals("favorite", ignoreCase = true) || librarySearch.trim() == "⭐") {
+            profiles.filter { it.favorite }
+        } else profiles
+    }
 
     Scaffold(
         topBar = {
@@ -316,15 +330,47 @@ private fun SpdConDashboard() {
                             enabled = parsedProfile != null
                         ) { Text("ذخیره کانفیگ فعلی") }
                         libraryMessage?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
+                        OutlinedTextField(
+                            value = librarySearch,
+                            onValueChange = { librarySearch = it },
+                            modifier = Modifier.fillMaxWidth(),
+                            label = { Text("جست‌وجو در نام، سرور، پروتکل یا برچسب") },
+                            singleLine = true
+                        )
                         if (savedProfiles.isEmpty()) {
                             Text("هنوز کانفیگی ذخیره نشده است.", style = MaterialTheme.typography.bodySmall)
+                        } else if (visibleProfiles.isEmpty()) {
+                            Text("موردی با این جست‌وجو پیدا نشد.", style = MaterialTheme.typography.bodySmall)
                         } else {
-                            savedProfiles.forEach { saved ->
+                            visibleProfiles.forEach { saved ->
+                                val tagKey = "${saved.protocol}|${saved.server}|${saved.port}|${saved.name}"
+                                val tagInput = tagDrafts[tagKey] ?: saved.tags.joinToString(", ")
                                 Card(modifier = Modifier.fillMaxWidth()) {
                                     Column(Modifier.padding(10.dp)) {
-                                        Text(saved.name, fontWeight = FontWeight.SemiBold)
+                                        Text((if (saved.favorite) "⭐ " else "") + saved.name, fontWeight = FontWeight.SemiBold)
                                         Text("${saved.protocol} • ${saved.server}:${saved.port}", style = MaterialTheme.typography.bodySmall)
+                                        if (saved.tags.isNotEmpty()) {
+                                            Text("برچسب‌ها: ${saved.tags.joinToString("، ")}", style = MaterialTheme.typography.bodySmall)
+                                        }
+                                        OutlinedTextField(
+                                            value = tagInput,
+                                            onValueChange = { value -> tagDrafts = tagDrafts + (tagKey to value) },
+                                            modifier = Modifier.fillMaxWidth(),
+                                            label = { Text("برچسب‌ها (با ویرگول جدا کن)") },
+                                            singleLine = true
+                                        )
                                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                            TextButton(onClick = {
+                                                libraryStore.setFavorite(saved, !saved.favorite)
+                                                savedProfiles = libraryStore.loadAll()
+                                                libraryMessage = if (saved.favorite) "از علاقه‌مندی‌ها حذف شد." else "به علاقه‌مندی‌ها اضافه شد."
+                                            }) { Text(if (saved.favorite) "حذف ⭐" else "علاقه‌مندی ⭐") }
+                                            TextButton(onClick = {
+                                                libraryStore.setTags(saved, tagInput.split(","))
+                                                savedProfiles = libraryStore.loadAll()
+                                                tagDrafts = tagDrafts - tagKey
+                                                libraryMessage = "برچسب‌ها ذخیره شدند."
+                                            }) { Text("ذخیره برچسب‌ها") }
                                             TextButton(onClick = {
                                                 parsedProfile = saved
                                                 parsedSummary = listOf(
