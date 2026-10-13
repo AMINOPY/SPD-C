@@ -13,6 +13,12 @@ This file separates configuration-generation support from a real running core. A
 | Cloudflare Worker | Metadata/API scaffold | Config metadata, account/subscription routes and starter panel | It does not carry arbitrary VPN traffic and cannot replace a proxy node/runtime |
 | Node telemetry bridge | Python bridge and read-only Xray helper in `node-agent/` | Enrolled-node bearer authentication, input validation, stale-event and duplicate-event rejection, source-IP telemetry submission, local Xray config validation and loopback StatsService queries | An optional case-insensitive Xray core-email-to-Spd-con-user mapping is now supported by the node bridge; the bridge still requires a trusted adapter to supply the core email, source IP and counters. Automatic Xray log ingestion/StatsService polling, per-core session-kill and live policy enforcement are not yet implemented |
 
+## Config-generation UI integration (2026-10-13)
+
+The Android builder now exposes a multi-inbound generation action for REALITY TCP/XHTTP, TLS Relay WS/XHTTP, and explicitly entered Cloudflare Worker routes. It persists one local user UUID, generates links with that identity, and saves resulting profiles in the encrypted local config library. Tests cover stable identity, route expansion and the per-user relay path.
+
+This is still a **client-profile generator**. It does not provision the UUID into Xray, install or configure the FastAPI relay, deploy Worker routes, discover a user's public IP from the share link, or prove DPI resilience. Real server-side user lifecycle and live connection checks remain release blockers.
+
 ## What “complete the cores” means in implementation terms
 
 1. **Runtime contract:** define start/stop, version, health, config validation, logs, traffic stats and capability reporting for each supported engine.
