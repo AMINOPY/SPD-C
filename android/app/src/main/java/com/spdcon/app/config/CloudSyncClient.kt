@@ -66,6 +66,10 @@ object CloudSyncClient {
         return SyncSummary(uploaded = 0, skipped = skipped, downloaded = downloaded)
     }
 
+    fun logout(baseUrl: String, token: String) {
+        request(baseUrl, "/api/v1/auth/logout", "POST", token, JSONObject())
+    }
+
     fun createSubscription(baseUrl: String, token: String): String {
         val response = request(baseUrl, "/api/v1/subscriptions", "POST", token, JSONObject())
         return response.optString("url").takeIf { it.startsWith("https://") }
@@ -97,7 +101,7 @@ object CloudSyncClient {
         val tagArray = json.optJSONArray("tags") ?: JSONArray()
         val tags = buildList {
             for (index in 0 until tagArray.length()) {
-                tagArray.optString(index).trim().takeIf { it.isNotEmpty() }?.let(::add)
+                tagArray.optString(index).trim().takeIf { it.isNotEmpty() }?.let { add(it) }
             }
         }
         val profile = ConfigProfile(
