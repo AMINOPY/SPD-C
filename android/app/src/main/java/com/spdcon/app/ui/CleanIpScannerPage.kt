@@ -85,8 +85,8 @@ fun CleanIpScannerPage(onBack: () -> Unit, onUseIp: (ip: String, sni: String) ->
                         Text(tr("Paste a list from a text file. Maximum 256 candidates per run."), color = TextSecondary, fontSize = 11.sp)
                     }
                     "recent" -> Text(
-                        if (recentIps.isEmpty()) tr("No successful results saved yet")
-                        else tr("{count} previous successful IPs").replace("{count}", if (mode == "dns") recentDnsIps.size.toString() else recentIps.size.toString()),
+                        if ((if (mode == "dns") recentDnsIps else recentIps).isEmpty()) tr("No successful results saved yet")
+                        else tr("{count} previous successful IPs").replace("{count}", (if (mode == "dns") recentDnsIps else recentIps).size.toString()),
                         color = TextSecondary, fontSize = 12.sp
                     )
                     else -> Text(tr("Small built-in Cloudflare edge sample; use your own domain below."),
