@@ -58,7 +58,6 @@ object ConfigLinkSerializer {
             .put("aid", profile.parameters["aid"] ?: "0")
             .put("scy", profile.parameters["scy"] ?: "auto")
             .put("net", profile.parameters["net"] ?: profile.network)
-            .put("type", profile.parameters["type"] ?: "none")
             .put("host", profile.parameters["host"] ?: "")
             .put("path", profile.parameters["path"] ?: "")
             .put("sni", profile.parameters["sni"] ?: "")
