@@ -34,3 +34,8 @@ This is still a **client-profile generator**. It does not provision the UUID int
 - Do not infer an identity from an IP alone. Configure `SPD_CON_IDENTITY_MAP_PATH` as a JSON object mapping Xray user emails to Spd con account IDs; keep this file readable only by the node-agent service account. Events must include `core_email` when this map is enabled, and conflicting user IDs are rejected. This is a mapping boundary, not proof that arbitrary input is an authentic Xray log; only feed it from a trusted local runtime adapter.
 - Do not automatically rewrite REALITY keys, UUIDs, SNI, ports or transport parameters without validating them against the selected server.
 - A passing config parser or a successful build does not prove a real network path works.
+
+
+## IP policy decision signals
+
+The API reports `decision: allow` or `decision: deny_new_ip` when the configured distinct-IP rule is exceeded. This is a decision signal only; the current node runtime bridge does not yet enforce it before admitting a session.
