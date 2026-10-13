@@ -399,6 +399,59 @@ private fun CreatePage(
     var shortId by remember(template) { mutableStateOf(template?.parameters?.get("sid").orEmpty()) }
     var editServerSettings by remember(template) { mutableStateOf(template == null) }
 
+    fun quickGenerateFromTemplate() {
+        val sourceProfile = existingProfiles.firstOrNull { it.server == server && it.port == (port.toIntOrNull() ?: -1) }
+            ?: template ?: return
+        val protocol = when {
+            selectedProtocol.startsWith("Trojan") -> ConfigProtocol.TROJAN
+            else -> ConfigProtocol.VLESS
+        }
+        val websocket = selectedProtocol.contains("+ WS")
+        val reality = selectedProtocol == "VLESS + Reality"
+        val generatedCredential = if (protocol == ConfigProtocol.VLESS) UUID.randomUUID().toString()
+            else UUID.randomUUID().toString().replace("-", "")
+        val parameters = sourceProfile.parameters.toMutableMap()
+        if (sni.isNotBlank()) parameters["sni"] = sni.trim()
+        if (reality) {
+            parameters["pbk"] = publicKey.trim().ifBlank { sourceProfile.parameters["pbk"].orEmpty() }
+            parameters["sid"] = shortId.trim().ifBlank { sourceProfile.parameters["sid"].orEmpty() }
+        } else {
+            parameters.remove("pbk")
+            parameters.remove("sid")
+            parameters.remove("flow")
+        }
+        if (websocket) {
+            parameters["path"] = wsPath.trim().ifBlank { "/ws" }
+            if (host.isNotBlank()) parameters["host"] = host.trim()
+        } else {
+            parameters.remove("path")
+            parameters.remove("host")
+        }
+        val profileName = name.trim().ifBlank { "Spd con config" }
+        val baseProfile = sourceProfile.copy(
+            name = profileName,
+            protocol = protocol,
+            credential = generatedCredential,
+            network = if (websocket) "ws" else "tcp",
+            security = if (reality) "reality" else "tls",
+            parameters = parameters,
+            remark = profileName
+        )
+        val generated = mutableListOf(baseProfile)
+        if (websocket && generateBothWebSocket) {
+            val otherProtocol = if (protocol == ConfigProtocol.VLESS) ConfigProtocol.TROJAN else ConfigProtocol.VLESS
+            val otherCredential = if (otherProtocol == ConfigProtocol.VLESS) UUID.randomUUID().toString()
+                else UUID.randomUUID().toString().replace("-", "")
+            generated += baseProfile.copy(
+                name = profileName + " (" + otherProtocol.name + ")",
+                protocol = otherProtocol,
+                credential = otherCredential,
+                remark = profileName + " (" + otherProtocol.name + ")"
+            )
+        }
+        onGenerate(generated)
+    }
+
     Column(
         modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState())
             .padding(horizontal = 20.dp).padding(top = 8.dp, bottom = 112.dp),
@@ -473,6 +526,12 @@ private fun CreatePage(
                         Text(tr("REALITY keys reused from the saved server template."), color = TextSecondary, fontSize = 12.sp)
                     }
                     Text(tr("Use the public key and short ID configured on your server. They cannot be guessed by the app."),
+                        color = TextSecondary, fontSize = 12.sp)
+                }
+                if (template != null && !editServerSettings &&
+                    selectedProtocol in listOf("VLESS + WS + TLS", "Trojan + WS + TLS", "VLESS + TLS", "VLESS + Reality", "Trojan")) {
+                    NeonButton(tr("Quick Generate & Save"), { quickGenerateFromTemplate() }, Modifier.fillMaxWidth())
+                    Text(tr("Use the saved server settings, generate a new credential, and save immediately."),
                         color = TextSecondary, fontSize = 12.sp)
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
