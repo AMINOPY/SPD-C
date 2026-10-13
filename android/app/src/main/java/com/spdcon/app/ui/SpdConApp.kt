@@ -84,6 +84,8 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.runtime.staticCompositionLocalOf
 import com.spdcon.app.config.ConfigLibraryStore
 import com.spdcon.app.config.ConfigLinkSerializer
+import com.spdcon.app.config.ConfigClientExporters
+import com.spdcon.app.config.ConfigExportTarget
 import com.spdcon.app.config.ConfigProfile
 import com.spdcon.app.config.ConfigProtocol
 import com.spdcon.app.config.OfflineConfigBuilderEngine
@@ -809,6 +811,8 @@ private fun LibraryPage(
     var testingProfileName by remember { mutableStateOf<String?>(null) }
     var useTlsFragment by remember { mutableStateOf(true) }
     var testMessage by remember { mutableStateOf<String?>(null) }
+    var exportProfile by remember { mutableStateOf<ConfigProfile?>(null) }
+    val clipboard = LocalClipboardManager.current
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     var vpnStatus by remember { mutableStateOf("disconnected • VPN is off") }
@@ -921,10 +925,43 @@ private fun LibraryPage(
                                 }
                             )
                         }
+                        TextButton(
+                            onClick = { exportProfile = profile },
+                            modifier = Modifier.fillMaxWidth()
+                        ) { Text(tr("Export for client…")) }
                     }
                 }
             }
         }
+    }
+    if (exportProfile != null) {
+        val profileToExport = exportProfile!!
+        AlertDialog(
+            onDismissRequest = { exportProfile = null },
+            title = { Text(tr("Export configuration")) },
+            text = { Text(tr("Choose a compatible client format. The exported link contains your configuration credentials.")) },
+            confirmButton = {
+                TextButton(
+                    enabled = ConfigClientExporters.supports(ConfigExportTarget.V2RAYNG, profileToExport),
+                    onClick = {
+                        ConfigClientExporters.exportSingle(ConfigExportTarget.V2RAYNG, profileToExport).fold(
+                            onSuccess = { clipboard.setText(AnnotatedString(it.text)) },
+                            onFailure = { }
+                        )
+                        exportProfile = null
+                    }
+                ) { Text(tr("Copy v2rayNG link")) }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    ConfigClientExporters.exportSingle(ConfigExportTarget.HIDDIFY, profileToExport).fold(
+                        onSuccess = { clipboard.setText(AnnotatedString(it.text)) },
+                        onFailure = { }
+                    )
+                    exportProfile = null
+                }) { Text(tr("Copy Hiddify link")) }
+            }
+        )
     }
     if (testMessage != null) {
         AlertDialog(
