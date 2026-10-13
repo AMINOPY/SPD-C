@@ -832,7 +832,6 @@ private fun SpdConDashboard() {
             }
 
             }
-            }
             if (selectedSection == "create") {
             item {
                 Card(modifier = Modifier.fillMaxWidth()) {
