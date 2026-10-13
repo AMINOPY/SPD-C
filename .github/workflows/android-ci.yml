@@ -17,6 +17,11 @@ on:
       - "android/**"
       - "backend/**"
       - "node-agent/**"
+      - "tests/fixtures/xray/**"
+      - "tools/xray-core-check.sh"
+      - "docs/CONFIG_FORMATS.md"
+      - "docs/CORE-STATUS.md"
+      - "docs/ROADMAP.md"
       - "cloudflare/**"
       - ".github/workflows/android-ci.yml"
   workflow_dispatch:
