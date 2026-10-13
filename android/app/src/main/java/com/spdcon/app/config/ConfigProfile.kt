@@ -22,5 +22,11 @@ data class ConfigProfile(
         if (credential.isBlank()) add("Credential is required")
         if (network.isBlank()) add("Network type is required")
         if (security.isBlank()) add("Security type is required")
+        if (security.equals("reality", ignoreCase = true)) {
+            if (protocol != ConfigProtocol.VLESS) add("REALITY is supported here only for VLESS profiles")
+            if (parameters["sni"].isNullOrBlank()) add("REALITY requires the server's configured SNI/serverName")
+            if (parameters["pbk"].isNullOrBlank()) add("REALITY requires the public key (pbk) from the server")
+            if (parameters["sid"].isNullOrBlank()) add("REALITY requires a shortId configured on the server")
+        }
     }
 }
