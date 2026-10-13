@@ -133,4 +133,46 @@ class ConfigGenerationServiceTest {
         // A share link cannot itself enforce a routing policy; the client JSON/runtime must apply it.
         assertFalse(report.configs.single().shareLink.contains("blockAdult"))
     }
+    @Test
+    fun acceptsEmptyRealityShortIdWhenServerExplicitlyConfiguresIt() {
+        val report = ConfigGenerationService.generateForUser(
+            userId,
+            "Amin",
+            listOf(
+                ConfigInboundSpec(
+                    id = "reality",
+                    name = "Reality",
+                    kind = ConfigInboundKind.REALITY,
+                    endpoint = "node.example.com",
+                    sni = "www.example.com",
+                    publicKey = "server-public-key",
+                    shortId = "",
+                    realityTransports = listOf("tcp")
+                )
+            )
+        ).getOrThrow()
+        assertEquals("", report.configs.single().profile.parameters["sid"])
+    }
+
+    @Test
+    fun rejectsOddLengthRealityShortId() {
+        val result = ConfigGenerationService.generateForUser(
+            userId,
+            "Amin",
+            listOf(
+                ConfigInboundSpec(
+                    id = "reality",
+                    name = "Reality",
+                    kind = ConfigInboundKind.REALITY,
+                    endpoint = "node.example.com",
+                    sni = "www.example.com",
+                    publicKey = "server-public-key",
+                    shortId = "abc",
+                    realityTransports = listOf("tcp")
+                )
+            )
+        )
+        assertTrue(result.isFailure)
+    }
+
 }
