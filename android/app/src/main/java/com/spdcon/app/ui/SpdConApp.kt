@@ -819,6 +819,7 @@ private fun LibraryPage(
     var autoSelectionProgress by remember { mutableStateOf<String?>(null) }
     var selectionStatus by remember { mutableStateOf<String?>(null) }
     var recommendedProfile by remember { mutableStateOf<ConfigProfile?>(null) }
+    var recommendedAssessment by remember { mutableStateOf<com.spdcon.app.config.TunnelMethodAssessment?>(null) }
     var exportProfile by remember { mutableStateOf<ConfigProfile?>(null) }
     var exportError by remember { mutableStateOf<String?>(null) }
     val clipboard = LocalClipboardManager.current
@@ -872,6 +873,7 @@ private fun LibraryPage(
                     if (!autoSelecting) {
                         autoSelecting = true
                         recommendedProfile = null
+                        recommendedAssessment = null
                         selectionStatus = null
                         val candidates = ConnectionStrategySelector.rankForLiveTesting(
                             profiles, goal = TunnelSelectionGoal.STANDARD, limit = 5
@@ -891,6 +893,7 @@ private fun LibraryPage(
                                 val best = TunnelMethodAdvisor.rankSavedProfiles(
                                     candidates, TunnelSelectionGoal.STANDARD, reports
                                 ).firstOrNull { it.selectableInBundledApp }
+                                recommendedAssessment = best
                                 recommendedProfile = best?.let { candidate ->
                                     candidates.firstOrNull { it.name == candidate.profileName }
                                 }
@@ -916,9 +919,15 @@ private fun LibraryPage(
             selectionStatus?.let { Text(it, color = if (it.contains("Verified on this network")) NeonCyan else TextSecondary, fontSize = 12.sp) }
             recommendedProfile?.let { candidate ->
                 Text(
-                    "${candidate.name} • ${candidate.server}:${candidate.port} • ${candidate.protocol.name}/${candidate.network.uppercase()}",
+                    "${candidate.name} • ${candidate.server}:${candidate.port} • ${candidate.protocol.name}/${candidate.network.uppercase()}/${candidate.security.uppercase()}",
                     color = NeonCyan, fontSize = 11.sp
                 )
+                recommendedAssessment?.let { assessment ->
+                    Text(assessment.summaryFa, color = TextSecondary, fontSize = 11.sp)
+                    assessment.requirementsFa.forEach { requirement ->
+                        Text("• $requirement", color = TextSecondary, fontSize = 11.sp)
+                    }
+                }
                 OutlinedButton(
                     onClick = { onConnect(candidate, useTlsFragment) },
                     modifier = Modifier.fillMaxWidth()
