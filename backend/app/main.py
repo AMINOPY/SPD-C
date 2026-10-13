@@ -104,6 +104,14 @@ def init_db() -> None:
             node_id TEXT NOT NULL REFERENCES nodes(id) ON DELETE CASCADE,
             received_at INTEGER NOT NULL
         );
+        CREATE TABLE IF NOT EXISTS node_usage_counters (
+            node_id TEXT NOT NULL REFERENCES nodes(id) ON DELETE CASCADE,
+            user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            upload_bytes INTEGER NOT NULL DEFAULT 0 CHECK(upload_bytes >= 0),
+            download_bytes INTEGER NOT NULL DEFAULT 0 CHECK(download_bytes >= 0),
+            updated_at INTEGER NOT NULL,
+            PRIMARY KEY(node_id, user_id)
+        );
         CREATE TABLE IF NOT EXISTS connection_policies (
             user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
             max_distinct_ips INTEGER NOT NULL DEFAULT 0 CHECK(max_distinct_ips >= 0 AND max_distinct_ips <= 256),
@@ -252,6 +260,14 @@ class ConnectionReportIn(BaseModel):
     state: str = Field(default="active", pattern=r"^(active|disconnected)$")
     upload_bytes: int = Field(default=0, ge=0, le=10**15)
     download_bytes: int = Field(default=0, ge=0, le=10**15)
+
+
+class NodeUsageReportIn(BaseModel):
+    event_id: str = Field(min_length=16, max_length=128)
+    event_timestamp: int = Field(ge=0)
+    user_id: str = Field(min_length=1, max_length=128)
+    upload_bytes: int = Field(ge=0, le=10**15)
+    download_bytes: int = Field(ge=0, le=10**15)
 
 
 class NodeCreateIn(BaseModel):
@@ -523,6 +539,71 @@ def admin_get_connection_policy(user_id: str,
             "max_concurrent_connections": row["max_concurrent_connections"],
             "action": row["action"], "updated_at": row["updated_at"],
             "enforcement": "pending_node_agent"}
+
+
+@app.post("/nodes/{node_id}/usage/report", status_code=201,
+          tags=["nodes", "usage"])
+def node_report_usage(node_id: str, payload: NodeUsageReportIn,
+                      authorization: str | None = Header(default=None)) -> dict[str, Any]:
+    """Account cumulative per-user counters read from a trusted local core StatsService."""
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Node bearer secret required")
+    node_secret = authorization[7:].strip()
+    timestamp = now()
+    if abs(timestamp - payload.event_timestamp) > 300:
+        raise HTTPException(status_code=401, detail="Usage event timestamp outside 5-minute window")
+
+    with db() as conn:
+        node = conn.execute("SELECT * FROM nodes WHERE id=?", (node_id,)).fetchone()
+        if node is None or not node["enabled"] or not hmac.compare_digest(
+            node["secret_hash"], hash_secret(node_secret)
+        ):
+            raise HTTPException(status_code=401, detail="Unknown, disabled or invalid node credentials")
+        if conn.execute("SELECT 1 FROM node_events WHERE event_id=?", (payload.event_id,)).fetchone():
+            raise HTTPException(status_code=409, detail="Duplicate telemetry event")
+        user = conn.execute("SELECT * FROM users WHERE id=?", (payload.user_id,)).fetchone()
+        if user is None:
+            raise HTTPException(status_code=404, detail="User not found")
+        previous = conn.execute(
+            "SELECT upload_bytes,download_bytes FROM node_usage_counters WHERE node_id=? AND user_id=?",
+            (node_id, payload.user_id),
+        ).fetchone()
+        previous_upload = previous["upload_bytes"] if previous else 0
+        previous_download = previous["download_bytes"] if previous else 0
+        # If the core restarts and counters reset, count the new counter value, not a negative delta.
+        upload_delta = (payload.upload_bytes - previous_upload
+                        if payload.upload_bytes >= previous_upload else payload.upload_bytes)
+        download_delta = (payload.download_bytes - previous_download
+                          if payload.download_bytes >= previous_download else payload.download_bytes)
+        usage_delta = upload_delta + download_delta
+        conn.execute(
+            "INSERT INTO node_usage_counters(node_id,user_id,upload_bytes,download_bytes,updated_at) "
+            "VALUES(?,?,?,?,?) ON CONFLICT(node_id,user_id) DO UPDATE SET "
+            "upload_bytes=excluded.upload_bytes,download_bytes=excluded.download_bytes,updated_at=excluded.updated_at",
+            (node_id, payload.user_id, payload.upload_bytes, payload.download_bytes, timestamp),
+        )
+        conn.execute("INSERT INTO node_events(event_id,node_id,received_at) VALUES(?,?,?)",
+                     (payload.event_id, node_id, timestamp))
+        if usage_delta:
+            conn.execute("INSERT INTO usage_events(id,user_id,node_id,delta_bytes,reported_at) "
+                         "VALUES(?,?,?,?,?)",
+                         (payload.event_id, payload.user_id, node_id, usage_delta, timestamp))
+            conn.execute("UPDATE users SET used_bytes=used_bytes+? WHERE id=?",
+                         (usage_delta, payload.user_id))
+        conn.execute("UPDATE nodes SET last_seen_at=? WHERE id=?", (timestamp, node_id))
+        updated_user = conn.execute("SELECT * FROM users WHERE id=?", (payload.user_id,)).fetchone()
+        quota = updated_user["quota_bytes"]
+        exhausted = bool(quota and updated_user["used_bytes"] >= quota)
+        expired = bool(updated_user["expires_at"] is not None and updated_user["expires_at"] <= timestamp)
+        enabled = bool(updated_user["enabled"])
+
+    return {
+        "accepted": True, "node_id": node_id, "user_id": payload.user_id,
+        "usage_delta_bytes": usage_delta, "used_bytes": updated_user["used_bytes"],
+        "quota_bytes": quota,
+        "quota_exhausted": exhausted, "account_expired": expired, "account_enabled": enabled,
+        "enforcement": "accounting_only_core_session_enforcement_not_implemented",
+    }
 
 
 @app.post("/admin/users/{user_id}/connections/report", status_code=201,
