@@ -53,7 +53,8 @@ This roadmap is the acceptance checklist for evolving the current Android config
 - [ ] Add encrypted DNS configuration (DoH) with explicit resolver settings.
 - [ ] Generate REALITY client/server parameters only where the required key operations and roles are well-defined; validate dest, server name, public key, short ID and fingerprint.
 - [ ] Add compatibility fixtures and regression tests for malformed, oversized and dialect-specific inputs.
-- [ ] Integrate and pin Xray-core for actual configuration validation and connection/runtime features; a JSON preview alone is not a running VPN engine.
+- [x] Pin Xray-core v26.3.27 for CI and validate a representative VLESS + REALITY JSON fixture with the upstream binary.
+- [ ] Validate the Android generator's exported JSON directly against the pinned runtime, then add Xray API/access-log telemetry and actual connection testing. CI fixture validation does not bundle Xray into Android or prove a profile can reach a server.
 
 ## Phase 3 — optional cloud services (Android-first, no web panel required)
 - [x] Add an initial FastAPI API for account registration/login/logout, own-config CRUD, role checks, subscription creation/revocation, expiry and admin quota metadata.
