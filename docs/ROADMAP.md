@@ -5,20 +5,23 @@
 - Record exact versions, attribution and license obligations before reusing code or assets.
 - Define protocol compatibility against a pinned Xray release.
 
-## Phase 1 — Android foundation (started)
-- [x] Android Compose dashboard and application shell.
+## Phase 1 — Android foundation (in progress)
+- [x] Compose dashboard and application shell.
 - [x] Typed configuration model and required-field validation.
-- [x] Initial VLESS/Trojan URI and VMess Base64 JSON parsing.
-- [x] Parser/model unit-test source.
-- [ ] Confirm CI build and tests pass.
-- [ ] Add navigation, Persian RTL polish, reusable design system and accessibility.
-- [ ] Add Room-backed local configuration library.
+- [x] Initial VLESS/Trojan URI and VMess Base64-JSON parsing.
+- [x] Initial Shadowsocks legacy share-link parsing.
+- [x] Share-link serializers for VLESS, Trojan, VMess and the supported Shadowsocks form.
+- [x] Fragment settings model, range validation and editable network-labelled starting presets.
+- [x] REALITY fields, validation, share-link mapping and VLESS + REALITY JSON preview.
+- [x] UI controls for importing, inspecting and generating preview output.
+- [ ] Confirm GitHub Actions build and unit tests pass.
+- [ ] Add full local library persistence, navigation, accessibility and polished RTL layouts.
 
 ## Phase 2 — complete configuration engine
-- Add Shadowsocks support and round-trip serializers for supported protocols.
-- Validate protocol-specific transport/security combinations against a pinned engine version.
-- Add copy, QR, JSON/link import-export, search, tags, duplicate detection and version history.
-- Add malformed-input tests and redact secrets from diagnostics.
+- Add full Shadowsocks URI dialect support and protocol-specific transport/security validation.
+- Add tested Xray JSON import/export and explicit routing/chaining generation for Fragment.
+- Add QR generation, clipboard, share sheet, file import/export, tags, search, duplicate detection and history.
+- Add malformed-input tests, compatibility fixtures and version-pinned Xray validation.
 
 ## Phase 3 — scanner and checker
 - Create cancellable, bounded-concurrency jobs with progress and structured results.
@@ -40,10 +43,7 @@
 - Verify TLS, backup restoration, migration strategy and log redaction.
 - Document threat model and deployment runbook.
 
-## Version 0.1 acceptance criteria
-- App builds and renders on supported Android versions.
-- User can parse and validate supported share links with understandable errors.
-- Local save/edit/search, serializers, QR and import/export work without a backend.
-- Persian RTL layout and meaningful validation errors.
-- Automated tests cover valid and malformed configuration inputs.
-- No credentials or private configuration material are logged.
+## Important limitations
+- Network-labelled Fragment presets are editable heuristics, not measured ISP-specific settings or guaranteed DPI bypasses.
+- The generated Fragment Freedom outbound is separate; automatic routing/chaining to a selected VLESS connection is not yet implemented.
+- REALITY JSON preview is not a live connection test. The app does not yet bundle or run Xray-core.
