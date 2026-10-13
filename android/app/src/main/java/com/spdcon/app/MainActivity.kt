@@ -87,6 +87,15 @@ private fun SpdConDashboard() {
     val libraryStore = remember(context) { ConfigLibraryStore(context) }
     var savedProfiles by remember { mutableStateOf(libraryStore.loadAll()) }
     var libraryMessage by remember { mutableStateOf<String?>(null) }
+    var manualProtocol by remember { mutableStateOf(ConfigProtocol.VLESS) }
+    var manualProtocolMenuExpanded by remember { mutableStateOf(false) }
+    var manualName by remember { mutableStateOf("کانفیگ جدید") }
+    var manualServer by remember { mutableStateOf("") }
+    var manualPort by remember { mutableStateOf("443") }
+    var manualCredential by remember { mutableStateOf("") }
+    var manualNetwork by remember { mutableStateOf("tcp") }
+    var manualSecurity by remember { mutableStateOf("none") }
+    var manualMethod by remember { mutableStateOf("chacha20-ietf-poly1305") }
     var shareLink by remember { mutableStateOf("") }
     var parseResult by remember { mutableStateOf<String?>(null) }
     var parsedSummary by remember { mutableStateOf<String?>(null) }
@@ -192,6 +201,85 @@ private fun SpdConDashboard() {
                                 Text(summary, modifier = Modifier.padding(12.dp), style = MaterialTheme.typography.bodyMedium)
                             }
                         }
+                    }
+                }
+            }
+
+            item {
+                Card(modifier = Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("ساخت دستی کانفیگ", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                        Text("بدون لینک آماده هم می‌توانی یک پروفایل بسازی. برای REALITY، فیلدهای تکمیلی را در بخش پایین وارد کن.")
+                        OutlinedButton(onClick = { manualProtocolMenuExpanded = true }, modifier = Modifier.fillMaxWidth()) {
+                            Text("پروتکل: $manualProtocol")
+                        }
+                        DropdownMenu(expanded = manualProtocolMenuExpanded, onDismissRequest = { manualProtocolMenuExpanded = false }) {
+                            ConfigProtocol.entries.forEach { protocol ->
+                                DropdownMenuItem(
+                                    text = { Text(protocol.name) },
+                                    onClick = { manualProtocol = protocol; manualProtocolMenuExpanded = false }
+                                )
+                            }
+                        }
+                        OutlinedTextField(value = manualName, onValueChange = { manualName = it }, modifier = Modifier.fillMaxWidth(), label = { Text("نام کانفیگ") }, singleLine = true)
+                        OutlinedTextField(value = manualServer, onValueChange = { manualServer = it }, modifier = Modifier.fillMaxWidth(), label = { Text("دامنه یا IP سرور") }, singleLine = true)
+                        OutlinedTextField(value = manualPort, onValueChange = { manualPort = it }, modifier = Modifier.fillMaxWidth(), label = { Text("پورت") }, singleLine = true)
+                        OutlinedTextField(
+                            value = manualCredential,
+                            onValueChange = { manualCredential = it },
+                            modifier = Modifier.fillMaxWidth(),
+                            label = { Text(if (manualProtocol == ConfigProtocol.SHADOWSOCKS) "رمز عبور" else if (manualProtocol == ConfigProtocol.TROJAN) "رمز Trojan" else "UUID / شناسه") },
+                            singleLine = true
+                        )
+                        if (manualProtocol == ConfigProtocol.SHADOWSOCKS) {
+                            OutlinedTextField(value = manualMethod, onValueChange = { manualMethod = it }, modifier = Modifier.fillMaxWidth(), label = { Text("روش رمزنگاری Shadowsocks") }, singleLine = true)
+                        }
+                        OutlinedTextField(value = manualNetwork, onValueChange = { manualNetwork = it }, modifier = Modifier.fillMaxWidth(), label = { Text("نوع انتقال (tcp/ws/grpc/xhttp)") }, singleLine = true)
+                        OutlinedTextField(value = manualSecurity, onValueChange = { manualSecurity = it }, modifier = Modifier.fillMaxWidth(), label = { Text("امنیت (none/tls/reality)") }, singleLine = true)
+                        Button(
+                            onClick = {
+                                val parameters = buildMap {
+                                    if (manualProtocol == ConfigProtocol.SHADOWSOCKS) put("method", manualMethod.trim())
+                                    if (manualSecurity.equals("reality", true)) {
+                                        put("sni", realityServerName.trim())
+                                        put("pbk", realityPublicKey.trim())
+                                        put("sid", realityShortId.trim())
+                                        put("fp", realityFingerprint.trim())
+                                        put("spx", realitySpiderX.trim())
+                                        put("flow", realityFlow.trim())
+                                    }
+                                }.filterValues { it.isNotBlank() }
+                                val profile = ConfigProfile(
+                                    name = manualName.trim(),
+                                    protocol = manualProtocol,
+                                    server = manualServer.trim(),
+                                    port = manualPort.toIntOrNull() ?: -1,
+                                    credential = manualCredential.trim(),
+                                    network = manualNetwork.trim(),
+                                    security = manualSecurity.trim().lowercase(),
+                                    remark = manualName.trim(),
+                                    parameters = parameters
+                                )
+                                val errors = profile.validate()
+                                if (errors.isNotEmpty()) {
+                                    parseResult = errors.joinToString("; ")
+                                } else {
+                                    parsedProfile = profile
+                                    parsedSummary = listOf(
+                                        "نام: ${profile.name}",
+                                        "پروتکل: ${profile.protocol}",
+                                        "سرور: ${profile.server}:${profile.port}",
+                                        "انتقال: ${profile.network}",
+                                        "امنیت: ${profile.security}"
+                                    ).joinToString("\\n")
+                                    parseResult = "پروفایل دستی ساخته شد؛ اتصال واقعی هنوز آزمایش نشده است."
+                                    shareLink = ConfigLinkSerializer.serialize(profile).getOrDefault("")
+                                    generatedOutput = null
+                                    qrContent = null
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        ) { Text("ساخت پروفایل دستی") }
                     }
                 }
             }
