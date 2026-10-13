@@ -75,11 +75,18 @@ class SpdConVpnService : VpnService() {
         publishStatus("connecting", "Preparing Android VPN interface")
 
         val conversion = invoke("convertShareLinksToXrayJson", JSONObject().put("text", link))
-        check(conversion.optBoolean("success", false)) {
-            conversion.optString("error").ifBlank { "Xray could not parse this configuration link" }
+        val outbounds = if (conversion.optBoolean("success", false)) {
+            conversion.optJSONObject("data")?.optJSONArray("outbounds")
+                ?: throw IllegalArgumentException("Xray returned no outbound")
+        } else if (link.startsWith("vmess://", ignoreCase = true)) {
+            // The app's VMess QR serializer intentionally emits the legacy Base64(JSON)
+            // form; current libXray imports VMessAEAD links, not this legacy format.
+            JSONArray().put(buildLegacyVmessOutbound(link))
+        } else {
+            throw IllegalArgumentException(
+                conversion.optString("error").ifBlank { "Xray could not parse this configuration link" }
+            )
         }
-        val outbounds = conversion.optJSONObject("data")?.optJSONArray("outbounds")
-            ?: throw IllegalArgumentException("Xray returned no outbound")
         check(outbounds.length() > 0) { "Xray did not create a usable outbound" }
 
         val proxyOutbound = outbounds.optJSONObject(0)
@@ -193,6 +200,67 @@ class SpdConVpnService : VpnService() {
         tun = null
         worker.shutdownNow()
         super.onDestroy()
+    }
+
+    private fun buildLegacyVmessOutbound(link: String): JSONObject {
+        val encoded = link.removePrefix("vmess://").trim()
+        require(encoded.isNotBlank()) { "Legacy VMess link is empty" }
+        val decoded = runCatching {
+            String(android.util.Base64.decode(encoded, android.util.Base64.DEFAULT), Charsets.UTF_8)
+        }.getOrElse { throw IllegalArgumentException("Invalid legacy VMess Base64 payload") }
+        val vmess = JSONObject(decoded)
+        val address = vmess.optString("add").trim()
+        val port = vmess.optString("port").toIntOrNull()
+            ?: throw IllegalArgumentException("VMess link has no valid port")
+        val id = vmess.optString("id").trim()
+        require(address.isNotBlank() && id.isNotBlank() && port in 1..65535) {
+            "VMess link is missing server, port or UUID"
+        }
+        val network = when (vmess.optString("net", "tcp").lowercase()) {
+            "tcp", "raw" -> "raw"
+            "ws", "websocket" -> "ws"
+            "grpc" -> "grpc"
+            "xhttp", "splithttp" -> "xhttp"
+            else -> throw IllegalArgumentException("Unsupported VMess transport: ${vmess.optString("net")}")
+        }
+        val user = JSONObject()
+            .put("id", id)
+            .put("alterId", vmess.optString("aid", "0").toIntOrNull() ?: 0)
+            .put("security", vmess.optString("scy", "auto"))
+        val server = JSONObject()
+            .put("address", address)
+            .put("port", port)
+            .put("users", JSONArray().put(user))
+        val stream = JSONObject()
+            .put("network", network)
+            .put("security", if (vmess.optString("tls").equals("tls", true) || vmess.optString("tls").equals("true", true)) "tls" else "none")
+        when (network) {
+            "ws" -> {
+                val headers = JSONObject()
+                vmess.optString("host").takeIf { it.isNotBlank() }?.let { headers.put("Host", it) }
+                stream.put("wsSettings", JSONObject()
+                    .put("path", vmess.optString("path", "/").ifBlank { "/" })
+                    .put("headers", headers))
+            }
+            "grpc" -> stream.put("grpcSettings", JSONObject().put("serviceName", vmess.optString("path")))
+            "xhttp" -> stream.put("xhttpSettings", JSONObject().put("path", vmess.optString("path", "/").ifBlank { "/" }))
+            "raw" -> vmess.optString("type").takeIf { it.isNotBlank() && it != "none" }?.let {
+                stream.put("tcpSettings", JSONObject().put("header", JSONObject().put("type", it)))
+            }
+        }
+        if (stream.optString("security") == "tls") {
+            val tls = JSONObject().put("serverName", vmess.optString("sni").ifBlank { address })
+            vmess.optString("alpn").takeIf { it.isNotBlank() }?.let {
+                tls.put("alpn", JSONArray(it.split(',').map(String::trim).filter(String::isNotBlank)))
+            }
+            vmess.optString("fp").takeIf { it.isNotBlank() }?.let { tls.put("fingerprint", it) }
+            stream.put("tlsSettings", tls)
+        }
+        return JSONObject()
+            .put("tag", "spdcon-proxy")
+            .put("protocol", "vmess")
+            .put("settings", JSONObject().put("vnext", JSONArray().put(server)))
+            .put("streamSettings", stream)
     }
 
     private fun invoke(method: String, payload: JSONObject): JSONObject {
