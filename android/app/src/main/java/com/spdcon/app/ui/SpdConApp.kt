@@ -812,6 +812,7 @@ private fun LibraryPage(
     var useTlsFragment by remember { mutableStateOf(true) }
     var testMessage by remember { mutableStateOf<String?>(null) }
     var exportProfile by remember { mutableStateOf<ConfigProfile?>(null) }
+    var exportError by remember { mutableStateOf<String?>(null) }
     val clipboard = LocalClipboardManager.current
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
@@ -926,7 +927,7 @@ private fun LibraryPage(
                             )
                         }
                         TextButton(
-                            onClick = { exportProfile = profile },
+                            onClick = { exportError = null; exportProfile = profile },
                             modifier = Modifier.fillMaxWidth()
                         ) { Text(tr("Export for client…")) }
                     }
@@ -946,9 +947,9 @@ private fun LibraryPage(
                     onClick = {
                         ConfigClientExporters.exportSingle(ConfigExportTarget.V2RAYNG, profileToExport).fold(
                             onSuccess = { clipboard.setText(AnnotatedString(it.text)) },
-                            onFailure = { }
+                            onFailure = { exportError = it.message ?: "Could not export this configuration." }
                         )
-                        exportProfile = null
+                        if (exportError == null) exportProfile = null
                     }
                 ) { Text(tr("Copy v2rayNG link")) }
             },
@@ -956,11 +957,19 @@ private fun LibraryPage(
                 TextButton(onClick = {
                     ConfigClientExporters.exportSingle(ConfigExportTarget.HIDDIFY, profileToExport).fold(
                         onSuccess = { clipboard.setText(AnnotatedString(it.text)) },
-                        onFailure = { }
+                        onFailure = { exportError = it.message ?: "Could not export this configuration." }
                     )
-                    exportProfile = null
+                    if (exportError == null) exportProfile = null
                 }) { Text(tr("Copy Hiddify link")) }
             }
+        )
+    }
+    if (exportError != null) {
+        AlertDialog(
+            onDismissRequest = { exportError = null },
+            title = { Text(tr("Export failed")) },
+            text = { Text(exportError.orEmpty()) },
+            confirmButton = { TextButton(onClick = { exportError = null }) { Text(tr("OK")) } }
         )
     }
     if (testMessage != null) {
