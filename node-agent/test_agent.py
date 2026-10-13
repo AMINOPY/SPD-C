@@ -38,6 +38,41 @@ class NodeAgentTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             agent.normalize_event(base, "node-test")
 
+    def test_core_identity_maps_to_account_case_insensitively(self):
+        mapping = {"vpn-user@example.net": "spd-user-42"}
+        event = agent.normalize_event({
+            "core_email": "VPN-USER@EXAMPLE.NET",
+            "connection_id": "connection-identity-1",
+            "client_ip": "192.0.2.44",
+        }, "node-test", mapping)
+        self.assertEqual(event["user_id"], "spd-user-42")
+
+    def test_unknown_core_identity_is_not_guessed_from_ip(self):
+        with self.assertRaisesRegex(ValueError, "not mapped"):
+            agent.normalize_event({
+                "core_email": "unknown@example.net",
+                "connection_id": "connection-identity-2",
+                "client_ip": "192.0.2.44",
+            }, "node-test", {"known@example.net": "spd-user-42"})
+
+    def test_identity_mapping_rejects_conflicting_user_id(self):
+        with self.assertRaisesRegex(ValueError, "conflicts"):
+            agent.normalize_event({
+                "core_email": "known@example.net",
+                "user_id": "different-user",
+                "connection_id": "connection-identity-3",
+                "client_ip": "192.0.2.44",
+            }, "node-test", {"known@example.net": "spd-user-42"})
+
+    def test_identity_map_loader_validates_json_mapping(self):
+        import json
+        import tempfile
+        with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8") as file:
+            json.dump({"VPN@example.net": "user-1"}, file)
+            file.flush()
+            mapping = agent.load_identity_map(file.name)
+        self.assertEqual(mapping, {"vpn@example.net": "user-1"})
+
     def test_public_api_requires_https(self):
         event = {"event_id": "event-123456789012", "event_timestamp": 1}
         with self.assertRaises(ValueError):
