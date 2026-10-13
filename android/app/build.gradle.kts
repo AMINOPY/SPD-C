@@ -1,3 +1,8 @@
+import java.io.File
+import java.net.URL
+import java.security.MessageDigest
+import java.util.zip.ZipFile
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.plugin.compose")
@@ -46,7 +51,7 @@ val prepareXrayCoreAar by tasks.registering {
         check(cacheDir.mkdirs() || cacheDir.isDirectory) { "Could not create Xray core cache directory" }
         val zipFile = File(cacheDir, "libxray-android.zip")
         if (!zipFile.isFile) {
-            val url = java.net.URL("https://github.com/XTLS/libXray/releases/download/$xrayCoreVersion/libxray-android.zip")
+            val url = URL("https://github.com/XTLS/libXray/releases/download/$xrayCoreVersion/libxray-android.zip")
             url.openConnection().apply {
                 connectTimeout = 20_000
                 readTimeout = 180_000
@@ -54,12 +59,12 @@ val prepareXrayCoreAar by tasks.registering {
                 zipFile.outputStream().use { output -> input.copyTo(output) }
             }
         }
-        val actualSha = java.security.MessageDigest.getInstance("SHA-256")
+        val actualSha = MessageDigest.getInstance("SHA-256")
             .digest(zipFile.readBytes()).joinToString("") { "%02x".format(it) }
         check(actualSha == xrayCoreZipSha256) {
             "Official Xray core archive checksum mismatch; delete $zipFile and retry"
         }
-        java.util.zip.ZipFile(zipFile).use { archive ->
+        ZipFile(zipFile).use { archive ->
             val entry = archive.getEntry("libXray.aar")
                 ?: archive.entries().asSequence().firstOrNull { it.name.endsWith("/libXray.aar") }
                 ?: error("Official Xray core archive did not contain libXray.aar")
