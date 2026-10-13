@@ -74,7 +74,7 @@ object ConfigGenerationService {
         val warnings = mutableListOf<String>()
         inbounds.forEach { inbound ->
             require(inbound.id.isNotBlank()) { "Inbound ID is required" }
-            require(inbound.endpoint.isNotBlank() && !inbound.endpoint.any(Char::isWhitespace)) {
+            require(inbound.endpoint.isNotBlank() && !inbound.endpoint.any { it.isWhitespace() }) {
                 "Inbound ${inbound.name}: endpoint is invalid"
             }
             require(inbound.port in 1..65535) { "Inbound ${inbound.name}: port is invalid" }
