@@ -839,6 +839,10 @@ private fun LibraryPage(
             profile.server.contains(search, true) || profile.protocol.name.contains(search, true) ||
             profile.tags.any { it.contains(search, true) }
     }
+    val noCompatibleProfileMessage = tr("No saved profile is compatible with the bundled Xray core.")
+    val noCompatibleProfileSelectedMessage = tr("No compatible profile could be selected.")
+    val verifiedOnCurrentNetworkTemplate = verifiedOnCurrentNetworkTemplate
+    val unverifiedRecommendationTemplate = unverifiedRecommendationTemplate
     Column(modifier = Modifier.fillMaxSize().padding(horizontal = 20.dp).padding(top = 8.dp, bottom = 112.dp)) {
         Text(tr("Library"), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
         Text(tr("Saved configurations on this device"), color = TextSecondary, fontSize = 13.sp)
@@ -875,7 +879,7 @@ private fun LibraryPage(
                         scope.launch {
                             val reports = linkedMapOf<String, com.spdcon.app.config.ConnectionDiagnosticReport>()
                             if (candidates.isEmpty()) {
-                                selectionStatus = tr("No saved profile is compatible with the bundled Xray core.")
+                                selectionStatus = noCompatibleProfileMessage
                             } else {
                                 candidates.forEachIndexed { index, candidate ->
                                     autoSelectionProgress = "${index + 1}/${candidates.size} • ${candidate.name}"
@@ -891,7 +895,7 @@ private fun LibraryPage(
                                     candidates.firstOrNull { it.name == candidate.profileName }
                                 }
                                 selectionStatus = when {
-                                    best == null -> tr("No compatible profile could be selected.")
+                                    best == null -> noCompatibleProfileSelectedMessage
                                     best.confidence == com.spdcon.app.config.TunnelSelectionConfidence.LIVE_VERIFIED ->
                                         tr("Verified on this network: {name}. DPI resistance is not proven.")
                                             .replace("{name}", best.profileName)
