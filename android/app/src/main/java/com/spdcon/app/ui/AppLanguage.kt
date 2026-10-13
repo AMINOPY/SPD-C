@@ -68,7 +68,18 @@ private val persian = mapOf(
     "TLS transport security" to "امنیت انتقال TLS", "Requires the server public key and SNI" to "به کلید عمومی سرور و SNI نیاز دارد",
     "Password-based TLS proxy" to "پروکسی TLS مبتنی بر رمز عبور", "Encrypted proxy with a cipher method" to "پروکسی رمزگذاری‌شده با روش رمزنگاری",
     "QUIC-based UDP transport" to "انتقال UDP مبتنی بر QUIC", "QUIC transport with a separate password" to "انتقال QUIC با رمز عبور جداگانه",
-    "VPN configuration" to "تنظیمات VPN"
+    "VPN configuration" to "تنظیمات VPN",
+    "WebSocket Host header (optional)" to "هدر Host وب‌سوکت (اختیاری)",
+    "WebSocket path" to "مسیر وب‌سوکت",
+    "Generate VLESS and Trojan together" to "ساخت هم‌زمان VLESS و Trojan",
+    "Use the same deployed WebSocket route and TLS domain for both protocols." to "برای هر دو پروتکل از مسیر وب‌سوکت و دامنهٔ TLS یکسان و فعال استفاده کنید.",
+    "Optional" to "اختیاری",
+    "Dual protocol" to "دو پروتکل",
+    "VLESS and Trojan" to "VLESS و Trojan",
+    "Single protocol" to "یک پروتکل",
+    "Both VLESS and Trojan WebSocket profiles were saved. The QR dialog shows the first link; both are available in Library." to "هر دو کانفیگ VLESS و Trojan وب‌سوکت ذخیره شدند. QR لینک اول را نشان می‌دهد؛ هر دو در کتابخانه موجودند.",
+    "VLESS + WS + TLS" to "VLESS + WS + TLS",
+    "Trojan + WS + TLS" to "Trojan + WS + TLS"
 )
 
 private val arabic = mapOf(
@@ -108,5 +119,16 @@ private val arabic = mapOf(
     "TLS transport security" to "أمان نقل TLS", "Requires the server public key and SNI" to "يتطلب المفتاح العام للخادم وSNI",
     "Password-based TLS proxy" to "وكيل TLS قائم على كلمة المرور", "Encrypted proxy with a cipher method" to "وكيل مشفر باستخدام طريقة تشفير",
     "QUIC-based UDP transport" to "نقل UDP قائم على QUIC", "QUIC transport with a separate password" to "نقل QUIC بكلمة مرور منفصلة",
-    "VPN configuration" to "إعداد VPN"
+    "VPN configuration" to "إعداد VPN",
+    "WebSocket Host header (optional)" to "ترويسة Host لـ WebSocket (اختياري)",
+    "WebSocket path" to "مسار WebSocket",
+    "Generate VLESS and Trojan together" to "إنشاء VLESS وTrojan معًا",
+    "Use the same deployed WebSocket route and TLS domain for both protocols." to "استخدم مسار WebSocket ونطاق TLS المنشور نفسه لكلا البروتوكولين.",
+    "Optional" to "اختياري",
+    "Dual protocol" to "بروتوكول مزدوج",
+    "VLESS and Trojan" to "VLESS وTrojan",
+    "Single protocol" to "بروتوكول واحد",
+    "Both VLESS and Trojan WebSocket profiles were saved. The QR dialog shows the first link; both are available in Library." to "تم حفظ إعدادَي VLESS وTrojan عبر WebSocket. يعرض رمز QR الرابط الأول؛ وكلاهما متاح في المكتبة.",
+    "VLESS + WS + TLS" to "VLESS + WS + TLS",
+    "Trojan + WS + TLS" to "Trojan + WS + TLS"
 )

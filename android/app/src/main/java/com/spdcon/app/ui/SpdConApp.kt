@@ -181,25 +181,33 @@ fun SpdConApp(onOpenAdvancedPanel: () -> Unit = {}) {
                             }
                         )
                         "create" -> CreatePage(
-                            onGenerate = { profile ->
-                                val validation = profile.validate()
-                                if (validation.isNotEmpty()) {
-                                    dialogMessage = validation.joinToString("\n")
+                            onGenerate = { generatedProfiles ->
+                                val errors = generatedProfiles.flatMap { profile ->
+                                    profile.validate().map { "${profile.name}: $it" }
+                                }
+                                if (errors.isNotEmpty()) {
+                                    dialogMessage = errors.joinToString("\n")
                                 } else {
-                                    val serialized = ConfigLinkSerializer.serialize(profile)
-                                    serialized.fold(
-                                        onSuccess = { link ->
-                                            store.save(profile).fold(
-                                                onSuccess = {
-                                                    reloadProfiles()
-                                                    generatedLink = link
-                                                    selected = "library"
-                                                },
-                                                onFailure = { dialogMessage = it.message ?: "Could not save configuration." }
-                                            )
-                                        },
-                                        onFailure = { dialogMessage = it.message ?: "Could not generate the link." }
-                                    )
+                                    val links = generatedProfiles.map { profile ->
+                                        ConfigLinkSerializer.serialize(profile).map { profile to it }
+                                    }
+                                    val failure = links.firstOrNull { it.isFailure }
+                                    if (failure != null) {
+                                        dialogMessage = failure.exceptionOrNull()?.message ?: "Could not generate the link."
+                                    } else {
+                                        val pairs = links.map { it.getOrThrow() }
+                                        val saveFailure = pairs.firstOrNull { (profile, _) -> store.save(profile).isFailure }
+                                        if (saveFailure != null) {
+                                            dialogMessage = store.save(saveFailure.first).exceptionOrNull()?.message ?: "Could not save configuration."
+                                        } else {
+                                            reloadProfiles()
+                                            generatedLink = pairs.first().second
+                                            selected = "library"
+                                            if (pairs.size > 1) {
+                                                dialogMessage = tr("Both VLESS and Trojan WebSocket profiles were saved. The QR dialog shows the first link; both are available in Library.")
+                                            }
+                                        }
+                                    }
                                 }
                             }
                         )
@@ -347,14 +355,17 @@ private fun HomePage(
 }
 
 @Composable
-private fun CreatePage(onGenerate: (ConfigProfile) -> Unit) {
+private fun CreatePage(onGenerate: (List<ConfigProfile>) -> Unit) {
     var step by remember { mutableStateOf(1) }
-    var selectedProtocol by remember { mutableStateOf("VLESS + TLS") }
+    var selectedProtocol by remember { mutableStateOf("VLESS + WS + TLS") }
     var name by remember { mutableStateOf("") }
     var server by remember { mutableStateOf("") }
     var port by remember { mutableStateOf("443") }
     var credential by remember { mutableStateOf("") }
     var sni by remember { mutableStateOf("") }
+    var host by remember { mutableStateOf("") }
+    var wsPath by remember { mutableStateOf("/ws") }
+    var generateBothWebSocket by remember { mutableStateOf(true) }
     var publicKey by remember { mutableStateOf("") }
     var shortId by remember { mutableStateOf("") }
 
@@ -376,7 +387,7 @@ private fun CreatePage(onGenerate: (ConfigProfile) -> Unit) {
         when (step) {
             1 -> {
                 Text(tr("Choose protocol"), style = MaterialTheme.typography.titleMedium)
-                listOf("VLESS + TLS", "VLESS + Reality", "Trojan", "Shadowsocks", "Hysteria2", "TUIC").forEach { option ->
+                listOf("VLESS + WS + TLS", "Trojan + WS + TLS", "VLESS + TLS", "VLESS + Reality", "Trojan", "Shadowsocks", "Hysteria2", "TUIC").forEach { option ->
                     GlassCard(
                         modifier = Modifier.fillMaxWidth(),
                         onClick = { selectedProtocol = option },
@@ -402,6 +413,17 @@ private fun CreatePage(onGenerate: (ConfigProfile) -> Unit) {
                 if (selectedProtocol != "Shadowsocks") {
                     GlassField(sni, { sni = it }, if (selectedProtocol == "VLESS + Reality") tr("REALITY SNI / serverName") else tr("TLS SNI (optional)"))
                 }
+                if (selectedProtocol.contains("+ WS")) {
+                    GlassField(host, { host = it }, tr("WebSocket Host header (optional)"))
+                    GlassField(wsPath, { wsPath = it }, tr("WebSocket path"))
+                    androidx.compose.material3.Checkbox(
+                        checked = generateBothWebSocket,
+                        onCheckedChange = { generateBothWebSocket = it }
+                    )
+                    Text(tr("Generate VLESS and Trojan together"), color = TextSecondary, fontSize = 12.sp)
+                    Text(tr("Use the same deployed WebSocket route and TLS domain for both protocols."),
+                        color = TextSecondary, fontSize = 12.sp)
+                }
                 if (selectedProtocol == "VLESS + Reality") {
                     GlassField(publicKey, { publicKey = it }, tr("REALITY public key (pbk)"))
                     GlassField(shortId, { shortId = it }, tr("REALITY short ID (0–16 hex chars; may be empty)"))
@@ -424,15 +446,20 @@ private fun CreatePage(onGenerate: (ConfigProfile) -> Unit) {
                         ReviewLine(tr("Public key"), tr(if (publicKey.isBlank()) "Required" else "Provided"))
                         ReviewLine(tr("Short ID"), if (shortId.isBlank()) tr("(empty)") else shortId)
                     }
+                    if (selectedProtocol.contains("+ WS")) {
+                        ReviewLine(tr("WebSocket path"), wsPath)
+                        ReviewLine(tr("WebSocket Host header"), host.ifBlank { tr("Optional") })
+                        ReviewLine(tr("Dual protocol"), tr(if (generateBothWebSocket) "VLESS and Trojan" else "Single protocol"))
+                    }
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
                     OutlinedButton(onClick = { step = 2 }, modifier = Modifier.weight(1f)) { Text(tr("Back")) }
                     NeonButton(tr("Generate & Save"), {
-                        val protocol = when (selectedProtocol) {
-                            "Trojan" -> ConfigProtocol.TROJAN
-                            "Shadowsocks" -> ConfigProtocol.SHADOWSOCKS
-                            "Hysteria2" -> ConfigProtocol.HYSTERIA2
-                            "TUIC" -> ConfigProtocol.TUIC
+                        val protocol = when {
+                            selectedProtocol.startsWith("Trojan") -> ConfigProtocol.TROJAN
+                            selectedProtocol == "Shadowsocks" -> ConfigProtocol.SHADOWSOCKS
+                            selectedProtocol == "Hysteria2" -> ConfigProtocol.HYSTERIA2
+                            selectedProtocol == "TUIC" -> ConfigProtocol.TUIC
                             else -> ConfigProtocol.VLESS
                         }
                         val generatedCredential = credential.trim().ifBlank {
@@ -441,10 +468,11 @@ private fun CreatePage(onGenerate: (ConfigProfile) -> Unit) {
                             } else UUID.randomUUID().toString().replace("-", "")
                         }
                         val reality = selectedProtocol == "VLESS + Reality"
-                        val security = when (selectedProtocol) {
-                            "Shadowsocks" -> "none"
-                            "Hysteria2", "TUIC" -> "tls"
-                            "VLESS + Reality" -> "reality"
+                        val websocket = selectedProtocol.contains("+ WS")
+                        val security = when {
+                            selectedProtocol == "Shadowsocks" -> "none"
+                            selectedProtocol == "Hysteria2" || selectedProtocol == "TUIC" -> "tls"
+                            reality -> "reality"
                             else -> "tls"
                         }
                         val parameters = buildMap {
@@ -454,22 +482,42 @@ private fun CreatePage(onGenerate: (ConfigProfile) -> Unit) {
                                 put("pbk", publicKey.trim())
                                 put("sid", shortId.trim())
                             }
+                            if (websocket) {
+                                put("path", wsPath.trim())
+                                if (host.isNotBlank()) put("host", host.trim())
+                            }
                             if (protocol == ConfigProtocol.SHADOWSOCKS) put("method", "chacha20-ietf-poly1305")
                             if (protocol == ConfigProtocol.TUIC) put("password", generatedCredential)
                         }
-                        onGenerate(
-                            ConfigProfile(
-                                name = name.trim().ifBlank { "Spd con config" },
-                                protocol = protocol,
-                                server = server.trim(),
-                                port = port.toIntOrNull() ?: 0,
-                                credential = generatedCredential,
-                                network = if (protocol == ConfigProtocol.HYSTERIA2 || protocol == ConfigProtocol.TUIC) "udp" else "tcp",
-                                security = security,
-                                parameters = parameters,
-                                remark = name.trim().ifBlank { "Spd con config" }
-                            )
+                        val profileName = name.trim().ifBlank { "Spd con config" }
+                        val baseProfile = ConfigProfile(
+                            name = profileName,
+                            protocol = protocol,
+                            server = server.trim(),
+                            port = port.toIntOrNull() ?: 0,
+                            credential = generatedCredential,
+                            network = when {
+                                protocol == ConfigProtocol.HYSTERIA2 || protocol == ConfigProtocol.TUIC -> "udp"
+                                websocket -> "ws"
+                                else -> "tcp"
+                            },
+                            security = security,
+                            parameters = parameters,
+                            remark = profileName
                         )
+                        val profiles = mutableListOf(baseProfile)
+                        if (websocket && generateBothWebSocket) {
+                            val otherProtocol = if (protocol == ConfigProtocol.VLESS) ConfigProtocol.TROJAN else ConfigProtocol.VLESS
+                            val otherCredential = if (otherProtocol == ConfigProtocol.VLESS) UUID.randomUUID().toString()
+                                else UUID.randomUUID().toString().replace("-", "")
+                            profiles += baseProfile.copy(
+                                name = "$profileName (${otherProtocol.name})",
+                                protocol = otherProtocol,
+                                credential = otherCredential,
+                                remark = "$profileName (${otherProtocol.name})"
+                            )
+                        }
+                        onGenerate(profiles)
                     }, Modifier.weight(1f))
                 }
             }
@@ -698,6 +746,8 @@ private fun NeonButton(text: String, onClick: () -> Unit, modifier: Modifier = M
 
 @Composable
 private fun protocolHint(protocol: String): String = tr(when (protocol) {
+    "VLESS + WS + TLS" -> "VLESS over WebSocket with TLS; requires a matching server/Worker route"
+    "Trojan + WS + TLS" -> "Trojan over WebSocket with TLS; requires a matching server/Worker route"
     "VLESS + TLS" -> "TLS transport security"
     "VLESS + Reality" -> "Requires the server public key and SNI"
     "Trojan" -> "Password-based TLS proxy"
