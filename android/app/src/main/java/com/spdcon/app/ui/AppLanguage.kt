@@ -79,7 +79,7 @@ private val persian = mapOf(
     "Single protocol" to "یک پروتکل",
     "Both VLESS and Trojan WebSocket profiles were saved. The QR dialog shows the first link; both are available in Library." to "هر دو کانفیگ VLESS و Trojan وب‌سوکت ذخیره شدند. QR لینک اول را نشان می‌دهد؛ هر دو در کتابخانه موجودند.",
     "VLESS + WS + TLS" to "VLESS + WS + TLS",
-    "Trojan + WS + TLS" to "Trojan + WS + TLS"
+    "Trojan + WS + TLS" to "Trojan + WS + TLS",
     "Clean IP Scanner" to "اسکنر آی‌پی تمیز",
     "Test IPv4 candidates against your real TLS domain" to "آزمایش آی‌پی‌های IPv4 با دامنهٔ واقعی TLS شما",
     "IP source" to "منبع آی‌پی",
@@ -159,7 +159,7 @@ private val arabic = mapOf(
     "Single protocol" to "بروتوكول واحد",
     "Both VLESS and Trojan WebSocket profiles were saved. The QR dialog shows the first link; both are available in Library." to "تم حفظ إعدادَي VLESS وTrojan عبر WebSocket. يعرض رمز QR الرابط الأول؛ وكلاهما متاح في المكتبة.",
     "VLESS + WS + TLS" to "VLESS + WS + TLS",
-    "Trojan + WS + TLS" to "Trojan + WS + TLS"
+    "Trojan + WS + TLS" to "Trojan + WS + TLS",
     "Clean IP Scanner" to "ماسح IP النظيفة",
     "Test IPv4 candidates against your real TLS domain" to "اختبر عناوين IPv4 مع نطاق TLS الحقيقي",
     "IP source" to "مصدر IP",
