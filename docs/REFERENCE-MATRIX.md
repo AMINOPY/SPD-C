@@ -10,7 +10,8 @@ Spd con stays Android-first with an optional Cloudflare Worker web panel. The An
 
 | Reference | Use for Spd con | Important boundary |
 |---|---|---|
-| SpiderPanel | Primary feature inspiration: configuration workflows, user/config organization, node and subscription management | Reimplement against Spd con's own models until source license and compatibility are confirmed |
+| SpiderPanel | Primary reference for overall product workflows; one of the two primary config-builder references for config creation, profile lifecycle, supported options and validation | Reimplement against Spd con's own model unless exact license and compatibility review allows source reuse |
+| Z-E-U-S (Z-E-U-S Panel) | Second primary config-builder reference: VLESS/Trojan over WebSocket, multi-proxy routing, fallback, Fragment/PattN-style fields, fingerprint/SNI controls, config links/QR and profile quotas as design references | Repository LICENSE currently says proprietary/non-commercial and prohibits derivatives/redistribution without explicit written permission. User reports owner permission; retain written scope and confirm it covers code adaptation, redistribution and any commercial use. Do not assume public source availability alone grants rights |
 | Blue-Knight-Panel | Compact web admin experience, quick actions, readable user and node status | Inspiration only; do not claim feature parity without implemented tests |
 | Marzban | REST API integration patterns, multi-node management, multi-protocol users, traffic/expiry limits, client-compatible subscriptions, monitoring | Marzban is AGPL-3.0; keep API integration separate from copying code and review obligations before reuse |
 | PasarGuard Panel | Multi-node administration, VLESS/VMess/Trojan/Shadowsocks plus WireGuard/Hysteria2 where supported, device/HWID limits, periodic quotas, RBAC, subscription formats and monitoring | Panel repository is AGPL-3.0; validate exact version/API and licensing before reusing implementation |
@@ -22,7 +23,9 @@ Spd con stays Android-first with an optional Cloudflare Worker web panel. The An
 
 ## Implementation priorities
 
-1. **Reliable config builder**
+1. **Reliable config builder (highest product priority)**
+   - Use SpiderPanel and Z-E-U-S as the only primary references for config creation. Produce a parity checklist by inspecting their current user-facing workflows and supported combinations; retain earlier user requirements as additional acceptance criteria.
+   - Keep the builder as a focused, guided flow: protocol → transport/security → protocol-specific fields → validation → preview/export/QR. Keep advanced Fragment, fingerprint and unusual transport settings collapsed by default.
    - Share one typed profile model between Android and Cloudflare API.
    - Validate each protocol's required fields and support import/export with fixtures.
    - Keep automatic UUID generation for UUID-based protocols. For REALITY, never derive pbk or shortId from SNI.
@@ -65,6 +68,11 @@ Spd con stays Android-first with an optional Cloudflare Worker web panel. The An
 - For SpiderPanel, Blue-Knight-Panel and other sources, inspect the exact LICENSE file and dependencies before reusing code. Missing/unclear license metadata means do not copy source code yet.
 - An API integration is not the same as copying a codebase, but its authentication, data model and version compatibility still need tests.
 
+
+## Separate modules — not part of the config-builder reference scope
+
+- **Backhaul** is a dedicated Iran↔abroad tunnel utility. It generates separate role-specific configuration files and needs version-pinned validation; it does not belong in the VLESS/VMess/etc. builder.
+- **TWP-CF** is a separate Telegram Web Proxy deployment/reference flow. Keep deployment, Cloudflare credentials and Worker status out of the config builder. The current module only links to the upstream and validates HTTPS URL syntax.
 
 ## Backhaul and Telegram proxy references
 - **Musixal/Backhaul** (AGPL-3.0): use as the reference for role-specific TOML settings and supported transports. The app currently generates configuration text only; it does not install the daemon, create a working tunnel, or verify traffic.
