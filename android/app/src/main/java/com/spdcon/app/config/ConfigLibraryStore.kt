@@ -24,6 +24,8 @@ class ConfigLibraryStore(context: Context) : SQLiteOpenHelper(context, DATABASE_
                 security TEXT NOT NULL,
                 remark TEXT,
                 parameters TEXT NOT NULL,
+                tags TEXT NOT NULL DEFAULT '[]',
+                favorite INTEGER NOT NULL DEFAULT 0,
                 UNIQUE(protocol, server, port, name)
             )
             """.trimIndent()
@@ -51,6 +53,10 @@ class ConfigLibraryStore(context: Context) : SQLiteOpenHelper(context, DATABASE_
                 db.endTransaction()
             }
         }
+        if (oldVersion < 3) {
+            db.execSQL("ALTER TABLE configs ADD COLUMN tags TEXT NOT NULL DEFAULT '[]'")
+            db.execSQL("ALTER TABLE configs ADD COLUMN favorite INTEGER NOT NULL DEFAULT 0")
+        }
     }
 
     fun save(profile: ConfigProfile): Result<Unit> = runCatching {
@@ -66,6 +72,8 @@ class ConfigLibraryStore(context: Context) : SQLiteOpenHelper(context, DATABASE_
             put("security", profile.security)
             put("remark", profile.remark)
             put("parameters", JSONObject(profile.parameters).toString())
+            put("tags", org.json.JSONArray(profile.tags.distinct().map { it.trim() }.filter { it.isNotEmpty() && it.length <= 32 }).toString())
+            put("favorite", if (profile.favorite) 1 else 0)
         }
         val db = writableDatabase
         val existing = db.rawQuery(
@@ -80,7 +88,7 @@ class ConfigLibraryStore(context: Context) : SQLiteOpenHelper(context, DATABASE_
     }
 
     fun loadAll(): List<ConfigProfile> = readableDatabase.rawQuery(
-        "SELECT name, protocol, server, port, credential, network, security, remark, parameters FROM configs ORDER BY name COLLATE NOCASE",
+        "SELECT name, protocol, server, port, credential, network, security, remark, parameters, tags, favorite FROM configs ORDER BY name COLLATE NOCASE",
         null
     ).use { cursor ->
         buildList {
@@ -94,6 +102,13 @@ class ConfigLibraryStore(context: Context) : SQLiteOpenHelper(context, DATABASE_
                             put(key, parametersJson.optString(key))
                         }
                     }
+                    val tagsJson = org.json.JSONArray(cursor.getString(9))
+                    val tags = buildList {
+                        for (index in 0 until tagsJson.length()) {
+                            val tag = tagsJson.optString(index).trim()
+                            if (tag.isNotEmpty()) add(tag)
+                        }
+                    }
                     ConfigProfile(
                         name = cursor.getString(0),
                         protocol = ConfigProtocol.valueOf(cursor.getString(1)),
@@ -103,11 +118,30 @@ class ConfigLibraryStore(context: Context) : SQLiteOpenHelper(context, DATABASE_
                         network = cursor.getString(5),
                         security = cursor.getString(6),
                         remark = if (cursor.isNull(7)) null else cursor.getString(7),
-                        parameters = parameters
+                        parameters = parameters,
+                        tags = tags,
+                        favorite = cursor.getInt(10) != 0
                     )
                 }.getOrNull()?.let { add(it) }
             }
         }
+    }
+
+    fun setFavorite(profile: ConfigProfile, favorite: Boolean): Int {
+        val values = ContentValues().apply { put("favorite", if (favorite) 1 else 0) }
+        return writableDatabase.update(
+            "configs", values, "protocol=? AND server=? AND port=? AND name=?",
+            arrayOf(profile.protocol.name, profile.server, profile.port.toString(), profile.name)
+        )
+    }
+
+    fun setTags(profile: ConfigProfile, tags: List<String>): Int {
+        val cleaned = tags.map { it.trim() }.filter { it.isNotEmpty() && it.length <= 32 }.distinct().take(12)
+        val values = ContentValues().apply { put("tags", org.json.JSONArray(cleaned).toString()) }
+        return writableDatabase.update(
+            "configs", values, "protocol=? AND server=? AND port=? AND name=?",
+            arrayOf(profile.protocol.name, profile.server, profile.port.toString(), profile.name)
+        )
     }
 
     fun delete(profile: ConfigProfile): Int = writableDatabase.delete(
@@ -118,6 +152,6 @@ class ConfigLibraryStore(context: Context) : SQLiteOpenHelper(context, DATABASE_
 
     companion object {
         private const val DATABASE_NAME = "spdcon-configs.db"
-        private const val DATABASE_VERSION = 2
+        private const val DATABASE_VERSION = 3
     }
 }
