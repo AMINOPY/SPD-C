@@ -53,9 +53,10 @@ class SpdConVpnService : VpnService() {
                     stopSelf(startId)
                     return START_NOT_STICKY
                 }
+                val useFragment = intent.getBooleanExtra(EXTRA_FRAGMENT_ENABLED, true)
                 worker.execute {
                     try {
-                        startTunnel(link)
+                        startTunnel(link, useFragment)
                     } catch (failure: Throwable) {
                         publishStatus("error", failure.message ?: failure.javaClass.simpleName)
                         stopForeground(STOP_FOREGROUND_REMOVE)
@@ -71,7 +72,7 @@ class SpdConVpnService : VpnService() {
         }
     }
 
-    private fun startTunnel(link: String) {
+    private fun startTunnel(link: String, useFragment: Boolean) {
         stopping.set(false)
         if (running) {
             publishStatus("disconnecting", "Switching to the selected configuration")
@@ -102,9 +103,25 @@ class SpdConVpnService : VpnService() {
 
         val proxyOutbound = outbounds.optJSONObject(0)
             ?: throw IllegalArgumentException("Xray returned an invalid outbound")
-        // Use a reserved, stable tag so imported remarks cannot collide with DNS/direct routes.
+        // Android's system TUN must carry the real proxy outbound; a separate Freedom
+        // outbound performs TLS ClientHello fragmentation only when explicitly enabled.
         val proxyTag = "spdcon-proxy"
+        val fragmentTag = "spdcon-fragment"
         proxyOutbound.put("tag", proxyTag)
+        val streamSettings = proxyOutbound.optJSONObject("streamSettings")
+        val security = streamSettings?.optString("security").orEmpty()
+        val network = streamSettings?.optString("network").orEmpty()
+        if (useFragment) {
+            require(security.equals("tls", ignoreCase = true) || security.equals("reality", ignoreCase = true)) {
+                "TLS Fragment needs a TLS or REALITY profile. Turn Fragment off or use a TLS/REALITY config."
+            }
+            require(network.lowercase() !in setOf("udp", "quic")) {
+                "TLS Fragment is for TCP-based profiles, not UDP/QUIC transports."
+            }
+            val sockopt = streamSettings.optJSONObject("sockopt") ?: JSONObject()
+            sockopt.put("dialerProxy", fragmentTag)
+            streamSettings.put("sockopt", sockopt)
+        }
 
         val builder = Builder()
             .setSession("Spd con • $activeName")
@@ -134,6 +151,15 @@ class SpdConVpnService : VpnService() {
 
             val allOutbounds = JSONArray()
             allOutbounds.put(proxyOutbound)
+            if (useFragment) {
+                allOutbounds.put(JSONObject()
+                    .put("tag", fragmentTag)
+                    .put("protocol", "freedom")
+                    .put("settings", JSONObject().put("fragment", JSONObject()
+                        .put("packets", "tlshello")
+                        .put("length", "100-200")
+                        .put("interval", "10-20"))))
+            }
             allOutbounds.put(JSONObject()
                 .put("tag", "dns")
                 .put("protocol", "dns")
@@ -384,6 +410,7 @@ class SpdConVpnService : VpnService() {
         const val ACTION_STOP = "com.spdcon.app.vpn.STOP"
         const val EXTRA_LINK = "profile_link"
         const val EXTRA_NAME = "profile_name"
+        const val EXTRA_FRAGMENT_ENABLED = "fragment_enabled"
         const val PREFS = "spdcon-vpn-status"
         private const val CHANNEL_ID = "spdcon-vpn"
         private const val NOTIFICATION_ID = 4207
