@@ -113,6 +113,9 @@ private fun SpdConDashboard() {
     var manualProtocol by remember { mutableStateOf(ConfigProtocol.VLESS) }
     var manualProtocolMenuExpanded by remember { mutableStateOf(false) }
     var manualName by remember { mutableStateOf("کانفیگ جدید") }
+    var selectedCountry by remember { mutableStateOf("auto") }
+    var countryMenuExpanded by remember { mutableStateOf(false) }
+    var blockAdultSites by remember { mutableStateOf(false) }
     var manualServer by remember { mutableStateOf("") }
     var manualPort by remember { mutableStateOf("443") }
     var manualCredential by remember { mutableStateOf("") }
@@ -440,6 +443,25 @@ private fun SpdConDashboard() {
                         OutlinedTextField(value = manualName, onValueChange = { manualName = it }, modifier = Modifier.fillMaxWidth(), label = { Text("نام کانفیگ") }, singleLine = true)
                         OutlinedTextField(value = manualServer, onValueChange = { manualServer = it }, modifier = Modifier.fillMaxWidth(), label = { Text("دامنه یا IP سرور") }, singleLine = true)
                         OutlinedTextField(value = manualPort, onValueChange = { manualPort = it }, modifier = Modifier.fillMaxWidth(), label = { Text("پورت") }, singleLine = true)
+                        OutlinedButton(onClick = { countryMenuExpanded = true }, modifier = Modifier.fillMaxWidth()) {
+                            Text("کشور IP: " + when (selectedCountry) {
+                                "US" -> "آمریکا"; "DE" -> "آلمان"; "NL" -> "هلند"; "FR" -> "فرانسه"
+                                "GB" -> "بریتانیا"; "TR" -> "ترکیه"; "FI" -> "فنلاند"; "SE" -> "سوئد"
+                                "JP" -> "ژاپن"; "SG" -> "سنگاپور"; else -> "خودکار"
+                            })
+                        }
+                        DropdownMenu(expanded = countryMenuExpanded, onDismissRequest = { countryMenuExpanded = false }) {
+                            listOf("auto" to "خودکار", "US" to "آمریکا", "DE" to "آلمان", "NL" to "هلند", "FR" to "فرانسه", "GB" to "بریتانیا", "TR" to "ترکیه", "FI" to "فنلاند", "SE" to "سوئد", "JP" to "ژاپن", "SG" to "سنگاپور").forEach { (code, label) ->
+                                DropdownMenuItem(text = { Text(label) }, onClick = { selectedCountry = code; countryMenuExpanded = false })
+                            }
+                        }
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Checkbox(checked = blockAdultSites, onCheckedChange = { blockAdultSites = it })
+                            Column {
+                                Text("مسدودکردن سایت‌های بزرگسال")
+                                Text("در خروجی Xray، دامنه‌های دسته‌بندی‌شده به‌عنوان محتوای بزرگسال مسدود می‌شوند.", style = MaterialTheme.typography.bodySmall)
+                            }
+                        }
                         if (manualProtocol == ConfigProtocol.TROJAN || manualProtocol == ConfigProtocol.SHADOWSOCKS) {
                             OutlinedTextField(
                                 value = manualCredential,
@@ -467,6 +489,8 @@ private fun SpdConDashboard() {
                             onClick = {
                                 val parameters = buildMap {
                                     if (manualProtocol == ConfigProtocol.SHADOWSOCKS) put("method", manualMethod.trim())
+                                    if (selectedCountry != "auto") put("country", selectedCountry)
+                                    put("blockAdult", blockAdultSites.toString())
                                     if (manualSecurity.equals("reality", true)) {
                                         put("sni", realityServerName.trim())
                                         put("pbk", realityPublicKey.trim())
