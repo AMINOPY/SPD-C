@@ -135,6 +135,14 @@ fun SpdConApp(onOpenAdvancedPanel: () -> Unit = {}) {
     }
     val bothProtocolsSavedMessage = tr("Both VLESS and Trojan WebSocket profiles were saved. The QR dialog shows the first link; both are available in Library.")
     var pendingVpnProfile by remember { mutableStateOf<ConfigProfile?>(null) }
+    var vpnState by remember { mutableStateOf("disconnected") }
+    LaunchedEffect(context) {
+        while (true) {
+            vpnState = context.getSharedPreferences(SpdConVpnService.PREFS, Context.MODE_PRIVATE)
+                .getString("status", "disconnected") ?: "disconnected"
+            delay(1_000)
+        }
+    }
 
     fun beginVpn(profile: ConfigProfile) {
         if (profile.protocol == ConfigProtocol.TUIC) {
@@ -220,9 +228,22 @@ fun SpdConApp(onOpenAdvancedPanel: () -> Unit = {}) {
                         modifier = Modifier.clip(CircleShape).background(Color(0xFF0C2A2B)).padding(horizontal = 12.dp, vertical = 8.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Box(Modifier.size(7.dp).clip(CircleShape).background(SuccessGreen))
+                        Box(Modifier.size(7.dp).clip(CircleShape)
+                            .background(if (vpnState == "connected") SuccessGreen else TextSecondary))
                         Spacer(Modifier.width(7.dp))
-                        Text(tr("VPN off"), color = SuccessGreen, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                        Text(
+                            tr(when (vpnState) {
+                                "connected" -> "VPN connected"
+                                "connecting" -> "Connecting…"
+                                "disconnecting" -> "Disconnecting…"
+                                "running-unverified" -> "VPN needs check"
+                                "error" -> "VPN error"
+                                else -> "VPN off"
+                            }),
+                            color = if (vpnState == "connected") SuccessGreen else TextSecondary,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
                     }
                 }
 
