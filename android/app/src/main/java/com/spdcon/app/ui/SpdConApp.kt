@@ -135,6 +135,7 @@ fun SpdConApp(onOpenAdvancedPanel: () -> Unit = {}) {
     }
     val bothProtocolsSavedMessage = tr("Both VLESS and Trojan WebSocket profiles were saved. The QR dialog shows the first link; both are available in Library.")
     var pendingVpnProfile by remember { mutableStateOf<ConfigProfile?>(null) }
+    var pendingVpnFragment by remember { mutableStateOf(true) }
     var vpnState by remember { mutableStateOf("disconnected") }
     LaunchedEffect(context) {
         while (true) {
@@ -144,9 +145,9 @@ fun SpdConApp(onOpenAdvancedPanel: () -> Unit = {}) {
         }
     }
 
-    fun beginVpn(profile: ConfigProfile) {
-        if (profile.protocol == ConfigProtocol.TUIC) {
-            dialogMessage = "TUIC is not supported by the bundled Xray-core. Choose VLESS, VMess, Trojan, Shadowsocks or Hysteria2."
+    fun beginVpn(profile: ConfigProfile, useFragment: Boolean = true) {
+        if (profile.protocol == ConfigProtocol.TUIC || profile.protocol == ConfigProtocol.HYSTERIA2) {
+            dialogMessage = "${profile.protocol.name} is not supported by the bundled Xray-core runtime yet. Choose VLESS, VMess, Trojan or Shadowsocks for this VPN engine."
             return
         }
         ConfigLinkSerializer.serialize(profile).fold(
@@ -155,6 +156,7 @@ fun SpdConApp(onOpenAdvancedPanel: () -> Unit = {}) {
                     .setAction(SpdConVpnService.ACTION_START)
                     .putExtra(SpdConVpnService.EXTRA_LINK, link)
                     .putExtra(SpdConVpnService.EXTRA_NAME, profile.name)
+                    .putExtra(SpdConVpnService.EXTRA_FRAGMENT_ENABLED, useFragment)
                 runCatching { context.startForegroundService(serviceIntent) }
                     .onSuccess { dialogMessage = "VPN startup requested. Android will show the active VPN notification; actual server reachability still needs verification." }
                     .onFailure { dialogMessage = "Could not start VPN service: ${it.message}" }
@@ -167,20 +169,26 @@ fun SpdConApp(onOpenAdvancedPanel: () -> Unit = {}) {
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
         val profile = pendingVpnProfile
+        val useFragment = pendingVpnFragment
         pendingVpnProfile = null
         if (result.resultCode == Activity.RESULT_OK && profile != null) {
-            beginVpn(profile)
+            beginVpn(profile, useFragment)
         } else {
             dialogMessage = "VPN permission was not granted."
         }
     }
 
-    fun requestVpn(profile: ConfigProfile) {
+    fun requestVpn(profile: ConfigProfile, useFragment: Boolean = true) {
+        if (profile.protocol == ConfigProtocol.TUIC || profile.protocol == ConfigProtocol.HYSTERIA2) {
+            dialogMessage = "${profile.protocol.name} needs a compatible sing-box-based runtime; the bundled Xray core cannot run it."
+            return
+        }
         val permissionIntent = VpnService.prepare(context)
         if (permissionIntent == null) {
-            beginVpn(profile)
+            beginVpn(profile, useFragment)
         } else {
             pendingVpnProfile = profile
+            pendingVpnFragment = useFragment
             vpnPermissionLauncher.launch(permissionIntent)
         }
     }
@@ -724,12 +732,13 @@ private fun LibraryPage(
     profiles: List<ConfigProfile>,
     onFavorite: (ConfigProfile) -> Unit,
     onOpen: (ConfigProfile) -> Unit,
-    onConnect: (ConfigProfile) -> Unit,
+    onConnect: (ConfigProfile, Boolean) -> Unit,
     onDisconnect: () -> Unit,
     onDelete: (ConfigProfile) -> Unit
 ) {
     var search by remember { mutableStateOf("") }
     var testingProfileName by remember { mutableStateOf<String?>(null) }
+    var useTlsFragment by remember { mutableStateOf(true) }
     var testMessage by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
@@ -754,6 +763,13 @@ private fun LibraryPage(
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedButton(onClick = onDisconnect, modifier = Modifier.weight(1f)) { Text(tr("Disconnect VPN")) }
         }
+        FilterChip(
+            selected = useTlsFragment,
+            onClick = { useTlsFragment = !useTlsFragment },
+            label = { Text(tr(if (useTlsFragment) "TLS Fragment: on" else "TLS Fragment: off")) }
+        )
+        Text(tr("Fragment is an experimental TCP/TLS handshake technique; turn it off if a server fails to connect."),
+            color = TextSecondary, fontSize = 11.sp)
         GlassCard(modifier = Modifier.fillMaxWidth(), cornerRadius = 16.dp) {
             Text(tr("VPN status"), fontWeight = FontWeight.SemiBold)
             Text(vpnStatus, color = if (vpnStatus.startsWith("connected")) NeonCyan else TextSecondary, fontSize = 12.sp)
@@ -792,11 +808,11 @@ private fun LibraryPage(
                         }
                         Spacer(Modifier.height(8.dp))
                         OutlinedButton(
-                            onClick = { onConnect(profile) },
-                            enabled = profile.protocol != ConfigProtocol.TUIC && testingProfileName == null,
+                            onClick = { onConnect(profile, useTlsFragment) },
+                            enabled = profile.protocol != ConfigProtocol.TUIC && profile.protocol != ConfigProtocol.HYSTERIA2 && testingProfileName == null,
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            Text(if (profile.protocol == ConfigProtocol.TUIC) tr("TUIC needs a compatible core") else tr("Connect through Android VPN"))
+                            Text(if (profile.protocol == ConfigProtocol.TUIC || profile.protocol == ConfigProtocol.HYSTERIA2) tr("Needs a compatible core") else tr("Connect through Android VPN"))
                         }
                         OutlinedButton(
                             onClick = {
