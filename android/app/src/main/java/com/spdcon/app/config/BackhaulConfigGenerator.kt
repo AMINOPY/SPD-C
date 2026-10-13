@@ -74,6 +74,10 @@ object BackhaulConfigGenerator {
                 add("sniffer = false")
                 add("web_port = 0")
                 add("log_level = \"info\"")
+                if (settings.transport == "wss" || settings.transport == "wssmux") {
+                    add("tls_cert = \"/root/server.crt\"")
+                    add("tls_key = \"/root/server.key\"")
+                }
                 add("ports = [")
                 settings.ports.forEach { add("    ${tomlString(it)},") }
                 add("]")
