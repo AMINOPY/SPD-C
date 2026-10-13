@@ -66,6 +66,21 @@ class XrayConfigGeneratorTest {
     }
 
     @Test
+    fun xhttpOutboundIncludesPathAndModeSettings() {
+        val xhttpProfile = profile(false).copy(
+            network = "xhttp",
+            parameters = profile(false).parameters + mapOf("path" to "/transport", "mode" to "stream-up")
+        )
+        val root = JSONObject(
+            XrayConfigGenerator.generateVlessRealityOutbound(xhttpProfile, reality).getOrThrow()
+        )
+        val stream = root.getJSONArray("outbounds").getJSONObject(0).getJSONObject("streamSettings")
+        assertEquals("xhttp", stream.getString("network"))
+        assertEquals("/transport", stream.getJSONObject("xhttpSettings").getString("path"))
+        assertEquals("stream-up", stream.getJSONObject("xhttpSettings").getString("mode"))
+    }
+
+    @Test
     fun realityOutboundRejectsUnsupportedTransportInsteadOfGuessing() {
         val unsupported = profile(false).copy(network = "ws")
         val result = XrayConfigGenerator.generateVlessRealityOutbound(unsupported, reality)
