@@ -35,6 +35,11 @@ class ConfigHubApiTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200, response.text)
         return {"Authorization": "Bearer " + response.json()["access_token"]}
 
+    def test_web_panel_is_served(self):
+        response = self.client.get("/panel/")
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("Spd con", response.text)
+
     def test_password_hash_is_salted_and_verified(self):
         first = api.password_hash("same-password")
         second = api.password_hash("same-password")
