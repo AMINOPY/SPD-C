@@ -65,6 +65,12 @@ fun CleanIpScannerPage(onBack: () -> Unit, onUseIp: (ip: String, sni: String) ->
             selectedTestProfileName = tunnelTestProfiles.firstOrNull()?.name
         }
     }
+    val rankedTlsCandidates = results.sortedWith(
+        compareByDescending<CleanIpResult> { tunnelTestResults[it.ip]?.startsWith("TUNNEL VERIFIED") == true }
+            .thenByDescending { it.tlsOk }
+            .thenBy { it.latencyMs }
+    )
+    val bestCandidate = rankedTlsCandidates.firstOrNull { it.tlsOk }
     val scanningStatus = tr("Scanning candidates…")
     val downloadingCountryStatus = tr("Downloading country ranges and scanning…")
     val noCandidatesError = tr("No IP candidates to scan")
@@ -280,6 +286,20 @@ fun CleanIpScannerPage(onBack: () -> Unit, onUseIp: (ip: String, sni: String) ->
             }
             Text(tr("A verified TLS handshake is a reachability signal, not a guarantee that a proxy or route will work."),
                 color = TextSecondary, fontSize = 11.sp)
+            if (mode == "tls" && bestCandidate != null) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Column(Modifier.weight(1f)) {
+                        Text(tr("Smart pick: {ip}").replace("{ip}", bestCandidate.ip), fontWeight = FontWeight.SemiBold)
+                        Text(
+                            if (tunnelTestResults[bestCandidate.ip]?.startsWith("TUNNEL VERIFIED") == true)
+                                tr("Ranked first because a real tunnel test passed")
+                            else tr("No end-to-end tunnel pass yet; ranked by TLS verification and latency"),
+                            color = TextSecondary, fontSize = 11.sp
+                        )
+                    }
+                    TextButton(onClick = { onUseIp(bestCandidate.ip, sni.trim()) }) { Text(tr("Use best")) }
+                }
+            }
             Text(tr("Download/upload speed uses Cloudflare's speed endpoint pinned to this IP; it is only meaningful for Cloudflare edge IPs."),
                 color = TextSecondary, fontSize = 11.sp)
             if (mode == "tls") {
@@ -319,7 +339,7 @@ fun CleanIpScannerPage(onBack: () -> Unit, onUseIp: (ip: String, sni: String) ->
                     }
                 }
             }
-            results.forEach { result ->
+            rankedTlsCandidates.forEach { result ->
                 Card(shape = RoundedCornerShape(14.dp), modifier = Modifier.fillMaxWidth()) {
                     Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -371,9 +391,9 @@ fun CleanIpScannerPage(onBack: () -> Unit, onUseIp: (ip: String, sni: String) ->
                                                             "$mark ${stage.name.uppercase()}: ${stage.detail}"
                                                         }
                                                         if (report.tunnelConnected) {
-                                                            "TUNNEL VERIFIED • ${report.tunnelLatencyMs ?: 0} ms\n$stageLines\nThis verifies this profile/IP on this network only; it does not prove DPI resistance everywhere."
+                                                            "TUNNEL VERIFIED • ${report.tunnelLatencyMs ?: 0} ms\nDPI status: UNKNOWN (not tested across networks)\n$stageLines\nThis verifies this profile/IP on this network only; it does not prove DPI resistance everywhere."
                                                         } else {
-                                                            "${report.diagnosis?.titleFa ?: "Tunnel not verified"}\n${report.diagnosis?.nextStepFa.orEmpty()}\n$stageLines"
+                                                            "${report.diagnosis?.titleFa ?: "Tunnel not verified"}\nDPI status: UNKNOWN (a failed test does not prove DPI blocking)\n${report.diagnosis?.nextStepFa.orEmpty()}\n$stageLines"
                                                         }
                                                     },
                                                     onFailure = { "Test failed: ${it.message ?: it.javaClass.simpleName}" }
