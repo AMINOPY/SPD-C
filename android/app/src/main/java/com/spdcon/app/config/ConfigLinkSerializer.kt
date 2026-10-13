@@ -14,6 +14,8 @@ object ConfigLinkSerializer {
             ConfigProtocol.TROJAN -> serializeUriProfile(profile, "trojan")
             ConfigProtocol.SHADOWSOCKS -> serializeShadowsocks(profile)
             ConfigProtocol.VMESS -> serializeVmess(profile)
+            ConfigProtocol.HYSTERIA2 -> serializeHysteria2(profile)
+            ConfigProtocol.TUIC -> serializeTuic(profile)
         }
     }
 
@@ -46,6 +48,32 @@ object ConfigLinkSerializer {
         val querySuffix = if (query.isBlank()) "" else "?$query"
         val remark = profile.remark ?: profile.name
         return "ss://$encoded$querySuffix#${encode(remark)}"
+    }
+
+    private fun serializeHysteria2(profile: ConfigProfile): String {
+        val query = profile.parameters
+            .filterKeys { it !in setOf("type", "network", "security", "country", "blockAdult", "method", "password") }
+            .toSortedMap()
+            .filterValues { it.isNotBlank() }
+            .entries.joinToString("&") { (key, value) -> "${encode(key)}=${encode(value)}" }
+        val host = if (profile.server.contains(":") && !profile.server.startsWith("[")) "[${profile.server}]" else profile.server
+        val querySuffix = if (query.isBlank()) "" else "?$query"
+        val remark = profile.remark ?: profile.name
+        return "hysteria2://${encode(profile.credential)}@$host:${profile.port}/$querySuffix#${encode(remark)}"
+    }
+
+    private fun serializeTuic(profile: ConfigProfile): String {
+        val password = profile.parameters["password"]
+            ?: throw IllegalArgumentException("TUIC password is required")
+        val query = profile.parameters
+            .filterKeys { it !in setOf("type", "network", "security", "country", "blockAdult", "password", "method") }
+            .toSortedMap()
+            .filterValues { it.isNotBlank() }
+            .entries.joinToString("&") { (key, value) -> "${encode(key)}=${encode(value)}" }
+        val host = if (profile.server.contains(":") && !profile.server.startsWith("[")) "[${profile.server}]" else profile.server
+        val querySuffix = if (query.isBlank()) "" else "?$query"
+        val remark = profile.remark ?: profile.name
+        return "tuic://${encode(profile.credential)}:${encode(password)}@$host:${profile.port}$querySuffix#${encode(remark)}"
     }
 
     private fun serializeVmess(profile: ConfigProfile): String {
