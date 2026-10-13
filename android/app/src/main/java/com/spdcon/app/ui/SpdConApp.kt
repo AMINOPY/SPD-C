@@ -112,6 +112,8 @@ fun SpdConApp(onOpenAdvancedPanel: () -> Unit = {}) {
     val store = remember(context) { ConfigLibraryStore(context) }
     var profiles by remember { mutableStateOf(store.loadAll()) }
     var selected by remember { mutableStateOf("home") }
+    var scannerServerIp by remember { mutableStateOf<String?>(null) }
+    var scannerSni by remember { mutableStateOf<String?>(null) }
     var generatedLink by remember { mutableStateOf<String?>(null) }
     var dialogMessage by remember { mutableStateOf<String?>(null) }
     var selectedProfileName by remember { mutableStateOf<String?>(null) }
@@ -181,6 +183,9 @@ fun SpdConApp(onOpenAdvancedPanel: () -> Unit = {}) {
                             }
                         )
                         "create" -> CreatePage(
+                            existingProfiles = profiles,
+                            scannerServerIp = scannerServerIp,
+                            scannerSni = scannerSni,
                             onGenerate = { generatedProfiles ->
                                 val errors = generatedProfiles.flatMap { profile ->
                                     profile.validate().map { "${profile.name}: $it" }
@@ -211,7 +216,15 @@ fun SpdConApp(onOpenAdvancedPanel: () -> Unit = {}) {
                                 }
                             }
                         )
-                        "tools" -> ToolsPage(onOpenAdvancedPanel)
+                        "tools" -> ToolsPage(onOpenAdvancedPanel, onOpenScanner = { selected = "scanner" })
+                        "scanner" -> CleanIpScannerPage(
+                            onBack = { selected = "tools" },
+                            onUseIp = { ip, domain ->
+                                scannerServerIp = ip
+                                scannerSni = domain
+                                selected = "create"
+                            }
+                        )
                         else -> MorePage(onOpenAdvancedPanel)
                     }
                 }
@@ -355,19 +368,35 @@ private fun HomePage(
 }
 
 @Composable
-private fun CreatePage(onGenerate: (List<ConfigProfile>) -> Unit) {
+private fun CreatePage(
+    existingProfiles: List<ConfigProfile>,
+    scannerServerIp: String?,
+    scannerSni: String?,
+    onGenerate: (List<ConfigProfile>) -> Unit
+) {
+    val template = existingProfiles.firstOrNull()
     var step by remember { mutableStateOf(1) }
-    var selectedProtocol by remember { mutableStateOf("VLESS + WS + TLS") }
+    var selectedProtocol by remember(template) {
+        mutableStateOf(when {
+            template?.protocol == ConfigProtocol.TROJAN && template.network.equals("ws", true) && template.security.equals("tls", true) -> "Trojan + WS + TLS"
+            template?.protocol == ConfigProtocol.VLESS && template.network.equals("ws", true) && template.security.equals("tls", true) -> "VLESS + WS + TLS"
+            template?.protocol == ConfigProtocol.VLESS && template.security.equals("reality", true) -> "VLESS + Reality"
+            template?.protocol == ConfigProtocol.TROJAN -> "Trojan"
+            template?.protocol == ConfigProtocol.SHADOWSOCKS -> "Shadowsocks"
+            else -> "VLESS + WS + TLS"
+        })
+    }
     var name by remember { mutableStateOf("") }
-    var server by remember { mutableStateOf("") }
-    var port by remember { mutableStateOf("443") }
+    var server by remember(scannerServerIp, template) { mutableStateOf(scannerServerIp ?: template?.server.orEmpty()) }
+    var port by remember(template) { mutableStateOf(template?.port?.toString() ?: "443") }
     var credential by remember { mutableStateOf("") }
-    var sni by remember { mutableStateOf("") }
-    var host by remember { mutableStateOf("") }
-    var wsPath by remember { mutableStateOf("/ws") }
+    var sni by remember(scannerSni, template) { mutableStateOf(scannerSni ?: template?.parameters?.get("sni").orEmpty()) }
+    var host by remember(template) { mutableStateOf(template?.parameters?.get("host").orEmpty()) }
+    var wsPath by remember(template) { mutableStateOf(template?.parameters?.get("path") ?: "/ws") }
     var generateBothWebSocket by remember { mutableStateOf(true) }
-    var publicKey by remember { mutableStateOf("") }
-    var shortId by remember { mutableStateOf("") }
+    var publicKey by remember(template) { mutableStateOf(template?.parameters?.get("pbk").orEmpty()) }
+    var shortId by remember(template) { mutableStateOf(template?.parameters?.get("sid").orEmpty()) }
+    var editServerSettings by remember(template) { mutableStateOf(template == null) }
 
     Column(
         modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState())
@@ -407,11 +436,22 @@ private fun CreatePage(onGenerate: (List<ConfigProfile>) -> Unit) {
             }
             2 -> {
                 GlassField(name, { name = it }, tr("Configuration name"))
-                GlassField(server, { server = it }, tr("Server hostname / IP"))
-                GlassField(port, { port = it.filter(Char::isDigit).take(5) }, tr("Port"), numeric = true)
-                GlassField(credential, { credential = it }, tr("Credential (leave blank to generate)"))
-                if (selectedProtocol != "Shadowsocks") {
-                    GlassField(sni, { sni = it }, if (selectedProtocol == "VLESS + Reality") tr("REALITY SNI / serverName") else tr("TLS SNI (optional)"))
+                if (server.isNotBlank() && !editServerSettings) {
+                    GlassCard(modifier = Modifier.fillMaxWidth(), cornerRadius = 16.dp) {
+                        Text(tr("Using saved server template"), fontWeight = FontWeight.SemiBold)
+                        Text("$"+"server:$"+"port", color = TextSecondary, fontSize = 12.sp)
+                        TextButton(onClick = { editServerSettings = true }) { Text(tr("Change server settings")) }
+                    }
+                    Text(tr("Only the name and protocol are needed when reusing this saved server template."),
+                        color = TextSecondary, fontSize = 12.sp)
+                }
+                if (editServerSettings || server.isBlank()) {
+                    GlassField(server, { server = it }, tr("Server hostname / IP"))
+                    GlassField(port, { port = it.filter(Char::isDigit).take(5) }, tr("Port"), numeric = true)
+                    GlassField(credential, { credential = it }, tr("Credential (leave blank to generate)"))
+                    if (selectedProtocol != "Shadowsocks") {
+                        GlassField(sni, { sni = it }, if (selectedProtocol == "VLESS + Reality") tr("REALITY SNI / serverName") else tr("TLS SNI (optional)"))
+                    }
                 }
                 if (selectedProtocol.contains("+ WS")) {
                     GlassField(host, { host = it }, tr("WebSocket Host header (optional)"))
@@ -425,8 +465,12 @@ private fun CreatePage(onGenerate: (List<ConfigProfile>) -> Unit) {
                         color = TextSecondary, fontSize = 12.sp)
                 }
                 if (selectedProtocol == "VLESS + Reality") {
-                    GlassField(publicKey, { publicKey = it }, tr("REALITY public key (pbk)"))
-                    GlassField(shortId, { shortId = it }, tr("REALITY short ID (0–16 hex chars; may be empty)"))
+                    if (editServerSettings || publicKey.isBlank()) {
+                        GlassField(publicKey, { publicKey = it }, tr("REALITY public key (pbk)"))
+                        GlassField(shortId, { shortId = it }, tr("REALITY short ID (0–16 hex chars; may be empty)"))
+                    } else {
+                        Text(tr("REALITY keys reused from the saved server template."), color = TextSecondary, fontSize = 12.sp)
+                    }
                     Text(tr("Use the public key and short ID configured on your server. They cannot be guessed by the app."),
                         color = TextSecondary, fontSize = 12.sp)
                 }
@@ -581,7 +625,7 @@ private fun LibraryPage(
 }
 
 @Composable
-private fun ToolsPage(onOpenAdvancedPanel: () -> Unit) {
+private fun ToolsPage(onOpenAdvancedPanel: () -> Unit, onOpenScanner: () -> Unit) {
     Column(
         modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState())
             .padding(horizontal = 20.dp).padding(top = 8.dp, bottom = 112.dp),
@@ -589,6 +633,7 @@ private fun ToolsPage(onOpenAdvancedPanel: () -> Unit) {
     ) {
         Text(tr("Tools"), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
         Text(tr("Advanced utilities and server-side helpers"), color = TextSecondary, fontSize = 13.sp)
+        ToolCard(tr("Clean IP Scanner"), tr("Find responsive TLS edge IPs for your domain"), Icons.Filled.Analytics, onOpenScanner)
         ToolCard(tr("Backhaul Generator"), tr("Build tunnel server / client configuration"), Icons.Filled.Build, onOpenAdvancedPanel)
         ToolCard(tr("REALITY & node settings"), tr("Open the full configuration panel"), Icons.Filled.Security, onOpenAdvancedPanel)
         ToolCard(tr("Cloudflare / Telegram proxy"), tr("Open existing proxy tools"), Icons.Filled.Settings, onOpenAdvancedPanel)
