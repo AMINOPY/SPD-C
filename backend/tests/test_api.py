@@ -156,7 +156,7 @@ class ConfigHubApiTests(unittest.TestCase):
         connections = self.client.get(
             f"/admin/users/{user_id}/connections", headers=admin_headers)
         self.assertEqual(connections.status_code, 200, connections.text)
-        self.assertEqual(len(connections.json()["connections"]), 2)
+        self.assertEqual(len(connections.json()["connections"]), 3)
 
         invalid_ip = self.client.post(f"/admin/users/{user_id}/connections/report",
             headers=admin_headers, json={
