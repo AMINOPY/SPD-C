@@ -62,7 +62,7 @@ object SmartConfigAdvisor {
     fun looksLikeHostname(value: String): Boolean {
         val candidate = value.trim().trimEnd('.')
         if (candidate.isBlank() || candidate.contains(' ') || candidate.contains('/') ||
-            candidate.contains(':') || candidate.startsWith("[") || candidate.matches(Regex("""\\d{1,3}(\\.\\d{1,3}){3}"""))
+            candidate.contains(':') || candidate.startsWith("[") || candidate.matches(Regex("""\d{1,3}(\.\d{1,3}){3}"""))
         ) return false
         val labels = candidate.split('.')
         return labels.size >= 2 && labels.all { label ->
