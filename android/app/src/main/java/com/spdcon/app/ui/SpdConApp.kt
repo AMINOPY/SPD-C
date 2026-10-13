@@ -430,6 +430,8 @@ private fun CreatePage(
         val profileName = name.trim().ifBlank { "Spd con config" }
         val baseProfile = sourceProfile.copy(
             name = profileName,
+            server = server.trim(),
+            port = port.toIntOrNull() ?: sourceProfile.port,
             protocol = protocol,
             credential = generatedCredential,
             network = if (websocket) "ws" else "tcp",
