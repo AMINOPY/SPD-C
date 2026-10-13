@@ -14,7 +14,11 @@
 - Xray JSON preview for VLESS + REALITY, QR-code generation, clipboard, and Android share-sheet actions.
 - Local SQLite library to save, load, delete, search and filter profiles; local favorites and editable tags are supported. Credentials are encrypted with AES-GCM using an Android Keystore key; other database metadata is not encrypted.
 
-## Optional cloud sync and subscriptions (no web panel required)\n\nThe `cloudflare/` directory contains a Cloudflare Workers API with a D1 schema and Wrangler configuration for accounts, bearer sessions, user-scoped config sync and unique revocable subscription links. Most day-to-day features should stay inside Android and work offline; Cloudflare is only for optional online services. Follow [cloudflare/README.md](cloudflare/README.md) to deploy. Deployment still requires creating your own D1 database and setting secrets in your Cloudflare account.\n\n## Initial local Config Hub API
+## Optional cloud sync and subscriptions (no web panel required)
+
+The `cloudflare/` directory contains a Cloudflare Workers API with a D1 schema and Wrangler configuration for accounts, bearer sessions, user-scoped config sync and unique revocable subscription links. Most day-to-day features should stay inside Android and work offline; Cloudflare is only for optional online services. Follow [cloudflare/README.md](cloudflare/README.md) to deploy. Deployment still requires creating your own D1 database and setting secrets in your Cloudflare account.
+
+## Initial local Config Hub API
 
 The `backend/` directory contains a FastAPI API foundation with:
 
@@ -48,7 +52,8 @@ After a successful workflow, download **spd-con-debug-apk** under **Artifacts**.
 ## Repository layout
 
 - `android/` — Kotlin Android application.
-- `backend/` — optional FastAPI API, tests, and local Docker Compose setup.\n- `cloudflare/` — optional Cloudflare Worker API and D1 migration.
+- `backend/` — optional FastAPI API, tests, and local Docker Compose setup.
+- `cloudflare/` — optional Cloudflare Worker API and D1 migration.
 - `docs/` — architecture, roadmap, and configuration format notes.
 - `.github/workflows/` — Android and backend CI.
 
