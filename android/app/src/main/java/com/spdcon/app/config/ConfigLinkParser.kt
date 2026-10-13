@@ -1,6 +1,6 @@
 package com.spdcon.app.config
 
-import android.util.Base64
+import java.util.Base64
 import org.json.JSONObject
 import java.net.URI
 import java.net.URLDecoder
@@ -64,7 +64,7 @@ object ConfigLinkParser {
         val encoded = input.substringAfter("vmess://", missingDelimiterValue = "")
         require(encoded.isNotBlank()) { "VMess payload is missing" }
         val decoded = try {
-            String(Base64.decode(encoded, Base64.DEFAULT), StandardCharsets.UTF_8)
+            String(Base64.getDecoder().decode(encoded), StandardCharsets.UTF_8)
         } catch (_: IllegalArgumentException) {
             throw IllegalArgumentException("VMess payload is not valid Base64")
         }
