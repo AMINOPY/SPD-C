@@ -11,7 +11,9 @@ data class ConfigProfile(
     val network: String = "tcp",
     val security: String = "none",
     val remark: String? = null,
-    val parameters: Map<String, String> = emptyMap()
+    val parameters: Map<String, String> = emptyMap(),
+    val tags: List<String> = emptyList(),
+    val favorite: Boolean = false
 ) {
     fun validate(): List<String> = buildList {
         if (name.isBlank()) add("Name is required")
