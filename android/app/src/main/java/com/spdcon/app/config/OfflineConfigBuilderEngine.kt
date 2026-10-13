@@ -35,6 +35,16 @@ object OfflineConfigBuilderEngine {
         val realityKeyPair: RealityKeyPair
     )
 
+    /**
+     * Validates and serializes any currently supported protocol using local code only.
+     * No API/server call and no library/database write occurs here.
+     */
+    fun buildShareLink(profile: ConfigProfile): Result<String> = runCatching {
+        val errors = profile.validate()
+        require(errors.isEmpty()) { errors.joinToString("; ") }
+        ConfigLinkSerializer.serialize(profile).getOrThrow()
+    }
+
     /** Creates a UUID v4 using SecureRandom without persisting it. */
     fun generateUuid(): String {
         val bytes = ByteArray(16).also(random::nextBytes)
