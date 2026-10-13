@@ -142,6 +142,7 @@ def main() -> int:
             event = normalize_event(source, node_id, identity_map)
             result = post_event(api_base, node_id, node_secret, event)
             print(json.dumps({"line": line_number, "accepted": result.get("accepted"),
+                              "decision": result.get("decision", "observe_only"),
                               "alerts": result.get("alerts", []),
                               "enforcement": result.get("enforcement")}, separators=(",", ":")),
                   flush=True)
