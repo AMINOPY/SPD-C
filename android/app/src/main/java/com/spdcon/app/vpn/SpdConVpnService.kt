@@ -140,14 +140,11 @@ class SpdConVpnService : VpnService() {
         try {
             // Register protection before starting Xray: otherwise the upstream
             // proxy connection can be captured by the VPN it is meant to carry.
-            val dialerError = LibXray.registerDialerController(socketController)
-            check(dialerError.isNullOrBlank()) { "Could not register Xray socket protection: $dialerError" }
-            val listenerError = LibXray.registerListenerController(socketController)
-            check(listenerError.isNullOrBlank()) { "Could not register Xray listener protection: $listenerError" }
+            LibXray.registerDialerController(socketController)
+            LibXray.registerListenerController(socketController)
 
             // Keep Go's resolver away from Android's VPN loopback DNS.
-            val dnsError = LibXray.setDNS(socketController, "1.1.1.1:53")
-            check(dnsError.isNullOrBlank()) { "Could not configure Xray DNS resolver: $dnsError" }
+            LibXray.setDNS(socketController, "1.1.1.1:53")
 
             val allOutbounds = JSONArray()
             allOutbounds.put(proxyOutbound)
@@ -201,15 +198,15 @@ class SpdConVpnService : VpnService() {
                             .put("type", "field")
                             .put("inboundTag", JSONArray().put("tun"))
                             .put("port", "53")
-                            .put("outboundTag", "dns"))
+                            .put("outboundTag", "dns")))
                         .put(JSONObject()
                             .put("type", "field")
                             .put("inboundTag", JSONArray().put("spdcon-dns"))
-                            .put("outboundTag", proxyTag))
+                            .put("outboundTag", proxyTag)))
                         .put(JSONObject()
                             .put("type", "field")
                             .put("inboundTag", JSONArray().put("tun"))
-                            .put("outboundTag", proxyTag)))))
+                            .put("outboundTag", proxyTag)))))))
 
             publishStatus("connecting", "Starting Xray-core")
             val response = invoke("runXray", JSONObject().put("xrayJson", xrayConfig.toString()))
