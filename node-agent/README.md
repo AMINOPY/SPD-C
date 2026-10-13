@@ -33,7 +33,21 @@ Install a pinned Xray-core release on the node and keep its management API bound
 - Validate a config without starting or restarting the core: `python3 node-agent/xray_runtime.py --xray-bin /usr/local/bin/xray validate --config /etc/xray/config.json`
 - Query user traffic counters: `python3 node-agent/xray_runtime.py --xray-bin /usr/local/bin/xray stats --server 127.0.0.1:10085 --pattern 'user>>>'`
 
-The helper is read-only. It does not echo raw Xray error logs because those may contain private deployment details. Stats output is not yet connected to Spd con quota accounting, and config validation does not prove reachability to a remote server.
+The helper is read-only. It does not echo raw Xray error logs because those may contain private deployment details. The xray_usage_sync.py utility now polls these cumulative per-user StatsService counters and reports deltas to the API for quota accounting. It still does not terminate sessions or enforce a quota in the running core, and config validation does not prove reachability to a remote server.
+
+## Automatic Xray usage accounting
+
+Create a root-owned JSON identity map that connects the exact Xray account email to a Spd con user ID:
+
+    {
+      "vpn-user@example.net": "<Spd con user id>"
+    }
+
+Keep the map outside the repository and readable only by the node-agent service account. Then configure the same API/node credentials from the enrollment steps above and run:
+
+    python3 node-agent/xray_usage_sync.py --identity-map /etc/spd-con/identity-map.json --xray-bin /usr/local/bin/xray --server 127.0.0.1:10085 --once
+
+Omit --once to run a supervised polling loop (default interval: 60 seconds). Alternatively set SPD_CON_IDENTITY_MAP_PATH, SPD_CON_API_BASE_URL, SPD_CON_NODE_ID, and SPD_CON_NODE_SECRET in the service environment. Unknown core identities are not assigned to an account and are reported as errors. The API de-duplicates event IDs, tracks cumulative counters per node/account, handles counter resets, and reports whether the recorded quota is exhausted. This is accounting and status reporting—not a guarantee that traffic is blocked when the quota is exhausted.
 
 ## Security and behavior
 
