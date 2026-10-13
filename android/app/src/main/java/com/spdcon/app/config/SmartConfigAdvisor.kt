@@ -59,7 +59,16 @@ object SmartConfigAdvisor {
         }
 
     /** A domain can be reused as a TLS host hint, but never as REALITY pbk/shortId. */
-    fun looksLikeHostname(value: String): Boolean =
-        value.contains('.') && !value.contains(' ') && !value.contains('/') &&
-            !value.startsWith("[") && value.substringAfterLast('.').isNotBlank()
+    fun looksLikeHostname(value: String): Boolean {
+        val candidate = value.trim().trimEnd('.')
+        if (candidate.isBlank() || candidate.contains(' ') || candidate.contains('/') ||
+            candidate.contains(':') || candidate.startsWith("[") || candidate.matches(Regex("""\\d{1,3}(\\.\\d{1,3}){3}"""))
+        ) return false
+        val labels = candidate.split('.')
+        return labels.size >= 2 && labels.all { label ->
+            label.isNotBlank() && label.length <= 63 &&
+                label.first().isLetterOrDigit() && label.last().isLetterOrDigit() &&
+                label.all { it.isLetterOrDigit() || it == '-' }
+        }
+    }
 }
