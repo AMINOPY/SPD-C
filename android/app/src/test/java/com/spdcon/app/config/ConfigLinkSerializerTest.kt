@@ -260,4 +260,43 @@ class ConfigLinkSerializerTest {
         assertEquals(password, parsed.parameters["password"])
     }
 
+    @Test
+    fun roundTripsIpv6HostAndReservedRemarkCharacters() {
+        val profile = ConfigProfile(
+            name = "IPv6 node",
+            protocol = ConfigProtocol.VLESS,
+            server = "2001:db8::1",
+            port = 443,
+            credential = "credential+with/slash",
+            network = "tcp",
+            security = "none",
+            remark = "Edge #1 / Test",
+            parameters = emptyMap()
+        )
+        val link = ConfigLinkSerializer.serialize(profile).getOrThrow()
+        assertTrue(link.contains("@[2001:db8::1]:443"))
+        assertTrue(link.endsWith("#Edge%20%231%20%2F%20Test"))
+        val parsed = ConfigLinkParser.parse(link).getOrThrow()
+        assertEquals(profile.server, parsed.server)
+        assertEquals(profile.credential, parsed.credential)
+        assertEquals(profile.remark, parsed.name)
+    }
+
+    @Test
+    fun refusesExportWhenRequiredRealityServerMaterialIsMissing() {
+        val invalid = ConfigProfile(
+            name = "Incomplete REALITY",
+            protocol = ConfigProtocol.VLESS,
+            server = "example.com",
+            port = 443,
+            credential = "00000000-0000-0000-0000-000000000000",
+            network = "tcp",
+            security = "reality",
+            parameters = mapOf("sni" to "example.com", "sid" to "")
+        )
+        val result = ConfigLinkSerializer.serialize(invalid)
+        assertTrue(result.isFailure)
+        assertTrue(result.exceptionOrNull()?.message.orEmpty().contains("public key"))
+    }
+
 }
