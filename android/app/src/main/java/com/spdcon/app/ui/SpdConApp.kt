@@ -426,7 +426,7 @@ private fun CreatePage(onGenerate: (ConfigProfile) -> Unit) {
                     }
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-                    OutlinedButton(onClick = { step = 2 }, modifier = Modifier.weight(1f)) { Text("Back") }
+                    OutlinedButton(onClick = { step = 2 }, modifier = Modifier.weight(1f)) { Text(tr("Back")) }
                     NeonButton(tr("Generate & Save"), {
                         val protocol = when (selectedProtocol) {
                             "Trojan" -> ConfigProtocol.TROJAN
@@ -704,7 +704,7 @@ private fun NeonButton(text: String, onClick: () -> Unit, modifier: Modifier = M
     "Hysteria2" -> "QUIC-based UDP transport"
     "TUIC" -> "QUIC transport with a separate password"
     else -> "VPN configuration"
-}
+})
 
 private fun profileId(profile: ConfigProfile): String =
     "${profile.protocol.name}|${profile.server}|${profile.port}|${profile.name}"
