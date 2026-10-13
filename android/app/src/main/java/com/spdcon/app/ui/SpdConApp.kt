@@ -696,7 +696,8 @@ private fun NeonButton(text: String, onClick: () -> Unit, modifier: Modifier = M
     ) { Text(text, fontWeight = FontWeight.Bold, fontSize = 14.sp) }
 }
 
-@Composable\nprivate fun protocolHint(protocol: String): String = tr(when (protocol) {
+@Composable
+private fun protocolHint(protocol: String): String = tr(when (protocol) {
     "VLESS + TLS" -> "TLS transport security"
     "VLESS + Reality" -> "Requires the server public key and SNI"
     "Trojan" -> "Password-based TLS proxy"
