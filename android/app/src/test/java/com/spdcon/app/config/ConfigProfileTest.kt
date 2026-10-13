@@ -52,4 +52,58 @@ class ConfigProfileTest {
         )
         assertEquals(listOf("Port must be between 1 and 65535"), profile.validate())
     }
+    @Test
+    fun rejectsUnsupportedTransportAndSecurityCombinations() {
+        val unsupportedTransport = ConfigProfile(
+            name = "Bad transport",
+            protocol = ConfigProtocol.VLESS,
+            server = "example.com",
+            port = 443,
+            credential = "00000000-0000-0000-0000-000000000000",
+            network = "made-up"
+        )
+        assertTrue(unsupportedTransport.validate().any { it.contains("Unsupported transport") })
+
+        val hysteriaWithoutUdp = ConfigProfile(
+            name = "Bad Hysteria transport",
+            protocol = ConfigProtocol.HYSTERIA2,
+            server = "example.com",
+            port = 443,
+            credential = "secret",
+            network = "tcp",
+            security = "tls"
+        )
+        assertTrue(hysteriaWithoutUdp.validate().any { it.contains("requires UDP") })
+
+        val shadowsocksWithTls = ConfigProfile(
+            name = "Bad Shadowsocks security",
+            protocol = ConfigProtocol.SHADOWSOCKS,
+            server = "example.com",
+            port = 8388,
+            credential = "secret",
+            security = "tls",
+            parameters = mapOf("method" to "aes-128-gcm")
+        )
+        assertTrue(shadowsocksWithTls.validate().any { it.contains("Shadowsocks profiles") })
+    }
+
+    @Test
+    fun rejectsUnsafeTransportPathAndHostHeader() {
+        val unsafePath = ConfigProfile(
+            name = "Unsafe path",
+            protocol = ConfigProtocol.VLESS,
+            server = "example.com",
+            port = 443,
+            credential = "00000000-0000-0000-0000-000000000000",
+            network = "ws",
+            parameters = mapOf("path" to "/../escape", "host" to "cdn.example.com")
+        )
+        assertTrue(unsafePath.validate().any { it.contains("Transport path") })
+
+        val unsafeHost = unsafePath.copy(
+            parameters = mapOf("path" to "/ws", "host" to "cdn.example.com\\r\\nX-Injected: yes")
+        )
+        assertTrue(unsafeHost.validate().any { it.contains("Transport Host") })
+    }
+
 }

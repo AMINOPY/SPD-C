@@ -25,8 +25,46 @@ data class ConfigProfile(
         }
         if (port !in 1..65535) add("Port must be between 1 and 65535")
         if (credential.isBlank()) add("Credential is required")
-        if (network.isBlank()) add("Network type is required")
-        if (security.isBlank()) add("Security type is required")
+        if (network.isBlank()) {
+            add("Network type is required")
+        } else {
+            val normalizedNetwork = network.lowercase()
+            val supportedNetworks = setOf("tcp", "raw", "ws", "websocket", "grpc", "xhttp", "splithttp")
+            if (protocol == ConfigProtocol.HYSTERIA2 || protocol == ConfigProtocol.TUIC) {
+                if (normalizedNetwork != "udp") add("$protocol requires UDP transport")
+            } else if (protocol != ConfigProtocol.SHADOWSOCKS && normalizedNetwork !in supportedNetworks) {
+                add("Unsupported transport for Xray config export: $network")
+            }
+        }
+        if (security.isBlank()) {
+            add("Security type is required")
+        } else {
+            val normalizedSecurity = security.lowercase()
+            if (normalizedSecurity !in setOf("none", "tls", "reality")) {
+                add("Unsupported security type: $security")
+            }
+            if ((protocol == ConfigProtocol.HYSTERIA2 || protocol == ConfigProtocol.TUIC) &&
+                normalizedSecurity != "tls") {
+                add("$protocol requires TLS security")
+            }
+            if (protocol == ConfigProtocol.SHADOWSOCKS && normalizedSecurity != "none") {
+                add("Shadowsocks profiles must use none security in this Xray exporter")
+            }
+            if (normalizedSecurity == "reality" &&
+                network.lowercase() !in setOf("tcp", "raw", "xhttp", "splithttp", "grpc")) {
+                add("REALITY supports RAW/TCP, XHTTP or gRPC transport")
+            }
+        }
+        val path = parameters["path"]
+        if (path != null && network.lowercase() in setOf("ws", "websocket", "xhttp", "splithttp")) {
+            if (!path.startsWith("/") || path.contains("..") || path.any { it.isISOControl() }) {
+                add("Transport path must be an absolute safe path")
+            }
+        }
+        val hostHeader = parameters["host"]
+        if (!hostHeader.isNullOrBlank() && hostHeader.any { it.isWhitespace() || it.isISOControl() }) {
+            add("Transport Host must not contain whitespace or control characters")
+        }
         if (security.equals("reality", ignoreCase = true)) {
             if (protocol != ConfigProtocol.VLESS) add("REALITY is supported here only for VLESS profiles")
             if (parameters["sni"].isNullOrBlank()) add("REALITY requires the server's configured SNI/serverName")
