@@ -42,8 +42,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import com.spdcon.app.config.ConfigLibraryStore
 import com.spdcon.app.config.ConfigLinkParser
 import com.spdcon.app.config.ConfigLinkSerializer
 import com.spdcon.app.config.ConfigProfile
@@ -70,6 +74,11 @@ class MainActivity : ComponentActivity() {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun SpdConDashboard() {
+    val context = LocalContext.current
+    val clipboardManager = LocalClipboardManager.current
+    val libraryStore = remember(context) { ConfigLibraryStore(context) }
+    var savedProfiles by remember { mutableStateOf(libraryStore.loadAll()) }
+    var libraryMessage by remember { mutableStateOf<String?>(null) }
     var shareLink by remember { mutableStateOf("") }
     var parseResult by remember { mutableStateOf<String?>(null) }
     var parsedSummary by remember { mutableStateOf<String?>(null) }
@@ -170,6 +179,73 @@ private fun SpdConDashboard() {
                         parsedSummary?.let { summary ->
                             Card(modifier = Modifier.fillMaxWidth()) {
                                 Text(summary, modifier = Modifier.padding(12.dp), style = MaterialTheme.typography.bodyMedium)
+                            }
+                        }
+                    }
+                }
+            }
+
+            item {
+                Card(modifier = Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("کتابخانه محلی کانفیگ", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                        Text("کانفیگ‌ها روی همین دستگاه ذخیره می‌شوند. این نسخه هنوز رمزگذاری مخصوص خزانهٔ امن ندارد؛ از دستگاه امن استفاده کن.")
+                        Button(
+                            onClick = {
+                                val profile = parsedProfile
+                                if (profile == null) {
+                                    libraryMessage = "ابتدا یک لینک معتبر وارد و تحلیل کن."
+                                } else {
+                                    val result = libraryStore.save(profile)
+                                    libraryMessage = result.fold(
+                                        onSuccess = { "کانفیگ ذخیره شد." },
+                                        onFailure = { "ذخیره ناموفق بود: ${it.message}" }
+                                    )
+                                    savedProfiles = libraryStore.loadAll()
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            enabled = parsedProfile != null
+                        ) { Text("ذخیره کانفیگ فعلی") }
+                        libraryMessage?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
+                        if (savedProfiles.isEmpty()) {
+                            Text("هنوز کانفیگی ذخیره نشده است.", style = MaterialTheme.typography.bodySmall)
+                        } else {
+                            savedProfiles.forEach { saved ->
+                                Card(modifier = Modifier.fillMaxWidth()) {
+                                    Column(Modifier.padding(10.dp)) {
+                                        Text(saved.name, fontWeight = FontWeight.SemiBold)
+                                        Text("${saved.protocol} • ${saved.server}:${saved.port}", style = MaterialTheme.typography.bodySmall)
+                                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                            TextButton(onClick = {
+                                                parsedProfile = saved
+                                                parsedSummary = listOf(
+                                                    "نام: ${saved.name}",
+                                                    "پروتکل: ${saved.protocol}",
+                                                    "سرور: ${saved.server}:${saved.port}",
+                                                    "انتقال: ${saved.network}",
+                                                    "امنیت: ${saved.security}"
+                                                ).joinToString("\\n")
+                                                parseResult = "کانفیگ از کتابخانه محلی بارگذاری شد."
+                                                shareLink = runCatching { ConfigLinkSerializer.serialize(saved).getOrThrow() }.getOrDefault("")
+                                                if (saved.security.equals("reality", true)) {
+                                                    val reality = saved.toRealitySettings()
+                                                    realityServerName = reality.serverName
+                                                    realityPublicKey = reality.publicKey
+                                                    realityShortId = reality.shortId
+                                                    realityFingerprint = reality.fingerprint
+                                                    realitySpiderX = reality.spiderX
+                                                    realityFlow = reality.flow
+                                                }
+                                            }) { Text("بارگذاری") }
+                                            TextButton(onClick = {
+                                                libraryStore.delete(saved)
+                                                savedProfiles = libraryStore.loadAll()
+                                                libraryMessage = "کانفیگ حذف شد."
+                                            }) { Text("حذف") }
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
@@ -298,6 +374,10 @@ private fun SpdConDashboard() {
                                 minLines = 4,
                                 maxLines = 14
                             )
+                            OutlinedButton(
+                                onClick = { clipboardManager.setText(AnnotatedString(it)) },
+                                modifier = Modifier.fillMaxWidth()
+                            ) { Text("کپی خروجی") }
                         }
                     }
                 }
