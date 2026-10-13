@@ -206,4 +206,40 @@ class ConfigLinkSerializerTest {
         assertTrue(ConfigLinkParser.parse("vless://" + "x".repeat(33_000)).isFailure)
     }
 
+
+    @Test
+    fun roundTripsReservedCharactersInHysteria2Password() {
+        val profile = ConfigProfile(
+            name = "Hysteria reserved chars",
+            protocol = ConfigProtocol.HYSTERIA2,
+            server = "edge.example.com",
+            port = 443,
+            credential = "hy2/secret?+value",
+            network = "udp",
+            security = "tls",
+            parameters = mapOf("sni" to "edge.example.com")
+        )
+        val link = ConfigLinkSerializer.serialize(profile).getOrThrow()
+        val parsed = ConfigLinkParser.parse(link).getOrThrow()
+        assertEquals(profile.credential, parsed.credential)
+    }
+
+    @Test
+    fun roundTripsReservedCharactersInTuicPassword() {
+        val password = "tuic:secret@part/+value"
+        val profile = ConfigProfile(
+            name = "TUIC reserved chars",
+            protocol = ConfigProtocol.TUIC,
+            server = "edge.example.com",
+            port = 443,
+            credential = "00000000-0000-0000-0000-000000000000",
+            network = "udp",
+            security = "tls",
+            parameters = mapOf("password" to password, "alpn" to "h3")
+        )
+        val link = ConfigLinkSerializer.serialize(profile).getOrThrow()
+        val parsed = ConfigLinkParser.parse(link).getOrThrow()
+        assertEquals(password, parsed.parameters["password"])
+    }
+
 }
