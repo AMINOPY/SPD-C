@@ -42,7 +42,7 @@ object BackhaulConfigGenerator {
                 if (settings.remotePort == null || settings.remotePort !in 1..65535) add("Remote port must be between 1 and 65535")
                 if (settings.cloudflareProxy && !settings.remoteHost.contains('.')) add("Cloudflare-proxied setup requires a domain name")
                 if (settings.cloudflareProxy && settings.transport !in setOf("ws", "wsmux")) add("For this Cloudflare HTTP/WebSocket template, select ws or wsmux and verify current Cloudflare port/transport support")
-                if (settings.cloudflareProxy && settings.remotePort !in setOf(80, 8080, 8880, 2052, 2082, 2086, 2095, 443, 2053, 2083, 2087, 2096, 8443)) add("Port is not in the common Cloudflare proxied HTTP/HTTPS port list; verify current Cloudflare documentation")
+                if (settings.cloudflareProxy && (settings.remotePort == null || settings.remotePort !in setOf(80, 8080, 8880, 2052, 2082, 2086, 2095, 443, 2053, 2083, 2087, 2096, 8443))) add("Port is not in the common Cloudflare proxied HTTP/HTTPS port list; verify current Cloudflare documentation")
             }
         }
     }
