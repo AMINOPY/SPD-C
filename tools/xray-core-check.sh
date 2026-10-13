@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # Keep the engine version pinned so schema changes are deliberate and reviewable.
-XRAY_VERSION="${XRAY_VERSION:-v26.3.27}"
+XRAY_VERSION="${XRAY_VERSION:-v26.10.10}"
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 WORK_DIR="$(mktemp -d)"
 trap 'rm -rf "$WORK_DIR"' EXIT
