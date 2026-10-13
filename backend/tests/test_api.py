@@ -215,6 +215,55 @@ class ConfigHubApiTests(unittest.TestCase):
         self.assertEqual(self.client.post(f"/nodes/{node['id']}/connections/report",
             headers=headers, json=blocked).status_code, 401)
 
+    def test_xray_usage_snapshots_are_idempotent_and_handle_counter_reset(self):
+        self.register("stats_admin")
+        self.assertEqual(self.client.post("/admin/bootstrap", headers={
+            "X-Bootstrap-Token": api.BOOTSTRAP_ADMIN_TOKEN
+        }).status_code, 201)
+        admin_headers = self.login("stats_admin")
+        user = self.client.post("/auth/register", json={
+            "username": "stats_user", "password": "a-very-long-test-password"
+        }).json()["user"]
+        limits = self.client.patch(f"/admin/users/{user['id']}/limits", headers=admin_headers,
+            json={"quota_bytes": 500, "expires_at": None, "enabled": True})
+        self.assertEqual(limits.status_code, 200, limits.text)
+        node = self.client.post("/admin/nodes", headers=admin_headers,
+            json={"name": "stats-node"}).json()
+        headers = {"Authorization": "Bearer " + node["node_secret"]}
+        base = {"event_timestamp": api.now(), "user_id": user["id"],
+                "upload_bytes": 100, "download_bytes": 200}
+        first = self.client.post(f"/nodes/{node['id']}/usage/report", headers=headers,
+            json=dict(base, event_id="stats-event-first-123"))
+        self.assertEqual(first.status_code, 201, first.text)
+        self.assertEqual(first.json()["usage_delta_bytes"], 300)
+        self.assertFalse(first.json()["quota_exhausted"])
+
+        second = self.client.post(f"/nodes/{node['id']}/usage/report", headers=headers,
+            json=dict(base, event_id="stats-event-second-123", event_timestamp=api.now(),
+                      upload_bytes=150, download_bytes=400))
+        self.assertEqual(second.status_code, 201, second.text)
+        self.assertEqual(second.json()["usage_delta_bytes"], 250)
+        self.assertTrue(second.json()["quota_exhausted"])
+        self.assertEqual(second.json()["used_bytes"], 550)
+
+        # A core restart may reset cumulative counters; new post-reset bytes remain chargeable.
+        reset = self.client.post(f"/nodes/{node['id']}/usage/report", headers=headers,
+            json=dict(base, event_id="stats-event-reset-1234", event_timestamp=api.now(),
+                      upload_bytes=5, download_bytes=7))
+        self.assertEqual(reset.status_code, 201, reset.text)
+        self.assertEqual(reset.json()["usage_delta_bytes"], 12)
+        self.assertEqual(reset.json()["used_bytes"], 562)
+
+        replay = self.client.post(f"/nodes/{node['id']}/usage/report", headers=headers,
+            json=dict(base, event_id="stats-event-reset-1234", event_timestamp=api.now(),
+                      upload_bytes=5, download_bytes=7))
+        self.assertEqual(replay.status_code, 409)
+
+        invalid = self.client.post(f"/nodes/{node['id']}/usage/report",
+            headers={"Authorization": "Bearer wrong-secret"},
+            json=dict(base, event_id="stats-event-invalid-1234"))
+        self.assertEqual(invalid.status_code, 401)
+
     def test_admin_bootstrap_and_server_side_limits(self):
         user = self.register()
         bootstrap = self.client.post("/admin/bootstrap", headers={
