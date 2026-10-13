@@ -33,9 +33,7 @@ object ConfigClientExporters {
     fun export(target: ConfigExportTarget, profiles: List<ConfigProfile>, base64Subscription: Boolean = false): Result<ConfigExportResult> = runCatching {
         require(profiles.isNotEmpty()) { "At least one profile is required for export" }
         require(profiles.size <= 500) { "Export is limited to 500 profiles at a time" }
-        val uniqueProfiles = profiles.distinctBy {
-            listOf(it.protocol.name, it.server.lowercase(), it.port.toString(), it.name).joinToString("|")
-        }
+        val uniqueProfiles = profiles.distinct()
         require(uniqueProfiles.isNotEmpty()) { "No unique profiles to export" }
 
         val unsupported = uniqueProfiles.filterNot { supports(target, it) }
@@ -58,12 +56,11 @@ object ConfigClientExporters {
         } else {
             plainText
         }
-        val extension = if (base64Subscription) "txt" else "txt"
         ConfigExportResult(
             target = target,
             fileName = when (target) {
-                ConfigExportTarget.V2RAYNG -> "spdcon-v2rayng.$extension"
-                ConfigExportTarget.HIDDIFY -> "spdcon-hiddify-subscription.$extension"
+                ConfigExportTarget.V2RAYNG -> "spdcon-v2rayng.txt"
+                ConfigExportTarget.HIDDIFY -> "spdcon-hiddify-subscription.txt"
             },
             mimeType = "text/plain; charset=utf-8",
             text = output,
