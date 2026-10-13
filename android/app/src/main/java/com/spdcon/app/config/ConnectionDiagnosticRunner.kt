@@ -86,7 +86,7 @@ object ConnectionDiagnosticRunner {
                             ssl as SSLSocket
                             ssl.soTimeout = SOCKET_TIMEOUT_MS
                             ssl.sslParameters = ssl.sslParameters.apply {
-                                serverNames = listOf(SNIHostName(sni))
+                                serverNames = if (isDnsHostname(sni)) listOf(SNIHostName(sni)) else emptyList()
                                 endpointIdentificationAlgorithm = "HTTPS"
                             }
                             ssl.startHandshake()
@@ -143,6 +143,9 @@ object ConnectionDiagnosticRunner {
             diagnosis = diagnosis
         )
     }
+
+    private fun isDnsHostname(value: String): Boolean =
+        !value.matches(Regex("^\\d{1,3}(?:\\.\\d{1,3}){3}$")) && !value.contains(":")
 
     private fun elapsedMs(startedNs: Long): Long =
         ((System.nanoTime() - startedNs) / 1_000_000L).coerceAtLeast(0)
