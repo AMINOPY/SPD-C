@@ -9,6 +9,7 @@ import android.net.LinkProperties
 import android.os.Build
 import android.telephony.CellInfoLte
 import android.telephony.CellInfoNr
+import android.telephony.CellIdentityNr
 import android.telephony.CellInfoWcdma
 import android.telephony.TelephonyManager
 import androidx.core.content.ContextCompat
@@ -189,7 +190,10 @@ object AiConEngine {
             val cell = telephony?.allCellInfo?.firstOrNull { it.isRegistered }
             when (cell) {
                 is CellInfoLte -> "LTE (EARFCN ${cell.cellIdentity.earfcn})" to cell.cellSignalStrength.dbm
-                is CellInfoNr -> "5G NR (NRARFCN ${cell.cellIdentity.nrarfcn})" to cell.cellSignalStrength.dbm
+                is CellInfoNr -> {
+                    val identity = cell.cellIdentity as? CellIdentityNr
+                    "5G NR (NRARFCN ${identity?.nrarfcn ?: "نامشخص"})" to cell.cellSignalStrength.dbm
+                }
                 is CellInfoWcdma -> "WCDMA" to cell.cellSignalStrength.dbm
                 else -> null to null
             }
@@ -210,7 +214,6 @@ object AiConEngine {
         TelephonyManager.NETWORK_TYPE_GSM -> "2G GSM"
         TelephonyManager.NETWORK_TYPE_TD_SCDMA -> "3G TD-SCDMA"
         TelephonyManager.NETWORK_TYPE_IWLAN -> "Wi-Fi calling"
-        TelephonyManager.NETWORK_TYPE_LTE_CA -> "4G LTE-Advanced"
         else -> "نامشخص ($type)"
     }
 }
