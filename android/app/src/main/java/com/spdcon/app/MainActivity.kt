@@ -122,6 +122,16 @@ private fun SpdConDashboard() {
     var manualNetwork by remember { mutableStateOf("auto") }
     var manualSecurity by remember { mutableStateOf("none") }
     var manualMethod by remember { mutableStateOf("chacha20-ietf-poly1305") }
+    var manualHost by remember { mutableStateOf("") }
+    var manualPath by remember { mutableStateOf("/") }
+    var manualServiceName by remember { mutableStateOf("") }
+    var manualSni by remember { mutableStateOf("") }
+    var manualAlpn by remember { mutableStateOf("h2,http/1.1") }
+    var manualHeaderType by remember { mutableStateOf("none") }
+    var manualEncryption by remember { mutableStateOf("none") }
+    var manualMode by remember { mutableStateOf("") }
+    var manualAllowInsecure by remember { mutableStateOf(false) }
+    var showAdvancedBuilder by remember { mutableStateOf(false) }
     var shareLink by remember { mutableStateOf("") }
     var parseResult by remember { mutableStateOf<String?>(null) }
     var parsedSummary by remember { mutableStateOf<String?>(null) }
@@ -486,12 +496,40 @@ private fun SpdConDashboard() {
                             singleLine = true
                         )
                         OutlinedTextField(value = manualSecurity, onValueChange = { manualSecurity = it }, modifier = Modifier.fillMaxWidth(), label = { Text("امنیت (none/tls/reality)") }, singleLine = true)
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Checkbox(checked = showAdvancedBuilder, onCheckedChange = { showAdvancedBuilder = it })
+                            Text("تنظیمات تکمیلی ساخت کانفیگ")
+                        }
+                        if (showAdvancedBuilder) {
+                            Text("فقط فیلدهای مربوط به ترنسپورت انتخابی را پر کن.", style = MaterialTheme.typography.bodySmall)
+                            OutlinedTextField(value = manualHost, onValueChange = { manualHost = it }, modifier = Modifier.fillMaxWidth(), label = { Text("Host / HTTP Host") }, singleLine = true)
+                            OutlinedTextField(value = manualPath, onValueChange = { manualPath = it }, modifier = Modifier.fillMaxWidth(), label = { Text("Path (WS / XHTTP)") }, singleLine = true)
+                            OutlinedTextField(value = manualServiceName, onValueChange = { manualServiceName = it }, modifier = Modifier.fillMaxWidth(), label = { Text("gRPC serviceName") }, singleLine = true)
+                            OutlinedTextField(value = manualSni, onValueChange = { manualSni = it }, modifier = Modifier.fillMaxWidth(), label = { Text("TLS SNI / serverName") }, singleLine = true)
+                            OutlinedTextField(value = manualAlpn, onValueChange = { manualAlpn = it }, modifier = Modifier.fillMaxWidth(), label = { Text("ALPN (با کاما جدا کن)") }, singleLine = true)
+                            OutlinedTextField(value = manualHeaderType, onValueChange = { manualHeaderType = it }, modifier = Modifier.fillMaxWidth(), label = { Text("HTTP header type") }, singleLine = true)
+                            OutlinedTextField(value = manualEncryption, onValueChange = { manualEncryption = it }, modifier = Modifier.fillMaxWidth(), label = { Text("VLESS encryption") }, singleLine = true)
+                            OutlinedTextField(value = manualMode, onValueChange = { manualMode = it }, modifier = Modifier.fillMaxWidth(), label = { Text("XHTTP mode (در صورت نیاز)") }, singleLine = true)
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Checkbox(checked = manualAllowInsecure, onCheckedChange = { manualAllowInsecure = it })
+                                Text("اجازه گواهی TLS نامعتبر (ناامن)")
+                            }
+                        }
                         Button(
                             onClick = {
                                 val parameters = buildMap {
                                     if (manualProtocol == ConfigProtocol.SHADOWSOCKS) put("method", manualMethod.trim())
                                     if (selectedCountry != "auto") put("country", selectedCountry)
                                     put("blockAdult", blockAdultSites.toString())
+                                    if (manualHost.isNotBlank()) put("host", manualHost.trim())
+                                    if (manualPath.isNotBlank()) put("path", manualPath.trim())
+                                    if (manualServiceName.isNotBlank()) put("serviceName", manualServiceName.trim())
+                                    if (manualSni.isNotBlank()) put("sni", manualSni.trim())
+                                    if (manualAlpn.isNotBlank()) put("alpn", manualAlpn.split(",").map { it.trim() }.filter { it.isNotBlank() }.joinToString(","))
+                                    if (manualHeaderType.isNotBlank()) put("headerType", manualHeaderType.trim())
+                                    if (manualEncryption.isNotBlank()) put("encryption", manualEncryption.trim())
+                                    if (manualMode.isNotBlank()) put("mode", manualMode.trim())
+                                    if (manualAllowInsecure) put("allowInsecure", "1")
                                     if (manualSecurity.equals("reality", true)) {
                                         put("sni", realityServerName.trim())
                                         put("pbk", realityPublicKey.trim())
