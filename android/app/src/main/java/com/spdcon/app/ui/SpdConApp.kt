@@ -439,7 +439,7 @@ private fun CreatePage(
                 if (server.isNotBlank() && !editServerSettings) {
                     GlassCard(modifier = Modifier.fillMaxWidth(), cornerRadius = 16.dp) {
                         Text(tr("Using saved server template"), fontWeight = FontWeight.SemiBold)
-                        Text("$"+"{server}:$"+"{port}", color = TextSecondary, fontSize = 12.sp)
+                        Text("${server}:${port}", color = TextSecondary, fontSize = 12.sp)
                         TextButton(onClick = { editServerSettings = true }) { Text(tr("Change server settings")) }
                     }
                     Text(tr("Only the name and protocol are needed when reusing this saved server template."),
