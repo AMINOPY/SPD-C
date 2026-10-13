@@ -233,8 +233,8 @@ object ConfigLinkParser {
         return query.split("&")
             .filter { it.isNotBlank() }
             .associate { part ->
-                val key = part.substringBefore("=").let { URLDecoder.decode(it, StandardCharsets.UTF_8.name()) }
-                val value = part.substringAfter("=", "").let { URLDecoder.decode(it, StandardCharsets.UTF_8.name()) }
+                val key = decodePercentEncoded(part.substringBefore("="))
+                val value = decodePercentEncoded(part.substringAfter("=", ""))
                 key to value
             }
     }
