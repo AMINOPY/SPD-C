@@ -52,7 +52,7 @@ fun CleanIpScannerPage(onBack: () -> Unit, onUseIp: (ip: String, sni: String) ->
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Column(Modifier.weight(1f)) {
                 Text(tr("Clean IP Scanner"), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                Text(tr("Test IPv4 candidates against your real TLS domain"), color = TextSecondary, fontSize = 12.sp)
+                Text(if (mode == "dns") tr("Test DNS resolver compatibility") else tr("Test IPv4 candidates against your real TLS domain"), color = TextSecondary, fontSize = 12.sp)
             }
             TextButton(onClick = onBack) { Text(tr("Back")) }
         }
@@ -109,7 +109,7 @@ fun CleanIpScannerPage(onBack: () -> Unit, onUseIp: (ip: String, sni: String) ->
         }
         OutlinedTextField(
             value = port, onValueChange = { port = it.filter(Char::isDigit).take(5) },
-            modifier = Modifier.fillMaxWidth(), singleLine = true, label = { Text(tr("HTTPS port")) }
+            modifier = Modifier.fillMaxWidth(), singleLine = true, label = { Text(if (mode == "dns") tr("DNS port") else tr("HTTPS port")) }
         )
         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text(tr("Parallel workers: {count}").replace("{count}", workers.toInt().toString()), fontSize = 13.sp)
