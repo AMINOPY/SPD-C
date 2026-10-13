@@ -9,7 +9,7 @@ on:
       - "node-agent/**"
       - "tests/fixtures/xray/**"
       - "tools/xray-core-check.sh"
-      - "docs/CONFIG_FORMATS.md"
+      - "docs/**"
       - "cloudflare/**"
       - ".github/workflows/android-ci.yml"
   pull_request:
@@ -19,9 +19,7 @@ on:
       - "node-agent/**"
       - "tests/fixtures/xray/**"
       - "tools/xray-core-check.sh"
-      - "docs/CONFIG_FORMATS.md"
-      - "docs/CORE-STATUS.md"
-      - "docs/ROADMAP.md"
+      - "docs/**"
       - "cloudflare/**"
       - ".github/workflows/android-ci.yml"
   workflow_dispatch:
