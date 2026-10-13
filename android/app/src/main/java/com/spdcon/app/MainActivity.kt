@@ -663,6 +663,26 @@ private fun SpdConDashboard() {
                                 )
                             }
                         }
+                        Card(
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Text("راهنمای سریع اتصال واقعی", fontWeight = FontWeight.Bold)
+                                Text("۱) اگر نود آماده داری، از «انتخاب نود ذخیره‌شده» استفاده کن؛ اطلاعات REALITY از همان نود پر می‌شود.")
+                                Text("۲) اگر لینک کامل داری، بخش «واردکردن لینک» را باز کن و لینک vless:// یا لینک سازگار را وارد کن تا فیلدها خودکار خوانده شوند.")
+                                Text("۳) اگر فقط SNI مثل digikala.com داری، هنوز نود آماده نیست؛ کلید REALITY و shortId از دامنه به دست نمی‌آیند. برای جلوگیری از لینک ظاهراً آماده اما خراب، برنامه این مقادیر را جعل نمی‌کند.")
+                                Text("نکته: ساخت لینک با اتصال واقعی فرق دارد؛ سرور باید کاربر/UUID را هم بشناسد.", style = MaterialTheme.typography.bodySmall)
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    OutlinedButton(onClick = { nodeMenuExpanded = true }, modifier = Modifier.weight(1f)) {
+                                        Text("انتخاب نود")
+                                    }
+                                    Button(onClick = { showLinkImport = true; selectedSection = "create" }, modifier = Modifier.weight(1f)) {
+                                        Text("واردکردن لینک")
+                                    }
+                                }
+                            }
+                        }
                         OutlinedButton(onClick = { nodeMenuExpanded = true }, modifier = Modifier.fillMaxWidth()) { Text("انتخاب نود ذخیره‌شده (پرکردن خودکار)") }
                         DropdownMenu(expanded = nodeMenuExpanded, onDismissRequest = { nodeMenuExpanded = false }) {
                             remoteNodes.filter { it.enabled }.forEach { node ->
