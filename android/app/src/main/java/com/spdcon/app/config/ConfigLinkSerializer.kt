@@ -26,7 +26,7 @@ object ConfigLinkSerializer {
         profile.parameters
             .filterKeys { it !in setOf("type", "network", "security", "country", "blockAdult", "ipVariant", "workerRoute") }
             .toSortedMap()
-            .forEach { (key, value) -> if (value.isNotBlank()) query[key] = value }
+            .forEach { (key, value) -> if (value.isNotBlank() || key == "sid") query[key] = value }
         val queryText = query.entries.joinToString("&") { (key, value) ->
             "${encode(key)}=${encode(value)}"
         }
