@@ -40,7 +40,7 @@ This roadmap is the acceptance checklist for evolving the current Android config
 - [ ] Turn the API scaffold into a production versioned service with database migrations and PostgreSQL integration.
 - [x] Add initial opaque bearer sessions, password hashing, Admin/User authorization checks and owner-scoped config access.
 - [ ] Add rate limiting, comprehensive audit logs, account recovery and production session-management controls.
-- [ ] Build a responsive web admin interface; keep mobile Android as a first-class client.
+- [x] Add an initial responsive web dashboard for login, basic config CRUD, subscription creation and admin quota controls.\n- [ ] Build a production-ready web admin interface with full lifecycle workflows, validation, accessibility and visual polish; keep mobile Android as a first-class client.
 - [ ] Define API contracts and Android sync behavior before enabling multi-device state.
 
 ## Phase 4 — nodes, scanner and checker
