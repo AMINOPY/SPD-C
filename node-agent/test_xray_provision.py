@@ -66,6 +66,21 @@ class XrayProvisionTests(unittest.TestCase):
         self.assertFalse(result["ok"])
         self.assertEqual(self.path.read_text(encoding="utf-8"), before)
 
+    def test_concurrent_config_edit_is_not_overwritten(self):
+        concurrent_config = sample_config()
+        concurrent_config["outbounds"].append({"protocol": "blackhole", "tag": "concurrent-edit"})
+        concurrent_text = json.dumps(concurrent_config)
+
+        def edit_during_validation(_xray_bin, _candidate_path):
+            self.path.write_text(concurrent_text, encoding="utf-8")
+            return True, "candidate valid"
+
+        with patch.object(provision, "validate_candidate", side_effect=edit_during_validation):
+            with self.assertRaisesRegex(ValueError, "concurrent edits"):
+                provision.change_client(str(self.path), "vless-in", CLIENT_ID,
+                                        "user-123@spdcon.local", "add", apply=True)
+        self.assertEqual(self.path.read_text(encoding="utf-8"), concurrent_text)
+
     def test_exact_add_is_idempotent(self):
         config = sample_config()
         config, changed = provision.mutate_vless_client(
