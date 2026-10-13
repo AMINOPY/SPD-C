@@ -151,6 +151,7 @@ private fun SpdConDashboard() {
     var manualMethod by remember { mutableStateOf("chacha20-ietf-poly1305") }
     var manualHost by remember { mutableStateOf("") }
     var manualPath by remember { mutableStateOf("/") }
+    var manualWsPath by remember { mutableStateOf("/ws/{uuid}") }
     var manualServiceName by remember { mutableStateOf("") }
     var manualSni by remember { mutableStateOf("") }
     var manualAlpn by remember { mutableStateOf("h2,http/1.1") }
@@ -804,7 +805,8 @@ private fun SpdConDashboard() {
                                 singleLine = true
                             )
                             OutlinedTextField(value = manualHost, onValueChange = { manualHost = it }, modifier = Modifier.fillMaxWidth(), label = { Text("Host / HTTP Host") }, singleLine = true)
-                            OutlinedTextField(value = manualPath, onValueChange = { manualPath = it }, modifier = Modifier.fillMaxWidth(), label = { Text("Path (WS / XHTTP)") }, singleLine = true)
+                            OutlinedTextField(value = manualWsPath, onValueChange = { manualWsPath = it }, modifier = Modifier.fillMaxWidth(), label = { Text("مسیر مستقل WebSocket (باید {uuid} داشته باشد)") }, supportingText = { Text("نمونه: /ws/{uuid} یا /de/ws/{uuid}") }, singleLine = true)
+                            OutlinedTextField(value = manualPath, onValueChange = { manualPath = it }, modifier = Modifier.fillMaxWidth(), label = { Text("Path (XHTTP)") }, supportingText = { Text("مسیر XHTTP مستقل از مسیر WebSocket است.") }, singleLine = true)
                             OutlinedTextField(value = manualServiceName, onValueChange = { manualServiceName = it }, modifier = Modifier.fillMaxWidth(), label = { Text("gRPC serviceName") }, singleLine = true)
                             OutlinedTextField(value = manualSni, onValueChange = { manualSni = it }, modifier = Modifier.fillMaxWidth(), label = { Text("TLS SNI / serverName") }, singleLine = true)
                             OutlinedTextField(value = manualAlpn, onValueChange = { manualAlpn = it }, modifier = Modifier.fillMaxWidth(), label = { Text("ALPN (با کاما جدا کن)") }, singleLine = true)
@@ -902,6 +904,7 @@ private fun SpdConDashboard() {
                                             host = manualHost.trim().ifBlank { manualServer.trim() },
                                             fingerprint = realityFingerprint.trim().ifBlank { "chrome" },
                                             path = manualPath.trim().ifBlank { "/" },
+                                            wsPath = manualWsPath.trim().ifBlank { "/ws/{uuid}" },
                                             xhttpMode = manualMode.trim().ifBlank { "stream-up" },
                                             alpn = manualAlpn.trim().ifBlank { "h2,http/1.1" }
                                         )

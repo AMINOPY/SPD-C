@@ -69,6 +69,48 @@ class ConfigGenerationServiceTest {
     }
 
     @Test
+    fun tlsRelaySupportsIndependentCustomWebSocketPathTemplate() {
+        val report = ConfigGenerationService.generateForUser(
+            userId,
+            "Amin",
+            listOf(
+                ConfigInboundSpec(
+                    id = "relay-ws-path",
+                    name = "Custom WS",
+                    kind = ConfigInboundKind.TLS_RELAY,
+                    endpoint = "relay.example.com",
+                    sni = "relay.example.com",
+                    wsPath = "/de/ws/{uuid}",
+                    path = "/xhttp/{uuid}"
+                )
+            )
+        ).getOrThrow()
+        val ws = report.configs.single { it.profile.network == "ws" }
+        val xhttp = report.configs.single { it.profile.network == "xhttp" }
+        assertEquals("/de/ws/$userId", ws.profile.parameters["path"])
+        assertEquals("/xhttp/$userId", xhttp.profile.parameters["path"])
+    }
+
+    @Test
+    fun tlsRelayRejectsWebSocketPathWithoutUserPlaceholder() {
+        val result = ConfigGenerationService.generateForUser(
+            userId,
+            "Amin",
+            listOf(
+                ConfigInboundSpec(
+                    id = "relay-bad-ws-path",
+                    name = "Bad WS",
+                    kind = ConfigInboundKind.TLS_RELAY,
+                    endpoint = "relay.example.com",
+                    sni = "relay.example.com",
+                    wsPath = "/shared"
+                )
+            )
+        )
+        assertTrue(result.isFailure)
+    }
+
+    @Test
     fun tlsRelayHonorsCustomXhttpPathTemplateAndKeepsUserIdInPath() {
         val report = ConfigGenerationService.generateForUser(
             userId,

@@ -29,6 +29,8 @@ data class ConfigInboundSpec(
     val realityTransports: List<String> = listOf("tcp", "xhttp"),
     val xhttpMode: String = "stream-up",
     val path: String = "/",
+    /** Independent per-user WebSocket route template; must include {uuid}. */
+    val wsPath: String = "/ws/{uuid}",
     val alpn: String = "h2,http/1.1",
     val workerRoutes: List<WorkerRoute> = listOf(WorkerRoute("WS", "/ws/{uuid}")),
     /** Optional IPs already verified by an operator/scanner. This class does not scan the Internet. */
@@ -164,8 +166,14 @@ object ConfigGenerationService {
         } else {
             xhttpTemplate.replace("{mode}", inbound.xhttpMode).trimEnd('/') + "/$userId"
         }
+        val wsTemplate = inbound.wsPath.trim()
+        require(wsTemplate.startsWith("/") && wsTemplate.contains("{uuid}") &&
+            !wsTemplate.contains("..") && !wsTemplate.any { it.isISOControl() }) {
+            "${inbound.name}: WebSocket path must be an absolute safe path containing {uuid}"
+        }
+        val wsPath = wsTemplate.replace("{uuid}", userId)
         val paths = listOf(
-            "WS" to "/ws/$userId",
+            "WS" to wsPath,
             "XHTTP" to xhttpPath
         )
         val endpoints = (listOf(inbound.endpoint) + inbound.alternateAddresses)
