@@ -484,6 +484,7 @@ private fun SpdConDashboard() {
                                 onValueChange = { manualCredential = it },
                                 modifier = Modifier.fillMaxWidth(),
                                 label = { Text(when (manualProtocol) { ConfigProtocol.SHADOWSOCKS -> "رمز Shadowsocks"; ConfigProtocol.HYSTERIA2 -> "رمز Hysteria2"; else -> "رمز Trojan" }) },
+                                visualTransformation = PasswordVisualTransformation(),
                                 singleLine = true
                             )
                         } else {
@@ -495,15 +496,19 @@ private fun SpdConDashboard() {
                         if (manualProtocol == ConfigProtocol.SHADOWSOCKS) {
                             OutlinedTextField(value = manualMethod, onValueChange = { manualMethod = it }, modifier = Modifier.fillMaxWidth(), label = { Text("روش رمزنگاری Shadowsocks") }, singleLine = true)
                         }
-                        OutlinedTextField(
-                            value = manualNetwork,
-                            onValueChange = { manualNetwork = it },
-                            modifier = Modifier.fillMaxWidth(),
-                            label = { Text("انتقال (auto / tcp / ws / grpc / xhttp)") },
-                            supportingText = { Text("نوع انتقال از لینک خوانده می‌شود؛ تشخیص فعال در حال توسعه است.") },
-                            singleLine = true
-                        )
-                        OutlinedTextField(value = manualSecurity, onValueChange = { manualSecurity = it }, modifier = Modifier.fillMaxWidth(), label = { Text("امنیت (none/tls/reality)") }, singleLine = true)
+                        if (manualProtocol == ConfigProtocol.HYSTERIA2 || manualProtocol == ConfigProtocol.TUIC) {
+                            Text("این پروتکل با UDP و TLS ساخته می‌شود.", style = MaterialTheme.typography.bodySmall)
+                        } else {
+                            OutlinedTextField(
+                                value = manualNetwork,
+                                onValueChange = { manualNetwork = it },
+                                modifier = Modifier.fillMaxWidth(),
+                                label = { Text("انتقال (auto / tcp / ws / grpc / xhttp)") },
+                                supportingText = { Text("نوع انتقال از لینک خوانده می‌شود؛ تشخیص فعال در حال توسعه است.") },
+                                singleLine = true
+                            )
+                            OutlinedTextField(value = manualSecurity, onValueChange = { manualSecurity = it }, modifier = Modifier.fillMaxWidth(), label = { Text("امنیت (none/tls/reality)") }, singleLine = true)
+                        }
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Checkbox(checked = showAdvancedBuilder, onCheckedChange = { showAdvancedBuilder = it })
                             Text("تنظیمات تکمیلی ساخت کانفیگ")
