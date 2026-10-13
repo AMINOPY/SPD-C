@@ -3,13 +3,13 @@
 ## Implemented in the current branch
 
 - Typed configuration model and basic required-field validation.
-- VLESS and Trojan URI parsing; common VMess Base64-JSON parsing; initial Shadowsocks URI parsing.
-- Share-link serializers for VLESS, Trojan, VMess and the supported Shadowsocks URI form.
+- VLESS and Trojan URI parsing; common VMess Base64-JSON parsing (including URL-safe, unpadded payloads); common legacy and SIP002 Shadowsocks parsing.
+- Share-link serializers for VLESS, Trojan, VMess and the supported Shadowsocks URI subset, including plugin query preservation and IPv6 host formatting.
 - Bounded input size for imported links.
 - Fragment settings with range validation and editable starting presets labelled همراه اول, ایرانسل, and نت ملی / اتصال محدود.
 - REALITY client fields for serverName/SNI, public key (pbk), shortId, fingerprint, spiderX and optional Vision flow validation.
 - Xray JSON outbound generator for VLESS + REALITY, with an optional documented Freedom outbound containing Fragment settings.
-- Android UI controls to inspect links, edit the Fragment values and REALITY fields, and preview generated output.
+- Android UI controls for manual profiles, link inspection, Fragment/REALITY editing, JSON preview, QR, clipboard and system share sheet.\n- Local SQLite library with AES-GCM encrypted credentials using Android Keystore.
 
 ## Fragment and network presets
 
@@ -30,7 +30,7 @@ Xray documents Fragment as outgoing TCP fragmentation under the Freedom outbound
 
 - Broader Shadowsocks URI variants and full round-trip compatibility with every client dialect.
 - Complete Xray routing/chaining generation so Fragment can be attached to a selected outbound intentionally.
-- QR generation, clipboard integration, import UI polish, Room persistence, and live connectivity testing.
+- Full Xray JSON import/export, file-based import/export, search/tags/history, and live connectivity testing.
 - Carrier-specific diagnostics based on real tests; the current presets are not measured network profiles.
 - End-to-end validation against a pinned Xray-core version.
 
