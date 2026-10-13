@@ -124,8 +124,8 @@ private fun SpdConDashboard() {
     var manualObfsPassword by remember { mutableStateOf("") }
     var manualCongestionControl by remember { mutableStateOf("bbr") }
     var manualUdpRelayMode by remember { mutableStateOf("native") }
-    var manualNetwork by remember { mutableStateOf("auto") }
-    var manualSecurity by remember { mutableStateOf("none") }
+    var manualNetwork by remember { mutableStateOf("ws") }
+    var manualSecurity by remember { mutableStateOf("tls") }
     var manualMethod by remember { mutableStateOf("chacha20-ietf-poly1305") }
     var manualHost by remember { mutableStateOf("") }
     var manualPath by remember { mutableStateOf("/") }
@@ -375,7 +375,7 @@ private fun SpdConDashboard() {
                     Column(Modifier.padding(18.dp)) {
                         Text("موتور ساخت کانفیگ", style = MaterialTheme.typography.headlineSmall)
                         Spacer(Modifier.height(6.dp))
-                        Text("لینک VLESS، VMess، Trojan یا Shadowsocks را وارد کن تا اطلاعاتش خوانده و بررسی شود.")
+                        Text("لینک VLESS، VMess، Trojan، Shadowsocks، Hysteria2 یا TUIC را وارد کن تا اطلاعاتش خوانده و بررسی شود.")
                         Spacer(Modifier.height(14.dp))
                         OutlinedTextField(
                             value = shareLink,
@@ -555,8 +555,8 @@ private fun SpdConDashboard() {
                                 value = manualNetwork,
                                 onValueChange = { manualNetwork = it },
                                 modifier = Modifier.fillMaxWidth(),
-                                label = { Text("انتقال (auto / tcp / ws / grpc / xhttp)") },
-                                supportingText = { Text("نوع انتقال از لینک خوانده می‌شود؛ تشخیص فعال در حال توسعه است.") },
+                                label = { Text("انتقال (tcp / ws / grpc / xhttp)") },
+                                supportingText = { Text("پیشنهاد پیش‌فرض WS + TLS است؛ سمت سرور باید دقیقاً با این انتقال هماهنگ باشد.") },
                                 singleLine = true
                             )
                             OutlinedTextField(value = manualSecurity, onValueChange = { manualSecurity = it }, modifier = Modifier.fillMaxWidth(), label = { Text("امنیت (none/tls/reality)") }, singleLine = true)
