@@ -85,7 +85,7 @@ object CleanIpScanner {
         return try {
             pool.invokeAll(candidates.map { ip -> Callable { probe(ip, port, sni, timeoutMs) } })
                 .map { it.get() }
-                .sortedWith(compareBy<CleanIpResult> { !it.tlsOk }.thenBy { it.latencyMs })
+                .let(ConnectionCandidateRanker::rankTlsResults)
         } finally { pool.shutdownNow() }
     }
 
