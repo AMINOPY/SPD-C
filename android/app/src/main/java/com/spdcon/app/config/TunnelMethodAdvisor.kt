@@ -86,8 +86,8 @@ object TunnelMethodAdvisor {
         }
         val confidence = when {
             report?.tunnelConnected == true -> TunnelSelectionConfidence.LIVE_VERIFIED
-            !runtime.supported -> TunnelSelectionConfidence.EXTERNAL_RUNTIME_REQUIRED
             validationErrors.isNotEmpty() -> TunnelSelectionConfidence.CONFIGURATION_INCOMPLETE
+            !runtime.supported -> TunnelSelectionConfidence.EXTERNAL_RUNTIME_REQUIRED
             else -> TunnelSelectionConfidence.COMPATIBLE_UNTESTED
         }
         val liveScore = if (report?.tunnelConnected == true) 10_000 else if (report != null) -250 else 0
