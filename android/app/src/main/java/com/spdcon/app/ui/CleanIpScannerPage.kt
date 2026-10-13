@@ -27,6 +27,7 @@ fun CleanIpScannerPage(onBack: () -> Unit, onUseIp: (ip: String, sni: String) ->
     val prefs = remember(context) { context.getSharedPreferences("spdcon-clean-ip-scanner", 0) }
     var mode by remember { mutableStateOf("tls") }
     var source by remember { mutableStateOf("default") }
+    var countryCode by remember { mutableStateOf("ir") }
     var input by remember { mutableStateOf("") }
     var sni by remember { mutableStateOf("") }
     var dnsDomain by remember { mutableStateOf("example.com") }
@@ -72,10 +73,36 @@ fun CleanIpScannerPage(onBack: () -> Unit, onUseIp: (ip: String, sni: String) ->
         Card(shape = RoundedCornerShape(18.dp)) {
             Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(tr("IP source"), fontWeight = FontWeight.SemiBold)
-                Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-                    FilterChip(source == "default", { source = "default" }, label = { Text(tr("Default")) })
-                    FilterChip(source == "custom", { source = "custom" }, label = { Text(tr("Custom / CIDR")) })
-                    FilterChip(source == "recent", { source = "recent" }, label = { Text(tr("Recent")) })
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                        FilterChip(source == "default", { source = "default" }, label = { Text(tr("Default")) })
+                        FilterChip(source == "custom", { source = "custom" }, label = { Text(tr("Custom / CIDR")) })
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                        FilterChip(source == "recent", { source = "recent" }, label = { Text(tr("Recent")) })
+                        FilterChip(source == "country", { source = "country" }, label = { Text(tr("Country ranges")) })
+                    }
+                }
+                if (source == "country") {
+                    Text(tr("Select the country whose registered IPv4 ranges will be sampled:"), color = TextSecondary, fontSize = 12.sp)
+                    listOf(
+                        "IR" to "Iran", "US" to "United States",
+                        "DE" to "Germany", "NL" to "Netherlands",
+                        "GB" to "United Kingdom", "FR" to "France",
+                        "AZ" to "Azerbaijan", "TR" to "Turkey"
+                    ).chunked(2).forEach { pair ->
+                        Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                            pair.forEach { (code, label) ->
+                                FilterChip(
+                                    selected = countryCode == code.lowercase(),
+                                    onClick = { countryCode = code.lowercase() },
+                                    label = { Text("$label ($code)") }
+                                )
+                            }
+                        }
+                    }
+                    Text(tr("Samples up to 256 public IPv4s from daily-updated ipverse registration ranges. Registration country does not guarantee physical location or a working tunnel."),
+                        color = TextSecondary, fontSize = 11.sp)
                 }
                 when (source) {
                     "custom" -> {
@@ -91,6 +118,8 @@ fun CleanIpScannerPage(onBack: () -> Unit, onUseIp: (ip: String, sni: String) ->
                         else tr("{count} previous successful IPs").replace("{count}", (if (mode == "dns") recentDnsIps else recentIps).size.toString()),
                         color = TextSecondary, fontSize = 12.sp
                     )
+                    "country" -> Text(tr("Country sample is fetched when scanning starts. The source contains registered IPv4 prefixes."),
+                        color = TextSecondary, fontSize = 12.sp)
                     else -> Text(tr("Small built-in Cloudflare edge sample; use your own domain below."),
                         color = TextSecondary, fontSize = 12.sp)
                 }
@@ -132,10 +161,10 @@ fun CleanIpScannerPage(onBack: () -> Unit, onUseIp: (ip: String, sni: String) ->
         }
         Button(
             onClick = {
-                scanning = true; error = null; status = scanningStatus; results = emptyList()
+                scanning = true; error = null; status = if (source == "country") tr("Downloading country ranges and scanning…") else scanningStatus; results = emptyList()
                 scope.launch {
                     val outcome = executeCleanIpScan(
-                        mode, source, input, recentIps, recentDnsIps, sni.trim(), dnsDomain.trim(),
+                        mode, source, input, countryCode, recentIps, recentDnsIps, sni.trim(), dnsDomain.trim(),
                         port.toIntOrNull() ?: 0, workers.toInt(), dnsTransport, noCandidatesError, scanFailedMessage,
                         finishedTemplate, finishedDnsTemplate
                     )
@@ -225,6 +254,7 @@ private suspend fun executeCleanIpScan(
     mode: String,
     source: String,
     customInput: String,
+    countryCode: String,
     recentTls: List<String>,
     recentDns: List<String>,
     sni: String,
@@ -237,10 +267,14 @@ private suspend fun executeCleanIpScan(
     finishedTlsTemplate: String,
     finishedDnsTemplate: String
 ): CleanIpScanOutcome = try {
+    val countrySample = if (source == "country") {
+        withContext(Dispatchers.IO) { CountryIpRangeSource.fetchSample(countryCode) }
+    } else null
     val candidates = withContext(Dispatchers.Default) {
         when (source) {
             "custom" -> CleanIpScanner.parseCandidates(customInput)
             "recent" -> (if (mode == "dns") recentDns else recentTls).take(CleanIpScanner.MAX_CANDIDATES)
+            "country" -> countrySample?.ips.orEmpty()
             else -> if (mode == "dns") DnsResolverScanner.DEFAULT_RESOLVERS else CleanIpScanner.DEFAULT_CLOUDFLARE_CANDIDATES
         }
     }
@@ -255,7 +289,7 @@ private suspend fun executeCleanIpScan(
             dnsResults = scanned,
             goodIps = good,
             statusMessage = finishedDnsTemplate.replace("{good}", good.size.toString())
-                .replace("{total}", scanned.size.toString())
+                .replace("{total}", scanned.size.toString()) + (countrySample?.let { " • ${it.countryCode}: ${it.prefixCount} registered ranges" } ?: "")
         )
     } else {
         val scanned = withContext(Dispatchers.IO) {
@@ -266,7 +300,7 @@ private suspend fun executeCleanIpScan(
             tlsResults = scanned,
             goodIps = good,
             statusMessage = finishedTlsTemplate.replace("{good}", good.size.toString())
-                .replace("{total}", scanned.size.toString())
+                .replace("{total}", scanned.size.toString()) + (countrySample?.let { " • ${it.countryCode}: ${it.prefixCount} registered ranges" } ?: "")
         )
     }
 } catch (e: Exception) {
