@@ -1,6 +1,6 @@
 # Spd con
 
-**Spd con** is an Android-first configuration builder with an initial Config Hub API foundation. The current development branch contains a local Android config library and a separate FastAPI backend scaffold for accounts, config synchronization primitives and subscription tokens.
+**Spd con** is an Android-first configuration builder with an initial Config Hub API foundation. The development branch prioritizes local Android features and offers two optional backend paths: a local FastAPI/Docker scaffold and a Cloudflare Workers + D1 API. A separate web panel is not required.
 
 > Status: the Android build and unit tests have passed on earlier CI runs. The latest workflow is now also testing the backend; check the current run before relying on the latest commit. This remains a development project, not a production-ready VPN client or multi-node panel.
 
@@ -12,9 +12,9 @@
 - REALITY fields: SNI, public key, shortId, fingerprint, spiderX, and optional Vision flow validation.
 - Editable Fragment values and labelled starting presets for همراه اول, ایرانسل, and نت ملی / اتصال محدود.
 - Xray JSON preview for VLESS + REALITY, QR-code generation, clipboard, and Android share-sheet actions.
-- Local SQLite library to save, load, and delete profiles. Credentials are encrypted with AES-GCM using an Android Keystore key; other database metadata is not encrypted.
+- Local SQLite library to save, load, delete, search and filter profiles; local favorites and editable tags are supported. Credentials are encrypted with AES-GCM using an Android Keystore key; other database metadata is not encrypted.
 
-## Initial Config Hub API
+## Optional cloud sync and subscriptions (no web panel required)\n\nThe `cloudflare/` directory contains a Cloudflare Workers API with a D1 schema and Wrangler configuration for accounts, bearer sessions, user-scoped config sync and unique revocable subscription links. Most day-to-day features should stay inside Android and work offline; Cloudflare is only for optional online services. Follow [cloudflare/README.md](cloudflare/README.md) to deploy. Deployment still requires creating your own D1 database and setting secrets in your Cloudflare account.\n\n## Initial local Config Hub API
 
 The `backend/` directory contains a FastAPI API foundation with:
 
@@ -25,11 +25,11 @@ The `backend/` directory contains a FastAPI API foundation with:
 - A persistent SQLite volume in the local Docker Compose setup.
 - API tests for password hashing, config owner isolation, subscription revocation and admin limit metadata.
 
-See [backend setup and API limitations](backend/README.md). The backend is not yet connected to the Android UI. The `/panel/` route serves an initial responsive web dashboard for login, basic config management, subscription creation, and admin quota controls.
+See [backend setup and API limitations](backend/README.md). The FastAPI scaffold is an alternative for local Docker testing and is not connected to the Android UI yet. Its `/panel/` page is optional; the intended product does not require a web dashboard.
 
 ## Build status and APK
 
-- [GitHub Actions](https://github.com/AMINOPY/SPD-C/actions) — inspect the latest run for both Android and API test results and the debug APK artifact.
+- [GitHub Actions](https://github.com/AMINOPY/SPD-C/actions) — inspect the latest run for Android build, API tests and the debug APK artifact.
 - [Development pull request](https://github.com/AMINOPY/SPD-C/pull/1)
 - [Development branch](https://github.com/AMINOPY/SPD-C/tree/feat/spd-con-foundation)
 
@@ -40,15 +40,15 @@ After a successful workflow, download **spd-con-debug-apk** under **Artifacts**.
 - The Android app does not currently bundle or run Xray-core, so JSON generation is a preview/export operation, not a live connection test.
 - The Fragment-enabled Freedom outbound is separate from the VLESS outbound. Automatic routing/chaining through Fragment is not implemented.
 - Network-labelled Fragment presets are editable heuristics, not measured ISP profiles and not a guarantee of bypass or connectivity.
-- Full Xray JSON import/export, tested client-specific subscription encodings for v2rayNG/Hiddify/Clash/sing-box/NPV Tunnel, Hysteria2/TUIC runtime support, DoH, file-based import/export, search/tags/history, live connectivity checks, and scanner/checker jobs remain incomplete.
+- Full Xray JSON import/export, tested client-specific subscription encodings for v2rayNG/Hiddify/Clash/sing-box/NPV Tunnel, Hysteria2/TUIC runtime support, DoH, file-based import/export and backup/restore, change history, live connectivity checks, and scanner/checker jobs remain incomplete.
 - The API quota counter uses trusted usage reports. No node agent is connected to independently measure or enforce live tunnel traffic.
-- The backend currently uses SQLite for a single instance. PostgreSQL/Redis integration, database migrations, rate limiting, full audit logging, a web admin UI, remote node enrollment and cross-device sync remain incomplete.
+- The optional FastAPI backend currently uses SQLite for a single instance. The Cloudflare Worker uses D1 but still needs production rate limiting, audit logging, integration tests, Android API integration and trusted node telemetry. Remote node enrollment and cross-device sync remain incomplete.
 - Upstream repositories have not been merged or copied into this project. Review licenses, versions, notices, and APIs before adapting code.
 
 ## Repository layout
 
 - `android/` — Kotlin Android application.
-- `backend/` — FastAPI API, tests, and local Docker Compose setup.
+- `backend/` — optional FastAPI API, tests, and local Docker Compose setup.\n- `cloudflare/` — optional Cloudflare Worker API and D1 migration.
 - `docs/` — architecture, roadmap, and configuration format notes.
 - `.github/workflows/` — Android and backend CI.
 
