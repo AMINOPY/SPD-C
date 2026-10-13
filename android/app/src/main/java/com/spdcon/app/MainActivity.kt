@@ -119,6 +119,11 @@ private fun SpdConDashboard() {
     var manualServer by remember { mutableStateOf("") }
     var manualPort by remember { mutableStateOf("443") }
     var manualCredential by remember { mutableStateOf("") }
+    var manualTuicPassword by remember { mutableStateOf("") }
+    var manualObfs by remember { mutableStateOf("") }
+    var manualObfsPassword by remember { mutableStateOf("") }
+    var manualCongestionControl by remember { mutableStateOf("bbr") }
+    var manualUdpRelayMode by remember { mutableStateOf("native") }
     var manualNetwork by remember { mutableStateOf("auto") }
     var manualSecurity by remember { mutableStateOf("none") }
     var manualMethod by remember { mutableStateOf("chacha20-ietf-poly1305") }
@@ -473,16 +478,19 @@ private fun SpdConDashboard() {
                                 Text("برای خروجی Xray سازگار", style = MaterialTheme.typography.bodySmall)
                             }
                         }
-                        if (manualProtocol == ConfigProtocol.TROJAN || manualProtocol == ConfigProtocol.SHADOWSOCKS) {
+                        if (manualProtocol == ConfigProtocol.TROJAN || manualProtocol == ConfigProtocol.SHADOWSOCKS || manualProtocol == ConfigProtocol.HYSTERIA2) {
                             OutlinedTextField(
                                 value = manualCredential,
                                 onValueChange = { manualCredential = it },
                                 modifier = Modifier.fillMaxWidth(),
-                                label = { Text(if (manualProtocol == ConfigProtocol.SHADOWSOCKS) "رمز عبور" else "رمز Trojan") },
+                                label = { Text(when (manualProtocol) { ConfigProtocol.SHADOWSOCKS -> "رمز Shadowsocks"; ConfigProtocol.HYSTERIA2 -> "رمز Hysteria2"; else -> "رمز Trojan" }) },
                                 singleLine = true
                             )
                         } else {
                             Text("شناسه خودکار ساخته می‌شود.", style = MaterialTheme.typography.bodySmall)
+                        }
+                        if (manualProtocol == ConfigProtocol.TUIC) {
+                            OutlinedTextField(value = manualTuicPassword, onValueChange = { manualTuicPassword = it }, modifier = Modifier.fillMaxWidth(), label = { Text("رمز عبور TUIC") }, visualTransformation = PasswordVisualTransformation(), singleLine = true)
                         }
                         if (manualProtocol == ConfigProtocol.SHADOWSOCKS) {
                             OutlinedTextField(value = manualMethod, onValueChange = { manualMethod = it }, modifier = Modifier.fillMaxWidth(), label = { Text("روش رمزنگاری Shadowsocks") }, singleLine = true)
@@ -510,6 +518,14 @@ private fun SpdConDashboard() {
                             OutlinedTextField(value = manualHeaderType, onValueChange = { manualHeaderType = it }, modifier = Modifier.fillMaxWidth(), label = { Text("HTTP header type") }, singleLine = true)
                             OutlinedTextField(value = manualEncryption, onValueChange = { manualEncryption = it }, modifier = Modifier.fillMaxWidth(), label = { Text("VLESS encryption") }, singleLine = true)
                             OutlinedTextField(value = manualMode, onValueChange = { manualMode = it }, modifier = Modifier.fillMaxWidth(), label = { Text("XHTTP mode (در صورت نیاز)") }, singleLine = true)
+                            if (manualProtocol == ConfigProtocol.HYSTERIA2) {
+                                OutlinedTextField(value = manualObfs, onValueChange = { manualObfs = it }, modifier = Modifier.fillMaxWidth(), label = { Text("Hysteria2 obfs (اختیاری)") }, singleLine = true)
+                                OutlinedTextField(value = manualObfsPassword, onValueChange = { manualObfsPassword = it }, modifier = Modifier.fillMaxWidth(), label = { Text("Hysteria2 obfs-password") }, visualTransformation = PasswordVisualTransformation(), singleLine = true)
+                            }
+                            if (manualProtocol == ConfigProtocol.TUIC) {
+                                OutlinedTextField(value = manualCongestionControl, onValueChange = { manualCongestionControl = it }, modifier = Modifier.fillMaxWidth(), label = { Text("TUIC congestion control") }, singleLine = true)
+                                OutlinedTextField(value = manualUdpRelayMode, onValueChange = { manualUdpRelayMode = it }, modifier = Modifier.fillMaxWidth(), label = { Text("TUIC UDP relay mode") }, singleLine = true)
+                            }
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Checkbox(checked = manualAllowInsecure, onCheckedChange = { manualAllowInsecure = it })
                                 Text("اجازه گواهی TLS نامعتبر (ناامن)")
@@ -523,6 +539,13 @@ private fun SpdConDashboard() {
                                     put("blockAdult", blockAdultSites.toString())
                                     if (manualHost.isNotBlank()) put("host", manualHost.trim())
                                     if (manualPath.isNotBlank()) put("path", manualPath.trim())
+                                    if (manualProtocol == ConfigProtocol.HYSTERIA2 && manualObfs.isNotBlank()) put("obfs", manualObfs.trim())
+                                    if (manualProtocol == ConfigProtocol.HYSTERIA2 && manualObfsPassword.isNotBlank()) put("obfs-password", manualObfsPassword.trim())
+                                    if (manualProtocol == ConfigProtocol.TUIC) {
+                                        put("password", manualTuicPassword.trim())
+                                        put("congestion_control", manualCongestionControl.trim())
+                                        put("udp_relay_mode", manualUdpRelayMode.trim())
+                                    }
                                     if (manualServiceName.isNotBlank()) put("serviceName", manualServiceName.trim())
                                     if (manualSni.isNotBlank() && !manualSecurity.equals("reality", true)) put("sni", manualSni.trim())
                                     if (manualSecurity.equals("tls", true)) put("fp", realityFingerprint.trim())
@@ -530,7 +553,7 @@ private fun SpdConDashboard() {
                                     if (manualHeaderType.isNotBlank()) put("headerType", manualHeaderType.trim())
                                     if (manualProtocol == ConfigProtocol.VLESS && manualEncryption.isNotBlank()) put("encryption", manualEncryption.trim())
                                     if (manualMode.isNotBlank()) put("mode", manualMode.trim())
-                                    if (manualAllowInsecure) put("allowInsecure", "1")
+                                    if (manualAllowInsecure) put(when (manualProtocol) { ConfigProtocol.HYSTERIA2 -> "insecure"; ConfigProtocol.TUIC -> "allow_insecure"; else -> "allowInsecure" }, "1")
                                     if (manualSecurity.equals("reality", true)) {
                                         put("sni", realityServerName.trim())
                                         put("pbk", realityPublicKey.trim())
@@ -545,9 +568,9 @@ private fun SpdConDashboard() {
                                     protocol = manualProtocol,
                                     server = manualServer.trim(),
                                     port = manualPort.toIntOrNull() ?: -1,
-                                    credential = if (manualProtocol == ConfigProtocol.VLESS || manualProtocol == ConfigProtocol.VMESS) java.util.UUID.randomUUID().toString() else manualCredential.trim(),
-                                    network = if (manualNetwork.isBlank() || manualNetwork.equals("auto", true)) "tcp" else manualNetwork.trim(),
-                                    security = manualSecurity.trim().lowercase(),
+                                    credential = if (manualProtocol == ConfigProtocol.VLESS || manualProtocol == ConfigProtocol.VMESS || manualProtocol == ConfigProtocol.TUIC) java.util.UUID.randomUUID().toString() else manualCredential.trim(),
+                                    network = if (manualProtocol == ConfigProtocol.HYSTERIA2 || manualProtocol == ConfigProtocol.TUIC) "udp" else if (manualNetwork.isBlank() || manualNetwork.equals("auto", true)) "tcp" else manualNetwork.trim(),
+                                    security = if (manualProtocol == ConfigProtocol.HYSTERIA2 || manualProtocol == ConfigProtocol.TUIC) "tls" else manualSecurity.trim().lowercase(),
                                     remark = manualName.trim(),
                                     parameters = parameters
                                 )
