@@ -36,8 +36,10 @@ This roadmap is the acceptance checklist for evolving the current Android config
 - [ ] Integrate and pin Xray-core for actual configuration validation and connection/runtime features; a JSON preview alone is not a running VPN engine.
 
 ## Phase 3 — backend and web administration
-- [ ] Turn the FastAPI development scaffold into a versioned API with database migrations and PostgreSQL.
-- [ ] Add authentication, secure session/token handling, Admin/User roles, authorization checks, rate limits and audit logs.
+- [x] Add an initial FastAPI API for account registration/login/logout, own-config CRUD, role checks, subscription creation/revocation, expiry and admin quota metadata.
+- [ ] Turn the API scaffold into a production versioned service with database migrations and PostgreSQL integration.
+- [x] Add initial opaque bearer sessions, password hashing, Admin/User authorization checks and owner-scoped config access.
+- [ ] Add rate limiting, comprehensive audit logs, account recovery and production session-management controls.
 - [ ] Build a responsive web admin interface; keep mobile Android as a first-class client.
 - [ ] Define API contracts and Android sync behavior before enabling multi-device state.
 
@@ -57,7 +59,8 @@ This roadmap is the acceptance checklist for evolving the current Android config
 
 ## Phase 6 — multi-device sync and release hardening
 - [ ] Authenticated sync across devices with conflict handling and explicit secret protection.
-- [ ] Integration tests for API, migrations, quotas, subscription revocation and restore.
+- [x] Add initial API tests for password hashing, config owner isolation, subscription revocation and admin limit metadata.
+- [ ] Add integration tests for migrations, actual node quota enforcement and restore.
 - [ ] Dependency/security scanning, secret scanning, CI and signed release artifacts.
 - [ ] Verify TLS, restore procedures, migration strategy, log redaction and a deployment runbook.
 
@@ -69,6 +72,10 @@ This roadmap is the acceptance checklist for evolving the current Android config
 - Connectivity status is based on a real test/runtime, not inferred from syntactic validity.
 
 ## Current verified limitations
+- The initial FastAPI account/config/subscription endpoints and tests exist, but are not yet connected to Android UI or a web admin interface. The backend uses SQLite in one instance; PostgreSQL/Redis in the original compose file were not integrated and the compose setup now uses a persistent SQLite volume.
+- Quota/usage is currently based on trusted admin usage reports; no node agent exists to independently measure or enforce tunnel traffic.
+- Subscription response is a normalized JSON profile list, not yet a tested v2rayNG/Hiddify/Clash/sing-box/NPV-specific subscription encoding.
+- Before public deployment, configure strong APP_SECRET and bootstrap token, HTTPS, request rate limits, audit logging, and production-grade database migrations.
 - This is still an Android-first prototype plus a minimal FastAPI scaffold, not a production-ready Config Hub.
 - No Xray-core runtime is currently bundled or running; generated Xray JSON is a preview/export.
 - The generated Fragment Freedom outbound is separate; automatic routing/chaining to a selected VLESS connection is not implemented.
