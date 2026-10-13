@@ -26,7 +26,12 @@ data class ConfigProfile(
             if (protocol != ConfigProtocol.VLESS) add("REALITY is supported here only for VLESS profiles")
             if (parameters["sni"].isNullOrBlank()) add("REALITY requires the server's configured SNI/serverName")
             if (parameters["pbk"].isNullOrBlank()) add("REALITY requires the public key (pbk) from the server")
-            if (parameters["sid"].isNullOrBlank()) add("REALITY requires a shortId configured on the server")
+            val shortId = parameters["sid"]
+            if (shortId == null) {
+                add("REALITY requires the server's shortId field (it may be empty)")
+            } else if (!shortId.matches(Regex("^(?:[0-9a-fA-F]{2}){0,8}$"))) {
+                add("REALITY shortId must be 0-16 hexadecimal characters with even length")
+            }
         }
         if (protocol == ConfigProtocol.TUIC && parameters["password"].isNullOrBlank()) {
             add("TUIC requires its separate password")
