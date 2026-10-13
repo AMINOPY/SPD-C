@@ -707,21 +707,32 @@ private fun SpdConDashboard() {
                                     copyContent = null
                                     parseResult = errors.joinToString("; ")
                                 } else {
-                                    parsedProfile = profile
-                                    parsedSummary = listOf(
-                                        "نام: ${profile.name}",
-                                        "پروتکل: ${profile.protocol}",
-                                        "سرور: ${profile.server}:${profile.port}",
-                                        "انتقال: ${profile.network}",
-                                        "امنیت: ${profile.security}",
-                                        "بررسی اولیه:",
-                                        com.spdcon.app.config.ConfigDiagnostics.format(profile, cdnEnabled = manualCdnEnabled)
-                                    ).joinToString("\n")
-                                    parseResult = "پروفایل دستی ساخته شد؛ اتصال واقعی هنوز آزمایش نشده است."
-                                    shareLink = ConfigLinkSerializer.serialize(profile).getOrDefault("")
-                                    generatedOutput = null
-                                    qrContent = null
-                                    copyContent = null
+                                    val serialized = ConfigLinkSerializer.serialize(profile)
+                                    if (serialized.isFailure) {
+                                        parsedProfile = null
+                                        parsedSummary = null
+                                        generatedOutput = null
+                                        qrContent = null
+                                        copyContent = null
+                                        parseResult = "ساخت لینک ناموفق بود: ${serialized.exceptionOrNull()?.message ?: "خطای نامشخص"}"
+                                    } else {
+                                        val link = serialized.getOrThrow()
+                                        parsedProfile = profile
+                                        parsedSummary = listOf(
+                                            "نام: ${profile.name}",
+                                            "پروتکل: ${profile.protocol}",
+                                            "سرور: ${profile.server}:${profile.port}",
+                                            "انتقال: ${profile.network}",
+                                            "امنیت: ${profile.security}",
+                                            "بررسی اولیه:",
+                                            com.spdcon.app.config.ConfigDiagnostics.format(profile, cdnEnabled = manualCdnEnabled)
+                                        ).joinToString("\n")
+                                        parseResult = "لینک ساخته شد. برای اتصال واقعی، همین پروتکل و اطلاعات کاربر باید روی نود سرور نیز تنظیم شده باشند."
+                                        shareLink = link
+                                        generatedOutput = link
+                                        qrContent = link
+                                        copyContent = link
+                                    }
                                 }
                             },
                             modifier = Modifier.fillMaxWidth()
