@@ -148,11 +148,26 @@ object ConfigGenerationService {
         val tlsName = inbound.sni.ifBlank { inbound.host }
         require(tlsName.isNotBlank()) { "${inbound.name}: TLS relay needs its real domain for SNI" }
         val host = inbound.host.ifBlank { tlsName }
+        require(inbound.xhttpMode in allowedXhttpModes) { "${inbound.name}: invalid XHTTP mode" }
+        val configuredXhttpPath = inbound.path.trim()
+        val xhttpTemplate = if (configuredXhttpPath.isBlank() || configuredXhttpPath == "/") {
+            "/xhttp-siz10/{mode}/{uuid}"
+        } else {
+            configuredXhttpPath
+        }
+        require(xhttpTemplate.startsWith("/") && !xhttpTemplate.contains("..") &&
+            !xhttpTemplate.any { it.isISOControl() }) {
+            "${inbound.name}: TLS Relay XHTTP path must be an absolute safe path"
+        }
+        val xhttpPath = if (xhttpTemplate.contains("{uuid}")) {
+            xhttpTemplate.replace("{mode}", inbound.xhttpMode).replace("{uuid}", userId)
+        } else {
+            xhttpTemplate.replace("{mode}", inbound.xhttpMode).trimEnd('/') + "/$userId"
+        }
         val paths = listOf(
             "WS" to "/ws/$userId",
-            "XHTTP" to "/xhttp-siz10/${inbound.xhttpMode}/$userId"
+            "XHTTP" to xhttpPath
         )
-        require(inbound.xhttpMode in allowedXhttpModes) { "${inbound.name}: invalid XHTTP mode" }
         val endpoints = (listOf(inbound.endpoint) + inbound.alternateAddresses)
             .map(String::trim).filter(String::isNotBlank).distinct()
         return endpoints.flatMap { endpoint ->
