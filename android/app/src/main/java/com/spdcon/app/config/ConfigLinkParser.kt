@@ -32,7 +32,7 @@ object ConfigLinkParser {
 
     private fun parseUri(input: String, protocol: ConfigProtocol): ConfigProfile {
         val uri = URI(input)
-        val server = uri.host ?: throw IllegalArgumentException("Server hostname is missing")
+        val server = uri.host?.removeSurrounding("[", "]") ?: throw IllegalArgumentException("Server hostname is missing")
         val port = uri.port
         require(port in 1..65535) { "A valid server port is required" }
         val credential = uri.rawUserInfo
@@ -68,7 +68,7 @@ object ConfigLinkParser {
 
     private fun parseTuic(input: String): ConfigProfile {
         val uri = URI(input)
-        val server = uri.host ?: throw IllegalArgumentException("TUIC server hostname is missing")
+        val server = uri.host?.removeSurrounding("[", "]") ?: throw IllegalArgumentException("TUIC server hostname is missing")
         val port = uri.port
         require(port in 1..65535) { "A valid TUIC server port is required" }
         val rawUserInfo = uri.rawUserInfo ?: throw IllegalArgumentException("TUIC UUID and password are missing")
