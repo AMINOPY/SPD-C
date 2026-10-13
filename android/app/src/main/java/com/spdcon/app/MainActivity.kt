@@ -121,15 +121,14 @@ private fun SpdConDashboard() {
     var realityFlow by remember { mutableStateOf("") }
     val visibleProfiles = savedProfiles.filter { profile ->
         val query = librarySearch.trim()
-        query.isEmpty() ||
-            profile.name.contains(query, ignoreCase = true) ||
-            profile.server.contains(query, ignoreCase = true) ||
-            profile.protocol.name.contains(query, ignoreCase = true) ||
-            profile.tags.any { it.contains(query, ignoreCase = true) }
-    }.let { profiles ->
-        if (librarySearch.trim().equals("favorite", ignoreCase = true) || librarySearch.trim() == "⭐") {
-            profiles.filter { it.favorite }
-        } else profiles
+        when {
+            query.equals("favorite", ignoreCase = true) || query == "⭐" -> profile.favorite
+            query.isEmpty() -> true
+            else -> profile.name.contains(query, ignoreCase = true) ||
+                profile.server.contains(query, ignoreCase = true) ||
+                profile.protocol.name.contains(query, ignoreCase = true) ||
+                profile.tags.any { it.contains(query, ignoreCase = true) }
+        }
     }
 
     Scaffold(
