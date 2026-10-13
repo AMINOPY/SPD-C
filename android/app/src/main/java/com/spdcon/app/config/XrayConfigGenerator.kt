@@ -36,8 +36,16 @@ object XrayConfigGenerator {
             .put("shortId", reality.shortId)
             .put("spiderX", reality.spiderX)
 
+        val realityNetwork = when (profile.network.lowercase()) {
+            "tcp" -> "raw" // Share links commonly spell Xray RAW transport as type=tcp.
+            else -> profile.network.lowercase()
+        }
+        require(realityNetwork in setOf("raw", "xhttp", "grpc")) {
+            "Xray REALITY supports RAW/TCP, XHTTP or gRPC transport; got: ${profile.network}"
+        }
+
         val streamSettings = JSONObject()
-            .put("network", profile.network.ifBlank { "raw" })
+            .put("network", realityNetwork)
             .put("security", "reality")
             .put("realitySettings", realitySettings)
 
