@@ -175,7 +175,14 @@ private fun SpdConDashboard() {
                         Text("برای استفاده از این بخش وب‌پنل لازم نیست. آدرس Cloudflare Worker خودت را وارد کن؛ کانفیگ‌ها به‌صورت انتخابی با حساب آنلاین همگام می‌شوند.")
                         OutlinedTextField(
                             value = cloudBaseUrl,
-                            onValueChange = { cloudBaseUrl = it },
+                            onValueChange = { value ->
+                                if (value.trimEnd('/') != cloudBaseUrl.trimEnd('/')) {
+                                    cloudToken = ""
+                                    cloudSubscription = null
+                                    cloudPrefs.edit().remove("token_enc").apply()
+                                }
+                                cloudBaseUrl = value
+                            },
                             modifier = Modifier.fillMaxWidth(),
                             label = { Text("آدرس API (HTTPS)") },
                             placeholder = { Text("https://spd-con-api.example.workers.dev") },
@@ -314,10 +321,25 @@ private fun SpdConDashboard() {
                         cloudMessage?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
                         if (cloudToken.isNotBlank()) {
                             TextButton(onClick = {
+                                val tokenToRevoke = cloudToken
+                                val baseToRevoke = cloudBaseUrl
                                 cloudToken = ""
                                 cloudSubscription = null
                                 cloudPrefs.edit().remove("token_enc").apply()
-                                cloudMessage = "از حساب خارج شدی؛ نشست محلی حذف شد."
+                                cloudBusy = true
+                                coroutineScope.launch {
+                                    val result = runCatching {
+                                        withContext(Dispatchers.IO) {
+                                            CloudSyncClient.logout(baseToRevoke, tokenToRevoke)
+                                        }
+                                    }
+                                    cloudMessage = if (result.isSuccess) {
+                                        "از حساب خارج شدی و نشست سرور باطل شد."
+                                    } else {
+                                        "نشست محلی حذف شد؛ خروج از سرور تأیید نشد."
+                                    }
+                                    cloudBusy = false
+                                }
                             }) { Text("خروج از حساب ابری") }
                         }
                     }
