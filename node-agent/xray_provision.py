@@ -23,19 +23,39 @@ MAX_CONFIG_BYTES = 1_000_000
 EMAIL_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._@+-]{0,127}$")
 
 
-def load_config(path: str | Path) -> dict[str, Any]:
+def read_config_snapshot(path: str | Path) -> tuple[bytes, os.stat_result]:
+    """Read one regular config without following symlinks and retain its identity."""
     target = Path(path)
-    if target.is_symlink() or not target.is_file():
-        raise ValueError("Config must be an existing regular file, not a symlink")
-    if target.stat().st_size > MAX_CONFIG_BYTES:
-        raise ValueError("Config file exceeds 1 MB limit")
+    flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
     try:
-        value = json.loads(target.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as exc:
+        fd = os.open(str(target), flags)
+    except OSError as exc:
+        raise ValueError("Config must be an existing regular file, not a symlink") from exc
+    with os.fdopen(fd, "rb") as source:
+        metadata = os.fstat(source.fileno())
+        if not stat.S_ISREG(metadata.st_mode):
+            raise ValueError("Config must be an existing regular file, not a symlink")
+        if metadata.st_size > MAX_CONFIG_BYTES:
+            raise ValueError("Config file exceeds 1 MB limit")
+        content = source.read(MAX_CONFIG_BYTES + 1)
+    if len(content) > MAX_CONFIG_BYTES:
+        raise ValueError("Config file exceeds 1 MB limit")
+    return content, metadata
+
+
+def parse_config_bytes(content: bytes) -> dict[str, Any]:
+    try:
+        value = json.loads(content.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
         raise ValueError("Config is unreadable or is not valid JSON") from exc
     if not isinstance(value, dict) or not isinstance(value.get("inbounds"), list):
         raise ValueError("Config must contain an inbounds array")
     return value
+
+
+def load_config(path: str | Path) -> dict[str, Any]:
+    content, _ = read_config_snapshot(path)
+    return parse_config_bytes(content)
 
 
 def normalize_client_id(value: str) -> str:
@@ -106,7 +126,8 @@ def validate_candidate(xray_bin: str, config_path: str, timeout: int = 20) -> tu
 def change_client(config_path: str, inbound_tag: str, client_id: str, email: str,
                   action: str, xray_bin: str = "xray", apply: bool = False) -> dict[str, Any]:
     target = Path(config_path)
-    original = load_config(target)
+    original_bytes, original_metadata = read_config_snapshot(target)
+    original = parse_config_bytes(original_bytes)
     changed, did_change = mutate_vless_client(original, inbound_tag, client_id, email, action)
     if not did_change:
         return {"ok": True, "changed": False, "applied": False,
@@ -136,9 +157,12 @@ def change_client(config_path: str, inbound_tag: str, client_id: str, email: str
         if not apply:
             return {"ok": True, "changed": True, "applied": False,
                     "message": "Candidate validates; rerun with --apply to atomically replace the config"}
-        if target.is_symlink() or not target.is_file():
-            raise ValueError("Config path changed during validation; refusing to replace it")
-        os.chmod(temp_name, stat.S_IMODE(target.stat().st_mode) & 0o600 or 0o600)
+        current_bytes, current_metadata = read_config_snapshot(target)
+        if (current_bytes != original_bytes
+                or current_metadata.st_dev != original_metadata.st_dev
+                or current_metadata.st_ino != original_metadata.st_ino):
+            raise ValueError("Config changed during validation; refusing to overwrite concurrent edits")
+        os.chmod(temp_name, stat.S_IMODE(original_metadata.st_mode) & 0o600 or 0o600)
         os.replace(temp_name, target)
         temp_name = None
         directory_fd = os.open(str(target.parent), os.O_RDONLY)
