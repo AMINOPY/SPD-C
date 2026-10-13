@@ -663,7 +663,7 @@ private fun SpdConDashboard() {
                                         "امنیت: ${profile.security}",
                                         "بررسی اولیه:",
                                         com.spdcon.app.config.ConfigDiagnostics.format(profile, cdnEnabled = manualCdnEnabled)
-                                    ).joinToString("\\n")
+                                    ).joinToString("\n")
                                     parseResult = "پروفایل دستی ساخته شد؛ اتصال واقعی هنوز آزمایش نشده است."
                                     shareLink = ConfigLinkSerializer.serialize(profile).getOrDefault("")
                                     generatedOutput = null
