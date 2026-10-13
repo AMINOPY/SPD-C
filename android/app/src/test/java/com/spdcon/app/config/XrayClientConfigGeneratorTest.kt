@@ -32,6 +32,8 @@ class XrayClientConfigGeneratorTest {
         assertEquals("/tunnel", outbound.getJSONObject("streamSettings").getJSONObject("wsSettings").getString("path"))
         assertEquals("cdn.example.com", outbound.getJSONObject("streamSettings").getJSONObject("tlsSettings").getString("serverName"))
         assertTrue(root.has("routing"))
+        assertTrue(root.has("inbounds"))
+        assertEquals(2, root.getJSONArray("inbounds").length())
     }
 
     @Test fun trojanUsesPasswordAndTls() {
@@ -41,7 +43,7 @@ class XrayClientConfigGeneratorTest {
         val outbound = root.getJSONArray("outbounds").getJSONObject(0)
         assertEquals("trojan", outbound.getString("protocol"))
         assertEquals("test-credential", outbound.getJSONObject("settings").getJSONArray("servers")
-            .getJSONObject(0).getJSONArray("users").getJSONObject(0).getString("password"))
+            .getJSONObject(0).getString("password"))
     }
 
     @Test fun shadowsocksUsesEncryptionMethod() {
@@ -50,7 +52,7 @@ class XrayClientConfigGeneratorTest {
         ).getOrThrow())
         val outbound = root.getJSONArray("outbounds").getJSONObject(0)
         assertEquals("aes-128-gcm", outbound.getJSONObject("settings").getJSONArray("servers")
-            .getJSONObject(0).getJSONArray("users").getJSONObject(0).getString("method"))
+            .getJSONObject(0).getString("method"))
         assertFalse(outbound.has("streamSettings"))
     }
 
