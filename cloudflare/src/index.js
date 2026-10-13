@@ -3,6 +3,7 @@
  * Android-first: this is a sync/subscription API, not a required web panel.
  * Requires D1 binding DB and APP_SECRET + BOOTSTRAP_ADMIN_TOKEN secrets.
  */
+import { panelHtml } from "./panel.js";
 const SESSION_SECONDS = 60 * 60 * 24 * 14;
 const PASSWORD_ITERATIONS = 310_000;
 const MAX_JSON_BYTES = 256_000;
@@ -85,6 +86,10 @@ async function handle(request, env) {
   const path = routePath(url);
   const method = request.method.toUpperCase();
   if (method === "OPTIONS") return new Response(null, { status: 204 });
+  if (method === "GET" && (path === "/panel" || path === "/")) {
+    return new Response(panelHtml, { headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" } });
+  }
+
   if (method === "GET" && path === "/api/v1/health") {
     try { await env.DB.prepare("SELECT 1 AS ok").first(); return json({ ok: true, service: "spd-con-api" }); }
     catch { return error("Database unavailable", 503); }
