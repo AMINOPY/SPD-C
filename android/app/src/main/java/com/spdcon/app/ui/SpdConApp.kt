@@ -287,9 +287,13 @@ fun SpdConApp(onOpenAdvancedPanel: () -> Unit = {}) {
                             existingProfiles = profiles,
                             scannerServerIp = scannerServerIp,
                             scannerSni = scannerSni,
-                            onGenerateOfflineReality = { link, serverSetup ->
-                                generatedLink = link
-                                generatedServerSetup = serverSetup
+                            onGenerateOfflineReality = { link, serverSetup, error ->
+                                if (error != null) {
+                                    dialogMessage = error
+                                } else {
+                                    generatedLink = link
+                                    generatedServerSetup = serverSetup
+                                }
                             },
                             onGenerate = { generatedProfiles ->
                                 val errors = generatedProfiles.flatMap { profile ->
@@ -498,7 +502,7 @@ private fun CreatePage(
     existingProfiles: List<ConfigProfile>,
     scannerServerIp: String?,
     scannerSni: String?,
-    onGenerateOfflineReality: (String, String) -> Unit,
+    onGenerateOfflineReality: (String?, String?, String?) -> Unit,
     onGenerate: (List<ConfigProfile>) -> Unit
 ) {
     val template = existingProfiles.firstOrNull()
@@ -679,10 +683,9 @@ private fun CreatePage(
                                     .put("serverName", sni.trim())
                                     .put("note", "Merge these values into the existing server inbound. Configure a real dest separately; this output does not provision the server.")
                                     .toString(2)
-                                onGenerateOfflineReality(link, serverSetup)
-                            }.onFailure {
-                                // Keep generated values ephemeral and report only the validation/error message.
-                                android.util.Log.w("SpdConOfflineBuilder", "Offline REALITY generation failed", it)
+                                onGenerateOfflineReality(link, serverSetup, null)
+                            }.onFailure { failure ->
+                                onGenerateOfflineReality(null, null, failure.message ?: "Offline key generation failed.")
                             }
                         },
                         Modifier.fillMaxWidth()
