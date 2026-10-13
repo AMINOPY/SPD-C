@@ -60,7 +60,7 @@ class ConnectionStrategySelectorTest {
         val mismatched = profile("tcp")
         val ranked = ConnectionStrategySelector.rank(
             listOf(mismatched, cdn.copy(parameters = mapOf("host" to "edge.example.com", "sni" to "edge.example.com"))),
-            goal = SetupGoal.CLOUDFLARE_CDN
+            goal = TunnelSelectionGoal.CLOUDFLARE_CDN
         )
         assertEquals("cdn", ranked.first().profile.name)
     }
