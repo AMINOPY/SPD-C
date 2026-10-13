@@ -26,8 +26,8 @@ object XrayCoreTester {
     fun testProfile(profile: ConfigProfile): XrayCoreTestResult {
         val validationErrors = profile.validate()
         require(validationErrors.isEmpty()) { validationErrors.joinToString("; ") }
-        require(profile.protocol != ConfigProtocol.TUIC) {
-            "TUIC is not an Xray-core protocol; this profile requires a TUIC-capable runtime."
+        require(profile.protocol != ConfigProtocol.TUIC && profile.protocol != ConfigProtocol.HYSTERIA2) {
+            "${profile.protocol} is not implemented by Xray-core; this profile requires a compatible sing-box-based runtime."
         }
 
         val shareLink = ConfigLinkSerializer.serialize(profile).getOrElse {
