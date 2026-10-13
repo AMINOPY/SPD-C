@@ -120,42 +120,25 @@ fun CleanIpScannerPage(onBack: () -> Unit, onUseIp: (ip: String, sni: String) ->
             onClick = {
                 scanning = true; error = null; status = scanningStatus; results = emptyList()
                 scope.launch {
-                    try {
-                        val candidates = withContext(Dispatchers.Default) {
-                            when (source) {
-                                "custom" -> CleanIpScanner.parseCandidates(input)
-                                "recent" -> (if (mode == "dns") recentDnsIps else recentIps).take(CleanIpScanner.MAX_CANDIDATES)
-                                else -> if (mode == "dns") DnsResolverScanner.DEFAULT_RESOLVERS else CleanIpScanner.DEFAULT_CLOUDFLARE_CANDIDATES
-                            }
-                        }
-                        require(candidates.isNotEmpty()) { noCandidatesError }
-                        val selectedPort = port.toIntOrNull() ?: 0
+                    val outcome = executeCleanIpScan(
+                        mode, source, input, recentIps, recentDnsIps, sni.trim(), dnsDomain.trim(),
+                        port.toIntOrNull() ?: 0, workers.toInt(), noCandidatesError, scanFailedMessage,
+                        finishedTemplate, finishedDnsTemplate
+                    )
+                    error = outcome.errorMessage
+                    status = outcome.statusMessage
+                    results = outcome.tlsResults
+                    dnsResults = outcome.dnsResults
+                    if (outcome.errorMessage == null) {
                         if (mode == "dns") {
-                            val scanned = withContext(Dispatchers.IO) {
-                                DnsResolverScanner.scan(candidates, dnsDomain.trim(), selectedPort, workers = workers.toInt())
-                            }
-                            dnsResults = scanned
-                            results = emptyList()
-                            val good = scanned.filter { it.score >= 2 }.map { it.ip }.distinct()
-                            recentDnsIps = good
-                            prefs.edit().putString("last_dns_ips", good.joinToString("\n")).apply()
-                            status = finishedDnsTemplate
-                                .replace("{good}", good.size.toString()).replace("{total}", scanned.size.toString())
+                            recentDnsIps = outcome.goodIps
+                            prefs.edit().putString("last_dns_ips", outcome.goodIps.joinToString("\n")).apply()
                         } else {
-                            val scanned = withContext(Dispatchers.IO) {
-                                CleanIpScanner.scan(candidates, selectedPort, sni.trim(), workers = workers.toInt())
-                            }
-                            results = scanned
-                            dnsResults = emptyList()
-                            val good = scanned.filter { it.tlsOk }.map { it.ip }.distinct()
-                            recentIps = good
-                            prefs.edit().putString("last_good_ips", good.joinToString("\n")).apply()
-                            status = finishedTemplate
-                                .replace("{good}", good.size.toString()).replace("{total}", scanned.size.toString())
+                            recentIps = outcome.goodIps
+                            prefs.edit().putString("last_good_ips", outcome.goodIps.joinToString("\n")).apply()
                         }
-                    } catch (e: Exception) {
-                        error = e.message ?: scanFailedMessage; status = null
-                    } finally { scanning = false }
+                    }
+                    scanning = false
                 }
             },
             enabled = !scanning && if (mode == "dns") DnsResolverScanner.isValidDomain(dnsDomain.trim()) else CleanIpScanner.isValidSni(sni.trim()),
@@ -213,4 +196,64 @@ fun CleanIpScannerPage(onBack: () -> Unit, onUseIp: (ip: String, sni: String) ->
             }
         }
     }
+}
+
+
+private data class CleanIpScanOutcome(
+    val tlsResults: List<CleanIpResult> = emptyList(),
+    val dnsResults: List<DnsResolverResult> = emptyList(),
+    val goodIps: List<String> = emptyList(),
+    val statusMessage: String? = null,
+    val errorMessage: String? = null
+)
+
+private suspend fun executeCleanIpScan(
+    mode: String,
+    source: String,
+    customInput: String,
+    recentTls: List<String>,
+    recentDns: List<String>,
+    sni: String,
+    dnsDomain: String,
+    port: Int,
+    workers: Int,
+    noCandidatesError: String,
+    scanFailedMessage: String,
+    finishedTlsTemplate: String,
+    finishedDnsTemplate: String
+): CleanIpScanOutcome = try {
+    val candidates = withContext(Dispatchers.Default) {
+        when (source) {
+            "custom" -> CleanIpScanner.parseCandidates(customInput)
+            "recent" -> (if (mode == "dns") recentDns else recentTls).take(CleanIpScanner.MAX_CANDIDATES)
+            else -> if (mode == "dns") DnsResolverScanner.DEFAULT_RESOLVERS else CleanIpScanner.DEFAULT_CLOUDFLARE_CANDIDATES
+        }
+    }
+    require(candidates.isNotEmpty()) { noCandidatesError }
+    require(port in 1..65535) { "Port must be between 1 and 65535" }
+    if (mode == "dns") {
+        val scanned = withContext(Dispatchers.IO) {
+            DnsResolverScanner.scan(candidates, dnsDomain, port, workers = workers)
+        }
+        val good = scanned.filter { it.score >= 2 }.map { it.ip }.distinct()
+        CleanIpScanOutcome(
+            dnsResults = scanned,
+            goodIps = good,
+            statusMessage = finishedDnsTemplate.replace("{good}", good.size.toString())
+                .replace("{total}", scanned.size.toString())
+        )
+    } else {
+        val scanned = withContext(Dispatchers.IO) {
+            CleanIpScanner.scan(candidates, port, sni, workers = workers)
+        }
+        val good = scanned.filter { it.tlsOk }.map { it.ip }.distinct()
+        CleanIpScanOutcome(
+            tlsResults = scanned,
+            goodIps = good,
+            statusMessage = finishedTlsTemplate.replace("{good}", good.size.toString())
+                .replace("{total}", scanned.size.toString())
+        )
+    }
+} catch (e: Exception) {
+    CleanIpScanOutcome(errorMessage = e.message ?: scanFailedMessage)
 }
