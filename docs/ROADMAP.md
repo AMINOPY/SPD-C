@@ -4,6 +4,7 @@ This roadmap is the acceptance checklist for evolving the current Android config
 
 ## Phase 0 — compatibility, security and license review
 - [ ] Review source trees, licenses, dependencies, APIs and release activity of SpiderPanel, Blue-Knight-Panel, 3x-ui, Xray-core, Scan-Cloud and DicodeConfigChecker.
+- [x] Document the staged feature strategy for SpiderPanel (primary product inspiration), Blue-Knight-Panel (web UX inspiration) and a server-side 3x-ui node adapter in `docs/INTEGRATION-PLAN.md`.
 - [x] Initial scanner license metadata check: Clean-IP-Scanner and cfray report MIT; SpiderPanel, Blue-Knight-Panel, WhiteDNS-cleanip-finder and Exelite-Scanner do not expose a recognized SPDX license in repository metadata, so do not copy their code until the license files are checked.
 - [ ] Record exact versions, attribution and license obligations before reusing code or assets.
 - [ ] Pin protocol compatibility to a tested Xray-core release and document export-format limitations.
@@ -46,6 +47,7 @@ This roadmap is the acceptance checklist for evolving the current Android config
 - [x] Add an initial FastAPI API for account registration/login/logout, own-config CRUD, role checks, subscription creation/revocation, expiry and admin quota metadata.
 - [x] Add Android account login, optional profile upload/download, and subscription-link actions for the Cloudflare Worker API (initial sync; conflicts are skipped, not merged).
 - [x] Add a mobile-first Cloudflare `/panel` for login, config CRUD, subscription links, usage summary, per-config link display/copy and basic admin user controls.
+- [ ] Add protocol-specific Cloudflare builder/link support for Hysteria2 and TUIC with comprehensive compatibility tests; initial UI and basic share-link serializers are now present.
 - [x] Add web controls to update saved config country/adult-filter preferences.
 - [x] Add a Cloudflare Worker route test for `/panel`.
 - [ ] Add integration tests and production controls to the Cloudflare Worker; deploy only after setting a real D1 database ID and secrets.
@@ -89,7 +91,7 @@ This roadmap is the acceptance checklist for evolving the current Android config
 - Country choice currently records the requested country; it does not find or guarantee a clean IP. Actual IP selection requires a curated candidate pool or authorized nodes plus DNS/TLS/connectivity checks.
 - Adult-domain filtering is added to the VLESS+REALITY Xray JSON export only when selected and depends on an Xray-compatible geosite data file. It is not a device-wide content filter and is not enforced by Cloudflare profile metadata alone.
 - Quota/usage is currently based on trusted admin usage reports; no node agent exists to independently measure or enforce tunnel traffic.
-- Subscription response is a normalized JSON profile list, not yet a tested v2rayNG/Hiddify/Clash/sing-box/NPV-specific subscription encoding.
+- Subscription response is a normalized JSON profile list, not yet a tested v2rayNG/Hiddify/Clash/sing-box/NPV-specific subscription encoding. The Cloudflare panel has initial Hysteria2/TUIC form and share-link support, but it is not yet compatibility-tested against those clients.
 - Before public deployment, configure strong APP_SECRET and bootstrap token, HTTPS, request rate limits, audit logging, and production-grade database migrations.
 - This is still an Android-first prototype plus optional cloud API scaffolds, not a production-ready Config Hub.
 - No Xray-core runtime is currently bundled or running; generated Xray JSON is a preview/export.
