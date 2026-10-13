@@ -63,3 +63,14 @@ private fun isValidIntRange(value: String, allowZero: Boolean): Boolean {
     if (numbers.any { if (allowZero) it < 0 else it <= 0 }) return false
     return numbers.size == 1 || numbers[0] <= numbers[1]
 }
+
+
+/** Builds client-side REALITY values from the common share-link query keys. */
+fun ConfigProfile.toRealitySettings(): RealitySettings = RealitySettings(
+    serverName = parameters["sni"].orEmpty(),
+    publicKey = parameters["pbk"] ?: parameters["publicKey"].orEmpty(),
+    shortId = parameters["sid"] ?: parameters["shortId"].orEmpty(),
+    fingerprint = parameters["fp"] ?: parameters["fingerprint"] ?: "chrome",
+    spiderX = parameters["spx"] ?: parameters["spiderX"] ?: "/",
+    flow = parameters["flow"].orEmpty()
+)
