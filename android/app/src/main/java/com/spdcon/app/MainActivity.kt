@@ -64,6 +64,10 @@ import com.spdcon.app.config.CredentialCipher
 import com.spdcon.app.config.ConfigLinkParser
 import com.spdcon.app.config.ConfigLinkSerializer
 import com.spdcon.app.config.ConfigProfile
+import com.spdcon.app.config.ConfigGenerationService
+import com.spdcon.app.config.ConfigInboundKind
+import com.spdcon.app.config.ConfigInboundSpec
+import com.spdcon.app.config.WorkerRoute
 import com.spdcon.app.config.ConfigProtocol
 import com.spdcon.app.config.FragmentSettings
 import com.spdcon.app.config.NetworkPreset
@@ -116,6 +120,17 @@ private fun SpdConDashboard() {
     var manualProtocol by remember { mutableStateOf(ConfigProtocol.VLESS) }
     var manualProtocolMenuExpanded by remember { mutableStateOf(false) }
     var manualName by remember { mutableStateOf("کانفیگ جدید") }
+    var multiGenerationKind by remember { mutableStateOf("TLS Relay") }
+    var multiGenerationMenuExpanded by remember { mutableStateOf(false) }
+    var workerPathDraft by remember { mutableStateOf("/ws/{uuid}") }
+    var multiGenerationMessage by remember { mutableStateOf<String?>(null) }
+    var multiGenerationOutput by remember { mutableStateOf<String?>(null) }
+    val generationPrefs = remember(context) { context.getSharedPreferences("spdcon-generation", 0) }
+    val stableGenerationUserId = remember(context) {
+        generationPrefs.getString("stable_user_id", null) ?: java.util.UUID.randomUUID().toString().also {
+            generationPrefs.edit().putString("stable_user_id", it).apply()
+        }
+    }
     var selectedCountry by remember { mutableStateOf("auto") }
     var countryMenuExpanded by remember { mutableStateOf(false) }
     var blockAdultSites by remember { mutableStateOf(false) }
@@ -804,6 +819,144 @@ private fun SpdConDashboard() {
                                 Checkbox(checked = manualAllowInsecure, onCheckedChange = { manualAllowInsecure = it })
                                 Text("اجازه گواهی TLS نامعتبر (ناامن)")
                             }
+                        }
+                        Text("تولید چندکانفیگی از اینباند", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                        Text("برای یک کاربر شناسه ثابت نگه می‌دارد و از مسیرهای صریح نود چند لینک می‌سازد. این کار به‌تنهایی کاربر را روی سرور ثبت نمی‌کند.", style = MaterialTheme.typography.bodySmall)
+                        OutlinedButton(onClick = { multiGenerationMenuExpanded = true }, modifier = Modifier.fillMaxWidth()) {
+                            Text("نوع ساخت چندکانفیگی: $multiGenerationKind")
+                        }
+                        DropdownMenu(expanded = multiGenerationMenuExpanded, onDismissRequest = { multiGenerationMenuExpanded = false }) {
+                            listOf("TLS Relay", "REALITY", "Cloudflare Worker").forEach { option ->
+                                DropdownMenuItem(text = { Text(option) }, onClick = {
+                                    multiGenerationKind = option
+                                    multiGenerationMenuExpanded = false
+                                    multiGenerationMessage = null
+                                    multiGenerationOutput = null
+                                })
+                            }
+                        }
+                        if (multiGenerationKind == "Cloudflare Worker") {
+                            OutlinedTextField(
+                                value = workerPathDraft,
+                                onValueChange = { workerPathDraft = it },
+                                modifier = Modifier.fillMaxWidth(),
+                                label = { Text("مسیر Worker با {uuid}") },
+                                supportingText = { Text("باید دقیقاً روی Worker مستقر شده باشد؛ نمونه: /ws/{uuid}") },
+                                singleLine = true
+                            )
+                        }
+                        Button(
+                            onClick = {
+                                val inbound = runCatching {
+                                    val endpoint = manualServer.trim()
+                                    val port = manualPort.toIntOrNull() ?: -1
+                                    when (multiGenerationKind) {
+                                        "REALITY" -> ConfigInboundSpec(
+                                            id = "manual-reality",
+                                            name = manualName.trim().ifBlank { "REALITY" },
+                                            kind = ConfigInboundKind.REALITY,
+                                            endpoint = endpoint,
+                                            port = port,
+                                            sni = realityServerName.trim().ifBlank { manualSni.trim() },
+                                            publicKey = realityPublicKey.trim(),
+                                            shortId = realityShortId.trim(),
+                                            fingerprint = realityFingerprint.trim().ifBlank { "chrome" },
+                                            spiderX = realitySpiderX.trim().ifBlank { "/" },
+                                            realityTransports = if (manualNetwork.equals("tcp", true)) listOf("tcp") else if (manualNetwork.equals("xhttp", true)) listOf("xhttp") else listOf("tcp", "xhttp"),
+                                            xhttpMode = manualMode.trim().ifBlank { "stream-up" },
+                                            path = manualPath.trim().ifBlank { "/" }
+                                        )
+                                        "TLS Relay" -> ConfigInboundSpec(
+                                            id = "manual-tls-relay",
+                                            name = manualName.trim().ifBlank { "TLS Relay" },
+                                            kind = ConfigInboundKind.TLS_RELAY,
+                                            endpoint = endpoint,
+                                            port = port,
+                                            sni = manualSni.trim().ifBlank { manualHost.trim() },
+                                            host = manualHost.trim().ifBlank { manualServer.trim() },
+                                            fingerprint = realityFingerprint.trim().ifBlank { "chrome" },
+                                            path = manualPath.trim().ifBlank { "/" },
+                                            xhttpMode = manualMode.trim().ifBlank { "stream-up" },
+                                            alpn = manualAlpn.trim().ifBlank { "h2,http/1.1" }
+                                        )
+                                        else -> ConfigInboundSpec(
+                                            id = "manual-worker",
+                                            name = manualName.trim().ifBlank { "Cloudflare Worker" },
+                                            kind = ConfigInboundKind.CLOUDFLARE_WORKER,
+                                            endpoint = endpoint,
+                                            port = port,
+                                            sni = manualSni.trim().ifBlank { manualHost.trim().ifBlank { endpoint } },
+                                            host = manualHost.trim().ifBlank { endpoint },
+                                            fingerprint = realityFingerprint.trim().ifBlank { "chrome" },
+                                            workerRoutes = listOf(WorkerRoute("custom", workerPathDraft.trim()))
+                                        )
+                                    }
+                                }
+                                val result = inbound.fold(
+                                    onSuccess = { spec ->
+                                        ConfigGenerationService.generateForUser(
+                                            userId = stableGenerationUserId,
+                                            displayName = manualName.trim().ifBlank { "Spd con user" },
+                                            inbounds = listOf(spec),
+                                            blockAdultSites = blockAdultSites
+                                        )
+                                    },
+                                    onFailure = { Result.failure(it) }
+                                )
+                                result.fold(
+                                    onSuccess = { report ->
+                                        val profiles = report.configs.map { it.profile }
+                                        val saveResults = profiles.map { libraryStore.save(it) }
+                                        savedProfiles = libraryStore.loadAll()
+                                        val links = report.configs.map { it.shareLink }
+                                        val combined = links.joinToString("\n")
+                                        shareLink = links.firstOrNull().orEmpty()
+                                        parsedProfile = profiles.firstOrNull()
+                                        qrContent = if (links.size == 1) links.first() else null
+                                        copyContent = combined
+                                        generatedOutput = links.mapIndexed { index, link ->
+                                            "\${index + 1}. \${report.configs[index].label}\n$link"
+                                        }.joinToString("\n\n")
+                                        multiGenerationOutput = generatedOutput
+                                        multiGenerationMessage = buildString {
+                                            append("ساخت \${profiles.size} لینک انجام شد؛ شناسه کاربر ثابت است: $stableGenerationUserId. ")
+                                            append("ذخیره موفق: \${saveResults.count { it.isSuccess }} از \${saveResults.size}. ")
+                                            append("برای اتصال واقعی باید همین UUID در سرور ثبت شده و مسیر/کلید/پورت با سرویس فعال مطابقت داشته باشد.")
+                                            if (report.warnings.isNotEmpty()) append("\n" + report.warnings.joinToString("\n"))
+                                        }
+                                        parseResult = multiGenerationMessage
+                                        parsedSummary = profiles.joinToString("\n\n") { profile ->
+                                            "\${profile.name}\n\${profile.server}:\${profile.port} · \${profile.network} · \${profile.security}\n\${com.spdcon.app.config.ConfigDiagnostics.format(profile)}"
+                                        }
+                                    },
+                                    onFailure = {
+                                        multiGenerationMessage = "ساخت چندکانفیگی ناموفق بود: \${it.message}"
+                                        multiGenerationOutput = null
+                                        generatedOutput = null
+                                        qrContent = null
+                                        copyContent = null
+                                        parseResult = multiGenerationMessage
+                                    }
+                                )
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            enabled = manualServer.isNotBlank() && (manualPort.toIntOrNull() ?: 0) in 1..65535
+                        ) { Text("ساخت چندکانفیگی و ذخیره خودکار") }
+                        multiGenerationMessage?.let { Text(it, style = MaterialTheme.typography.bodyMedium) }
+                        multiGenerationOutput?.let { output ->
+                            OutlinedTextField(
+                                value = output,
+                                onValueChange = {},
+                                modifier = Modifier.fillMaxWidth(),
+                                label = { Text("لینک‌های تولیدشده") },
+                                readOnly = true,
+                                minLines = 3,
+                                maxLines = 12
+                            )
+                            OutlinedButton(
+                                onClick = { clipboardManager.setText(AnnotatedString(copyContent ?: output)) },
+                                modifier = Modifier.fillMaxWidth()
+                            ) { Text("کپی همه لینک‌ها") }
                         }
                         Button(
                             onClick = {
