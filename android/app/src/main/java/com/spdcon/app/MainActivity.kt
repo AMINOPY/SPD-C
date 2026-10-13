@@ -116,7 +116,7 @@ private fun SpdConDashboard() {
     var manualServer by remember { mutableStateOf("") }
     var manualPort by remember { mutableStateOf("443") }
     var manualCredential by remember { mutableStateOf("") }
-    var manualNetwork by remember { mutableStateOf("tcp") }
+    var manualNetwork by remember { mutableStateOf("auto") }
     var manualSecurity by remember { mutableStateOf("none") }
     var manualMethod by remember { mutableStateOf("chacha20-ietf-poly1305") }
     var shareLink by remember { mutableStateOf("") }
@@ -139,6 +139,8 @@ private fun SpdConDashboard() {
     var realityFingerprint by remember { mutableStateOf("chrome") }
     var realitySpiderX by remember { mutableStateOf("/") }
     var realityFlow by remember { mutableStateOf("") }
+    var showAdvancedReality by remember { mutableStateOf(false) }
+    var showAdvancedNetwork by remember { mutableStateOf(false) }
     val visibleProfiles = savedProfiles.filter { profile ->
         val query = librarySearch.trim()
         when {
@@ -438,17 +440,28 @@ private fun SpdConDashboard() {
                         OutlinedTextField(value = manualName, onValueChange = { manualName = it }, modifier = Modifier.fillMaxWidth(), label = { Text("نام کانفیگ") }, singleLine = true)
                         OutlinedTextField(value = manualServer, onValueChange = { manualServer = it }, modifier = Modifier.fillMaxWidth(), label = { Text("دامنه یا IP سرور") }, singleLine = true)
                         OutlinedTextField(value = manualPort, onValueChange = { manualPort = it }, modifier = Modifier.fillMaxWidth(), label = { Text("پورت") }, singleLine = true)
-                        OutlinedTextField(
-                            value = manualCredential,
-                            onValueChange = { manualCredential = it },
-                            modifier = Modifier.fillMaxWidth(),
-                            label = { Text(if (manualProtocol == ConfigProtocol.SHADOWSOCKS) "رمز عبور" else if (manualProtocol == ConfigProtocol.TROJAN) "رمز Trojan" else "UUID / شناسه") },
-                            singleLine = true
-                        )
+                        if (manualProtocol == ConfigProtocol.TROJAN || manualProtocol == ConfigProtocol.SHADOWSOCKS) {
+                            OutlinedTextField(
+                                value = manualCredential,
+                                onValueChange = { manualCredential = it },
+                                modifier = Modifier.fillMaxWidth(),
+                                label = { Text(if (manualProtocol == ConfigProtocol.SHADOWSOCKS) "رمز عبور" else "رمز Trojan") },
+                                singleLine = true
+                            )
+                        } else {
+                            Text("شناسه VLESS/VMess به‌صورت خودکار ساخته می‌شود؛ نیازی به واردکردن UUID نیست.", style = MaterialTheme.typography.bodySmall)
+                        }
                         if (manualProtocol == ConfigProtocol.SHADOWSOCKS) {
                             OutlinedTextField(value = manualMethod, onValueChange = { manualMethod = it }, modifier = Modifier.fillMaxWidth(), label = { Text("روش رمزنگاری Shadowsocks") }, singleLine = true)
                         }
-                        OutlinedTextField(value = manualNetwork, onValueChange = { manualNetwork = it }, modifier = Modifier.fillMaxWidth(), label = { Text("نوع انتقال (tcp/ws/grpc/xhttp)") }, singleLine = true)
+                        OutlinedTextField(
+                            value = manualNetwork,
+                            onValueChange = { manualNetwork = it },
+                            modifier = Modifier.fillMaxWidth(),
+                            label = { Text("انتقال (auto / tcp / ws / grpc / xhttp)") },
+                            supportingText = { Text("auto یک پیش‌فرض سازگار TCP می‌گذارد؛ نوع واقعی از لینک واردشده خوانده می‌شود.") },
+                            singleLine = true
+                        )
                         OutlinedTextField(value = manualSecurity, onValueChange = { manualSecurity = it }, modifier = Modifier.fillMaxWidth(), label = { Text("امنیت (none/tls/reality)") }, singleLine = true)
                         Button(
                             onClick = {
@@ -468,13 +481,13 @@ private fun SpdConDashboard() {
                                     protocol = manualProtocol,
                                     server = manualServer.trim(),
                                     port = manualPort.toIntOrNull() ?: -1,
-                                    credential = manualCredential.trim(),
-                                    network = manualNetwork.trim(),
+                                    credential = if (manualProtocol == ConfigProtocol.VLESS || manualProtocol == ConfigProtocol.VMESS) java.util.UUID.randomUUID().toString() else manualCredential.trim(),
+                                    network = if (manualNetwork.isBlank() || manualNetwork.equals("auto", true)) "tcp" else manualNetwork.trim(),
                                     security = manualSecurity.trim().lowercase(),
                                     remark = manualName.trim(),
                                     parameters = parameters
                                 )
-                                val errors = profile.validate()
+                                val errors = profile.validate() + if (manualSecurity.equals("reality", true) && (realityPublicKey.isBlank() || realityShortId.isBlank())) listOf("برای REALITY معتبر، کلید عمومی و shortId مخصوص همان سرور لازم است؛ SNI به‌تنهایی این مقادیر را نمی‌سازد.") else emptyList()
                                 if (errors.isNotEmpty()) {
                                     parsedProfile = null
                                     parsedSummary = null
@@ -606,8 +619,13 @@ private fun SpdConDashboard() {
             item {
                 Card(modifier = Modifier.fillMaxWidth()) {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text("Fragment و پروفایل شبکه", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                        Text("پروفایل‌ها فقط نقطه شروع آزمایشی‌اند؛ نتیجه به اپراتور، منطقه، APN و نسخه Xray بستگی دارد و دور زدن محدودیت تضمین نمی‌شود.")
+                        Text("بهینه‌سازی شبکه (اختیاری)", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                        Text("حالت ساده به‌صورت پیش‌فرض تنظیمات Fragment را خاموش نگه می‌دارد. این گزینه‌ها فقط تنظیمات خروجی‌اند و به‌تنهایی اتصال را تست یا تضمین نمی‌کنند.")
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Checkbox(checked = showAdvancedNetwork, onCheckedChange = { showAdvancedNetwork = it })
+                            Text("نمایش تنظیمات پیشرفته شبکه")
+                        }
+                        if (showAdvancedNetwork) {
                         OutlinedButton(onClick = { presetMenuExpanded = true }, modifier = Modifier.fillMaxWidth()) {
                             Text("پروفایل: ${selectedPreset.titleFa}")
                         }
@@ -654,6 +672,7 @@ private fun SpdConDashboard() {
                             label = { Text("interval (ms، نمونه 10-20)") },
                             singleLine = true
                         )
+                        }
                     }
                 }
             }
@@ -663,12 +682,30 @@ private fun SpdConDashboard() {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text("تقویت REALITY", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                         Text("این فیلدها برای ساخت خروجی VLESS + REALITY هستند. مقادیر باید با تنظیمات سرور هماهنگ باشند.")
-                        OutlinedTextField(value = realityServerName, onValueChange = { realityServerName = it }, modifier = Modifier.fillMaxWidth(), label = { Text("SNI / serverName") }, singleLine = true)
-                        OutlinedTextField(value = realityPublicKey, onValueChange = { realityPublicKey = it }, modifier = Modifier.fillMaxWidth(), label = { Text("کلید عمومی REALITY (pbk)") }, singleLine = true)
-                        OutlinedTextField(value = realityShortId, onValueChange = { realityShortId = it }, modifier = Modifier.fillMaxWidth(), label = { Text("shortId (hex، حداکثر 16 رقم)") }, singleLine = true)
-                        OutlinedTextField(value = realityFingerprint, onValueChange = { realityFingerprint = it }, modifier = Modifier.fillMaxWidth(), label = { Text("Fingerprint") }, singleLine = true)
-                        OutlinedTextField(value = realitySpiderX, onValueChange = { realitySpiderX = it }, modifier = Modifier.fillMaxWidth(), label = { Text("spiderX") }, singleLine = true)
-                        OutlinedTextField(value = realityFlow, onValueChange = { realityFlow = it }, modifier = Modifier.fillMaxWidth(), label = { Text("Flow (اختیاری: xtls-rprx-vision)") }, singleLine = true)
+                        OutlinedTextField(
+                            value = realityServerName,
+                            onValueChange = {
+                                realityServerName = it
+                                realityFingerprint = "chrome"
+                                realitySpiderX = "/"
+                                realityFlow = ""
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            label = { Text("فقط SNI (مثلاً www.digikala.com)") },
+                            supportingText = { Text("Fingerprint روی chrome و spiderX روی / تنظیم می‌شود. کلید عمومی و shortId باید از همان سرور گرفته شوند.") },
+                            singleLine = true
+                        )
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Checkbox(checked = showAdvancedReality, onCheckedChange = { showAdvancedReality = it })
+                            Text("تنظیمات سرور REALITY")
+                        }
+                        if (showAdvancedReality) {
+                            OutlinedTextField(value = realityPublicKey, onValueChange = { realityPublicKey = it }, modifier = Modifier.fillMaxWidth(), label = { Text("کلید عمومی سرور (pbk)") }, singleLine = true)
+                            OutlinedTextField(value = realityShortId, onValueChange = { realityShortId = it }, modifier = Modifier.fillMaxWidth(), label = { Text("shortId سرور") }, singleLine = true)
+                            OutlinedTextField(value = realityFingerprint, onValueChange = { realityFingerprint = it }, modifier = Modifier.fillMaxWidth(), label = { Text("Fingerprint (پیش‌فرض chrome)") }, singleLine = true)
+                            OutlinedTextField(value = realitySpiderX, onValueChange = { realitySpiderX = it }, modifier = Modifier.fillMaxWidth(), label = { Text("spiderX (پیش‌فرض /)") }, singleLine = true)
+                            OutlinedTextField(value = realityFlow, onValueChange = { realityFlow = it }, modifier = Modifier.fillMaxWidth(), label = { Text("Flow (اختیاری)") }, singleLine = true)
+                        }
                         Button(
                             onClick = {
                                 val profile = parsedProfile
