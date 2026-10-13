@@ -11,7 +11,7 @@
         android:theme="@android:style/Theme.Material.Light.NoActionBar">
         <service
             android:name=".vpn.SpdConVpnService"
-            android:exported="false"
+            android:exported="true"
             android:permission="android.permission.BIND_VPN_SERVICE"
             android:foregroundServiceType="systemExempted">
             <intent-filter>
