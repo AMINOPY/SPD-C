@@ -26,6 +26,8 @@ Do not expose the development API to the public internet without TLS termination
 - `GET/POST /configs`, `PUT/DELETE /configs/{config_id}` — each account can access only its own configs
 - `POST /subscriptions`, `GET /subscriptions/{token}`, `DELETE /subscriptions/{subscription_id}` — high-entropy token shown once, stored as a keyed hash, revocable and optionally expiring
 - `GET /admin/users`, `PATCH /admin/users/{user_id}/limits`
+- `POST /admin/nodes`, `GET /admin/nodes`, `PATCH /admin/nodes/{node_id}/enabled` — enroll, list and disable node credentials
+- `POST /nodes/{node_id}/connections/report` — accept telemetry from an enrolled node using its one-time-issued bearer secret
 - `POST /admin/users/{user_id}/usage`, `GET /admin/usage`
 - `GET/PUT /admin/users/{user_id}/connection-policy` — store per-user IP/concurrency policy preferences
 - `POST /admin/users/{user_id}/connections/report`, `GET /admin/users/{user_id}/connections` — record node-reported source IP, connection state and byte counters; admin-only in this scaffold
@@ -33,12 +35,13 @@ Do not expose the development API to the public internet without TLS termination
 ## Current limitations and safety boundaries
 
 - SQLite with a persistent Docker volume is used for this first single-instance scaffold. The existing PostgreSQL/Redis services are not yet wired into the API. Do not scale multiple API replicas against this SQLite file.
-- The quota counter and connection-observation endpoints accept reports through admin-authenticated API routes. No dedicated node enrollment/credential flow or node agent currently authenticates and sends telemetry; reports are not yet independent live traffic accounting.
+- The initial `node-agent/` bridge authenticates with an enrolled per-node bearer secret, rejects duplicate event IDs and stale events, validates IPs and reports observations. It consumes normalized JSONL events from a trusted runtime adapter; it does not yet parse arbitrary Xray logs or query Xray StatsService automatically.
+- Node telemetry and admin policy APIs still do not enforce restrictions inside a running proxy core. There is no automatic connection-kill, firewall rule, Xray HandlerService integration or runtime configuration push yet. Traffic usage is only as accurate as trusted runtime reports.
 - Connection policies (maximum distinct IPs, concurrent connections and requested action) are stored and evaluated against reported observations to produce alerts. They are **not enforced** by this API: `deny_new_ip` is a policy intent, not a live block, until a trusted node agent checks/enforces it at connection time.
 - Connection records include source IP addresses and byte counters. Restrict admin access, define retention/deletion policy, and avoid collecting client labels unless needed. IPs may change due to mobile networks, carrier NAT, VPNs and IPv6 privacy addressing, so IP count is not a reliable unique-device identity.
 - Subscription payloads currently return the service's normalized JSON profile list, not client-specific v2rayNG, Hiddify, Clash/Mihomo, sing-box or NPV Tunnel subscription formats.
 - Registration/login rate limiting, email verification, password reset, session management UI, audit-log policy, database migrations and production deployment hardening remain to be implemented.
-- No remote node enrollment, Xray-core runtime, live scanner/checker, web admin UI, Hysteria2/TUIC runtime or cross-device sync is implemented by this API scaffold yet.
+- No Xray-core runtime is embedded in this API, and no Hysteria2/TUIC/Backhaul traffic runtime is started by it. The Android app currently builds/exports configurations; it is not yet a bundled VPN runtime. Live scanner/checker and cross-device conflict resolution are also unfinished.
 
 ## Tests
 
@@ -48,4 +51,4 @@ Install `requirements.txt`, then run:
 python -m unittest discover -s tests -v
 ```
 
-The test suite covers password hashing, account isolation, config persistence, subscription revocation, admin quota metadata, connection policy evaluation, IP validation and admin-only connection history.
+The backend test suite covers password hashing, account isolation, config persistence, subscription revocation, admin quota metadata, node enrollment, authenticated/idempotent telemetry, connection policy evaluation and admin-only connection history. Run node-agent tests separately with `python -m unittest discover -s ../node-agent -p 'test_*.py' -v`.
