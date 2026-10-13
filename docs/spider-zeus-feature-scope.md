@@ -25,7 +25,7 @@ Default flow: **profile name → goal → network preset → generate → QR / c
 
 Inspired by SpiderPanel's scanner workflow and Zeus's integrated scanner, but implemented against Spd con's own models:
 
-- Candidate sources: built-in sample, user-pasted IP/CIDR/range, imported text, recent results; later add maintained provider lists and bounded country allocation sampling.
+- Candidate sources: built-in sample, user-pasted IP/CIDR/range, recent results, and bounded country-range sampling from the daily-updated ipverse registration dataset. Sampling is spread across the source prefixes and excludes common non-public IPv4 ranges.
 - Bounded concurrency, supported TLS ports, timeouts, visible errors and measured handshake latency.
 - Separate **TCP reachable**, **TLS hostname verified**, and **end-to-end profile tested**. A TLS handshake alone is not proof of a working proxy or a permanently clean IP.
 - Add pause/cancel, progress checkpoints, persistent scan history, CSV/TXT export and re-scan.
@@ -63,7 +63,7 @@ Already present on the development branch:
 - Optional FastAPI and Cloudflare Worker foundations for accounts/configs/subscriptions.
 
 Still incomplete and must not be presented as finished:
-- Country-based candidate sourcing, IPv6 scanner support, pausing/resuming scans, durable scan history/export, and speed tests. The current DNS probe does not implement SlipNet's full Simple/Advanced/E2E/Prism modes or its signed server-verification protocol.
+- IPv6 scanner support and download/upload speed benchmarks. The current DNS probe does not implement SlipNet's full Simple/Advanced/E2E/Prism modes or its signed server-verification protocol.
 - Device-wide VPN operation via Android `VpnService`/TUN, automatic route and DNS handling, and real device-traffic verification. Xray outbound ping is not a substitute for a live full-device tunnel.
 - Android-to-cloud account/config sync and production-grade Cloudflare deployment management.
 - Full-device Android tunnel operation is not yet implemented. The native Xray core is bundled for config construction and outbound connectivity tests, but `VpnService`/TUN routing, runtime lifecycle UI, and device traffic verification remain unfinished. Trusted server-side quota enforcement and tested automatic endpoint failover also remain unfinished.
