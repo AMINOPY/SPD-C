@@ -112,7 +112,7 @@ import com.spdcon.app.vpn.SpdConVpnService
 private val screenItems = listOf(
     Triple("home", "Home", Icons.Outlined.Home to Icons.Filled.Home),
     Triple("library", "Library", Icons.Outlined.Folder to Icons.Filled.Folder),
-    Triple("create", "Create", Icons.Outlined.AddCircle to Icons.Filled.AddCircle),
+    Triple("ai-con", "AI", Icons.Outlined.AddCircle to Icons.Filled.AddCircle),
     Triple("tools", "Tools", Icons.Outlined.Build to Icons.Filled.Build),
     Triple("more", "More", Icons.Outlined.MoreHoriz to Icons.Filled.MoreHoriz)
 )
@@ -270,7 +270,7 @@ fun SpdConApp(onOpenAdvancedPanel: () -> Unit = {}) {
                         "home" -> HomePage(
                             configCount = profiles.size,
                             favoriteCount = profiles.count { it.favorite },
-                            onCreate = { selected = "create" },
+                            onCreate = { selected = "ai-con" },
                             onAiCon = { selected = "ai-con" },
                             onLibrary = { selected = "library" },
                             onScan = onOpenAdvancedPanel,
