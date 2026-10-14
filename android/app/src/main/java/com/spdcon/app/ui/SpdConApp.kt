@@ -279,6 +279,7 @@ fun SpdConApp(onOpenAdvancedPanel: () -> Unit = {}) {
                         "ai-con" -> AiConPage(
                             profiles = profiles,
                             onBack = { selected = "home" },
+                            onOpenCreate = { selected = "create" },
                             onBuild = { aiProfile ->
                                 store.save(aiProfile).fold(
                                     onSuccess = {
@@ -475,6 +476,7 @@ fun SpdConApp(onOpenAdvancedPanel: () -> Unit = {}) {
 private fun AiConPage(
     profiles: List<ConfigProfile>,
     onBack: () -> Unit,
+    onOpenCreate: () -> Unit,
     onBuild: (ConfigProfile) -> Unit
 ) {
     val context = LocalContext.current
@@ -563,21 +565,24 @@ private fun AiConPage(
         }
         if (profiles.isEmpty()) {
             GlassCard(modifier = Modifier.fillMaxWidth(), cornerRadius = 18.dp) {
-                Text("برای ساخت کانفیگِ واقعاً قابل‌اتصال، ابتدا باید یک نود/سرور معتبر در برنامه تنظیم شود.",
-                    fontWeight = FontWeight.SemiBold)
-                Text("AI_CON خودش کانفیگ را از اینترنت دانلود نمی‌کند؛ بدون آدرس سرور و اطلاعاتی که با سمت سرور هماهنگ باشند، ساختن UUID یا کلید تصادفی اتصال فعال ایجاد نمی‌کند.",
+                Text("فقط یک‌بار سرور را تنظیم کن", fontWeight = FontWeight.SemiBold)
+                Text("بعد از ثبت یک سرور واقعی، AI_CON خودش گزینه‌ها را آزمایش می‌کند، بهترین پروفایل سازگار را با نام AI_CON ذخیره می‌کند و صفحه اتصال را باز می‌کند. لازم نیست هر بار مشخصات را وارد کنی.",
                     color = TextSecondary, fontSize = 12.sp)
+                Spacer(Modifier.height(8.dp))
+                OutlinedButton(onClick = onOpenCreate, modifier = Modifier.fillMaxWidth()) {
+                    Text("تنظیم سرور یک‌بار")
+                }
             }
         }
         progress?.let { Text(it, color = NeonCyan, fontSize = 12.sp) }
         result?.let { Text(it, color = TextSecondary, fontSize = 12.sp) }
         Button(
-            onClick = { startBuild() },
-            enabled = !running && profiles.isNotEmpty(),
+            onClick = { if (profiles.isEmpty()) onOpenCreate() else startBuild() },
+            enabled = !running,
             modifier = Modifier.fillMaxWidth(),
             colors = ButtonDefaults.buttonColors(containerColor = NeonBlue)
         ) {
-            Text(if (running) "در حال بررسی…" else "شروع ساخت AI_CON")
+            Text(if (running) "در حال بررسی…" else if (profiles.isEmpty()) "تنظیم سرور یک‌بار" else "ساخت و اتصال خودکار AI_CON")
         }
         OutlinedButton(onClick = onBack, enabled = !running, modifier = Modifier.fillMaxWidth()) {
             Text("بازگشت")
