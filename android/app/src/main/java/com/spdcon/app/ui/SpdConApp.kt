@@ -707,7 +707,7 @@ private fun CreatePage(
         }
         val desiredNetwork = when {
             selectedProtocol.contains("+ WS") -> "ws"
-            selectedProtocol == "VLESS + Reality" -> "tcp"
+            selectedProtocol in listOf("Shadowsocks", "Hysteria2", "TUIC") -> ""
             else -> "tcp"
         }
         val desiredSecurity = when {
@@ -857,7 +857,7 @@ private fun CreatePage(
                 }
                 builderMessage?.let { Text(it, color = Color(0xFFFFB4A9), fontSize = 12.sp) }
                 if (template != null && !editServerSettings &&
-                    selectedProtocol in listOf("VLESS + WS + TLS", "Trojan + WS + TLS", "VLESS + TLS", "VLESS + Reality", "Trojan", "Shadowsocks", "Hysteria2", "TUIC")) {
+                    selectedProtocol in listOf("VLESS + WS + TLS", "Trojan + WS + TLS", "VLESS + TLS", "VLESS + Reality", "Trojan", "Shadowsocks")) {
                     NeonButton(tr("Quick Generate & Save"), { quickGenerateFromTemplate() }, Modifier.fillMaxWidth())
                     Text("تنظیمات و اعتبارنامهٔ پروفایل واقعی را بدون تغییر حفظ می‌کند؛ فقط نام جدید ذخیره می‌شود تا اتصال از کار نیفتد.",
                         color = TextSecondary, fontSize = 12.sp)
