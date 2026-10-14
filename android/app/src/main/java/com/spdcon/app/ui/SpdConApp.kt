@@ -1,14 +1,11 @@
 package com.spdcon.app.ui
 
-import android.Manifest
 import android.app.Activity
 import android.content.Context
-import android.content.pm.PackageManager
 import android.content.Intent
 import android.net.VpnService
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.core.content.ContextCompat
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -488,10 +485,6 @@ private fun AiConPage(
     var progress by remember { mutableStateOf<String?>(null) }
     var result by remember { mutableStateOf<String?>(null) }
 
-    val radioPermissions = arrayOf(
-        Manifest.permission.READ_PHONE_STATE,
-        Manifest.permission.ACCESS_FINE_LOCATION
-    )
     val startBuild: () -> Unit = {
         if (!running) {
             running = true
@@ -536,13 +529,6 @@ private fun AiConPage(
             }
         }
     }
-    val radioPermissionLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestMultiplePermissions()
-    ) {
-        // Continue even if denied; AI_CON will use whatever network details Android exposes.
-        startBuild()
-    }
-
     LaunchedEffect(Unit) {
         snapshot = withContext(Dispatchers.IO) { AiConEngine.inspectNetwork(context) }
     }
@@ -558,7 +544,7 @@ private fun AiConPage(
             Text("وضعیت اینترنت کاربر", fontWeight = FontWeight.SemiBold)
             Text(snapshot?.detailFa ?: "در حال خواندن اطلاعات شبکه…", color = TextSecondary, fontSize = 12.sp)
             if (snapshot?.radioBand == null) {
-                Text("باند دقیق سیم‌کارت فقط وقتی نمایش داده می‌شود که Android اطلاعات سلول را با مجوز لازم در اختیار برنامه بگذارد.",
+                Text("برای حفظ حریم خصوصی، باند دقیق سیم‌کارت خوانده نمی‌شود؛ انتخاب بر اساس شبکه، سرعت و آزمایش واقعی اتصال انجام می‌شود.",
                     color = TextSecondary, fontSize = 11.sp)
             }
             Spacer(Modifier.height(5.dp))
@@ -570,7 +556,7 @@ private fun AiConPage(
         }
         GlassCard(modifier = Modifier.fillMaxWidth(), cornerRadius = 18.dp) {
             Text("AI چه‌کار می‌کند؟", fontWeight = FontWeight.SemiBold)
-            Text("• نوع شبکه، اطلاعات قابل‌دسترسی سیم‌کارت، DNS و پهنای‌باند را بررسی می‌کند.", color = TextSecondary, fontSize = 12.sp)
+            Text("• بدون دسترسی مکان، تماس‌ها یا مجوز سیم‌کارت؛ نوع شبکه، DNS، سرعت و تونل‌های ذخیره‌شده را بررسی می‌کند.", color = TextSecondary, fontSize = 12.sp)
             Text("• تا ۵ کانفیگِ متصل به نودهای واقعیِ از قبل تنظیم‌شده را با تونل واقعی آزمایش می‌کند.", color = TextSecondary, fontSize = 12.sp)
             Text("• بر اساس موفقیت تونل، تأخیر و سازگاری هسته، گزینهٔ مناسب را انتخاب می‌کند.", color = TextSecondary, fontSize = 12.sp)
             Text("• پروفایل محلی را با نام AI_CON ذخیره می‌کند و سپس درخواست اتصال می‌دهد.", color = TextSecondary, fontSize = 12.sp)
@@ -586,15 +572,7 @@ private fun AiConPage(
         progress?.let { Text(it, color = NeonCyan, fontSize = 12.sp) }
         result?.let { Text(it, color = TextSecondary, fontSize = 12.sp) }
         Button(
-            onClick = {
-                if (!running) {
-                    val missing = radioPermissions.filter {
-                        ContextCompat.checkSelfPermission(context, it) != PackageManager.PERMISSION_GRANTED
-                    }
-                    if (missing.isNotEmpty()) radioPermissionLauncher.launch(missing.toTypedArray())
-                    else startBuild()
-                }
-            },
+            onClick = { startBuild() },
             enabled = !running && profiles.isNotEmpty(),
             modifier = Modifier.fillMaxWidth(),
             colors = ButtonDefaults.buttonColors(containerColor = NeonBlue)
