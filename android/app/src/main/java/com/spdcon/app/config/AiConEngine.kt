@@ -1,18 +1,9 @@
 package com.spdcon.app.config
 
-import android.Manifest
 import android.content.Context
-import android.content.pm.PackageManager
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.net.LinkProperties
-import android.os.Build
-import android.telephony.CellInfoLte
-import android.telephony.CellInfoNr
-import android.telephony.CellIdentityNr
-import android.telephony.CellInfoWcdma
-import android.telephony.TelephonyManager
-import androidx.core.content.ContextCompat
 import java.net.HttpURLConnection
 import java.net.URL
 
@@ -66,10 +57,8 @@ object AiConEngine {
             else -> "unknown"
         }
         val validated = capabilities?.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED) == true
-        val telephony = context.getSystemService(Context.TELEPHONY_SERVICE) as? TelephonyManager
-        val carrier = runCatching { telephony?.networkOperatorName?.takeIf { it.isNotBlank() } }.getOrNull()
-        val radio = runCatching { telephony?.dataNetworkType?.let(::radioLabel) }.getOrNull()
-        val cellDetails = readCellDetails(context, telephony)
+        // Do not request phone-state, call-log, or location permissions.
+        // Android exposes transport/bandwidth/DNS without those sensitive permissions.
         val down = capabilities?.linkDownstreamBandwidthKbps?.takeIf { it > 0 }
         val up = capabilities?.linkUpstreamBandwidthKbps?.takeIf { it > 0 }
         val dns = links?.dnsServers.orEmpty().mapNotNull { runCatching { it.hostAddress }.getOrNull() }.distinct()
@@ -81,22 +70,20 @@ object AiConEngine {
                 "vpn" -> "شبکه از مسیر VPN"
                 else -> "نوع شبکه نامشخص"
             })
-            if (!carrier.isNullOrBlank()) add("اپراتور: $carrier")
-            if (!radio.isNullOrBlank()) add("نسل شبکه: $radio")
-            if (!cellDetails.first.isNullOrBlank()) add("باند: ${cellDetails.first}")
             if (down != null) add("پهنای‌باند اعلام‌شدهٔ دانلود: ${"%.1f".format(down / 1000.0)} Mbps")
+            if (up != null) add("پهنای‌باند اعلام‌شدهٔ آپلود: ${"%.1f".format(up / 1000.0)} Mbps")
             add(if (validated) "اینترنت توسط Android تأیید شده" else "اینترنت تأیید نشده")
-            if (cellDetails.second != null) add("قدرت سیگنال: ${cellDetails.second} dBm")
+            if (dns.isNotEmpty()) add("DNS در دسترس است")
         }.joinToString(" • ")
         return AiConNetworkSnapshot(
             transport = transport,
             validatedInternet = validated,
             downstreamKbps = down,
             upstreamKbps = up,
-            carrierName = carrier,
-            radioTechnology = radio,
-            radioBand = cellDetails.first,
-            signalDbm = cellDetails.second,
+            carrierName = null,
+            radioTechnology = null,
+            radioBand = null,
+            signalDbm = null,
             dnsServers = dns,
             detailFa = summary
         )
@@ -182,38 +169,4 @@ object AiConEngine {
         favorite = false
     )
 
-    private fun readCellDetails(context: Context, telephony: TelephonyManager?): Pair<String?, Int?> {
-        val hasLocation = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
-            ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
-        if (!hasLocation || Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return null to null
-        return runCatching {
-            val cell = telephony?.allCellInfo?.firstOrNull { it.isRegistered }
-            when (cell) {
-                is CellInfoLte -> "LTE (EARFCN ${cell.cellIdentity.earfcn})" to cell.cellSignalStrength.dbm
-                is CellInfoNr -> {
-                    val identity = cell.cellIdentity as? CellIdentityNr
-                    "5G NR (NRARFCN ${identity?.nrarfcn ?: "نامشخص"})" to cell.cellSignalStrength.dbm
-                }
-                is CellInfoWcdma -> "WCDMA" to cell.cellSignalStrength.dbm
-                else -> null to null
-            }
-        }.getOrElse { null to null }
-    }
-
-    private fun radioLabel(type: Int): String = when (type) {
-        TelephonyManager.NETWORK_TYPE_GPRS -> "2G GPRS"
-        TelephonyManager.NETWORK_TYPE_EDGE -> "2G EDGE"
-        TelephonyManager.NETWORK_TYPE_UMTS -> "3G UMTS"
-        TelephonyManager.NETWORK_TYPE_HSDPA -> "3G HSDPA"
-        TelephonyManager.NETWORK_TYPE_HSUPA -> "3G HSUPA"
-        TelephonyManager.NETWORK_TYPE_HSPA -> "3G HSPA"
-        TelephonyManager.NETWORK_TYPE_LTE -> "4G LTE"
-        TelephonyManager.NETWORK_TYPE_NR -> "5G NR"
-        TelephonyManager.NETWORK_TYPE_EHRPD -> "3G eHRPD"
-        TelephonyManager.NETWORK_TYPE_HSPAP -> "3G HSPA+"
-        TelephonyManager.NETWORK_TYPE_GSM -> "2G GSM"
-        TelephonyManager.NETWORK_TYPE_TD_SCDMA -> "3G TD-SCDMA"
-        TelephonyManager.NETWORK_TYPE_IWLAN -> "Wi-Fi calling"
-        else -> "نامشخص ($type)"
-    }
 }
