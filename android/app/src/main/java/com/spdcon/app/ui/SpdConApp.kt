@@ -695,59 +695,52 @@ private fun CreatePage(
     var shortId by remember(template) { mutableStateOf(template?.parameters?.get("sid").orEmpty()) }
     var editServerSettings by remember(template) { mutableStateOf(template == null) }
 
+    var builderMessage by remember { mutableStateOf<String?>(null) }
+
     fun quickGenerateFromTemplate() {
-        val sourceProfile = existingProfiles.firstOrNull { it.server == server && it.port == (port.toIntOrNull() ?: -1) }
-            ?: template ?: return
-        val protocol = when {
+        val desiredProtocol = when {
             selectedProtocol.startsWith("Trojan") -> ConfigProtocol.TROJAN
+            selectedProtocol == "Shadowsocks" -> ConfigProtocol.SHADOWSOCKS
+            selectedProtocol == "Hysteria2" -> ConfigProtocol.HYSTERIA2
+            selectedProtocol == "TUIC" -> ConfigProtocol.TUIC
             else -> ConfigProtocol.VLESS
         }
-        val websocket = selectedProtocol.contains("+ WS")
-        val reality = selectedProtocol == "VLESS + Reality"
-        val generatedCredential = if (protocol == ConfigProtocol.VLESS) UUID.randomUUID().toString()
-            else UUID.randomUUID().toString().replace("-", "")
-        val parameters = sourceProfile.parameters.toMutableMap()
-        if (sni.isNotBlank()) parameters["sni"] = sni.trim()
-        if (reality) {
-            parameters["pbk"] = publicKey.trim().ifBlank { sourceProfile.parameters["pbk"].orEmpty() }
-            parameters["sid"] = shortId.trim().ifBlank { sourceProfile.parameters["sid"].orEmpty() }
-        } else {
-            parameters.remove("pbk")
-            parameters.remove("sid")
-            parameters.remove("flow")
+        val desiredNetwork = when {
+            selectedProtocol.contains("+ WS") -> "ws"
+            selectedProtocol == "VLESS + Reality" -> "tcp"
+            else -> "tcp"
         }
-        if (websocket) {
-            parameters["path"] = wsPath.trim().ifBlank { "/ws" }
-            if (host.isNotBlank()) parameters["host"] = host.trim()
-        } else {
-            parameters.remove("path")
-            parameters.remove("host")
+        val desiredSecurity = when {
+            selectedProtocol == "VLESS + Reality" -> "reality"
+            selectedProtocol.contains("+ TLS") || selectedProtocol == "VLESS + TLS" -> "tls"
+            selectedProtocol == "Trojan" -> null
+            selectedProtocol == "Shadowsocks" || selectedProtocol == "Hysteria2" || selectedProtocol == "TUIC" -> null
+            else -> "tls"
+        }
+        val wantedServer = server.trim()
+        val wantedPort = port.toIntOrNull()
+        val sourceProfile = existingProfiles.firstOrNull { profile ->
+            profile.server.equals(wantedServer, ignoreCase = true) &&
+                (wantedPort == null || profile.port == wantedPort) &&
+                profile.protocol == desiredProtocol &&
+                (desiredNetwork.isBlank() || profile.network.equals(desiredNetwork, ignoreCase = true)) &&
+                (desiredSecurity == null || profile.security.equals(desiredSecurity, ignoreCase = true))
+        }
+        if (sourceProfile == null) {
+            builderMessage = "برای این روش، پروفایل واقعیِ ذخیره‌شده‌ای با همین سرور و پروتکل پیدا نشد. ساختن UUID یا عوض‌کردن پروتکل فقط داخل گوشی، کاربر را روی سرور ایجاد نمی‌کند؛ اول یک پروفایل/نود واقعی و سازگار وارد کن."
+            return
         }
         val profileName = name.trim().ifBlank { "Spd con config" }
-        val baseProfile = sourceProfile.copy(
+        // Duplicate only a known profile that has already been configured on the server.
+        // Never invent a new UUID/password or silently change transport/protocol locally.
+        val generated = sourceProfile.copy(
             name = profileName,
-            server = server.trim(),
-            port = port.toIntOrNull() ?: sourceProfile.port,
-            protocol = protocol,
-            credential = generatedCredential,
-            network = if (websocket) "ws" else "tcp",
-            security = if (reality) "reality" else "tls",
-            parameters = parameters,
-            remark = profileName
+            remark = profileName,
+            tags = (sourceProfile.tags + "local-copy").distinct().take(12),
+            favorite = false
         )
-        val generated = mutableListOf(baseProfile)
-        if (websocket && generateBothWebSocket) {
-            val otherProtocol = if (protocol == ConfigProtocol.VLESS) ConfigProtocol.TROJAN else ConfigProtocol.VLESS
-            val otherCredential = if (otherProtocol == ConfigProtocol.VLESS) UUID.randomUUID().toString()
-                else UUID.randomUUID().toString().replace("-", "")
-            generated += baseProfile.copy(
-                name = profileName + " (" + otherProtocol.name + ")",
-                protocol = otherProtocol,
-                credential = otherCredential,
-                remark = profileName + " (" + otherProtocol.name + ")"
-            )
-        }
-        onGenerate(generated)
+        builderMessage = null
+        onGenerate(listOf(generated))
     }
 
     Column(
@@ -757,6 +750,7 @@ private fun CreatePage(
     ) {
         Text(tr("Create Config"), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
         Text(tr("Build a valid share link and save it to your local library."), color = TextSecondary, fontSize = 13.sp)
+        Text("ساخت لینک به‌تنهایی روی سرور کاربر جدید نمی‌سازد؛ برای اتصال، اطلاعات ورود باید از قبل روی سرور تنظیم شده باشد.", color = TextSecondary, fontSize = 12.sp)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             (1..3).forEach { n ->
                 Box(Modifier.weight(1f).height(4.dp).clip(CircleShape)
@@ -861,10 +855,11 @@ private fun CreatePage(
                         color = TextSecondary, fontSize = 12.sp
                     )
                 }
+                builderMessage?.let { Text(it, color = Color(0xFFFFB4A9), fontSize = 12.sp) }
                 if (template != null && !editServerSettings &&
-                    selectedProtocol in listOf("VLESS + WS + TLS", "Trojan + WS + TLS", "VLESS + TLS", "VLESS + Reality", "Trojan")) {
+                    selectedProtocol in listOf("VLESS + WS + TLS", "Trojan + WS + TLS", "VLESS + TLS", "VLESS + Reality", "Trojan", "Shadowsocks", "Hysteria2", "TUIC")) {
                     NeonButton(tr("Quick Generate & Save"), { quickGenerateFromTemplate() }, Modifier.fillMaxWidth())
-                    Text(tr("Use the saved server settings, generate a new credential, and save immediately."),
+                    Text("تنظیمات و اعتبارنامهٔ پروفایل واقعی را بدون تغییر حفظ می‌کند؛ فقط نام جدید ذخیره می‌شود تا اتصال از کار نیفتد.",
                         color = TextSecondary, fontSize = 12.sp)
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
