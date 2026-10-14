@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Spd con · Config Hub</title>
+  <style>
+    :root{color-scheme:dark;--bg:#0b1220;--panel:#121c2e;--line:#27354b;--text:#edf3ff;--muted:#a6b4c9;--accent:#62d6c5;--bad:#ff8d9a}
+    *{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at top,#172c43,var(--bg) 60%);color:var(--text);font:15px system-ui,-apple-system,"Segoe UI",sans-serif;min-height:100vh}
+    main{max-width:1050px;margin:auto;padding:24px 16px 60px}.top{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:22px}
+    h1{font-size:27px;margin:0}h2{font-size:19px;margin:0 0 14px}.muted{color:var(--muted);font-size:13px}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px}
+    .card{background:rgba(18,28,46,.94);border:1px solid var(--line);border-radius:16px;padding:18px;box-shadow:0 10px 30px #0002}
+    label{display:block;color:var(--muted);font-size:13px;margin:12px 0 5px}input,textarea,select{width:100%;background:#0a1322;color:var(--text);border:1px solid #35455f;border-radius:10px;padding:11px;font:inherit}
+    textarea{min-height:115px;direction:ltr;text-align:left}button{border:0;border-radius:10px;background:var(--accent);color:#07201f;padding:10px 14px;font-weight:700;cursor:pointer;margin-top:12px}
+    button.secondary{background:#273950;color:var(--text)}button.danger{background:#532934;color:#ffe9ec}.row{display:flex;gap:8px;flex-wrap:wrap}.row>*{flex:1}
+    .hidden{display:none!important}.notice{padding:10px 12px;border-radius:10px;margin:12px 0;background:#1c3445;color:#d7fff7}.error{background:#47222c;color:#ffe5e8}
+    .item{border:1px solid var(--line);border-radius:10px;padding:12px;margin-top:8px;overflow-wrap:anywhere}.item strong{display:block}.item small{color:var(--muted)}
+    .pill{display:inline-block;border:1px solid #426078;border-radius:99px;padding:3px 8px;font-size:12px;color:#bdece4}
+    @media(max-width:520px){main{padding:16px 10px}.top{align-items:flex-start;flex-direction:column}h1{font-size:23px}}
+  </style>
+</head>
+<body>
+<main>
+  <header class="top"><div><h1>Spd con <span class="pill">Config Hub</span></h1><div class="muted">مدیریت کانفیگ‌ها و اشتراک‌ها · نسخه آزمایشی</div></div><button id="logout" class="secondary hidden">خروج</button></header>
+  <div id="message" class="notice hidden" role="status"></div>
+  <section id="auth" class="grid">
+    <div class="card"><h2>ورود</h2><label for="login-user">نام کاربری</label><input id="login-user" autocomplete="username">
+      <label for="login-pass">رمز عبور</label><input id="login-pass" type="password" autocomplete="current-password">
+      <button id="login">ورود به پنل</button></div>
+    <div class="card"><h2>ساخت حساب</h2><p class="muted">رمز عبور باید حداقل ۱۲ نویسه داشته باشد.</p>
+      <label for="reg-user">نام کاربری</label><input id="reg-user" autocomplete="username">
+      <label for="reg-pass">رمز عبور</label><input id="reg-pass" type="password" autocomplete="new-password">
+      <button id="register" class="secondary">ثبت‌نام</button></div>
+  </section>
+  <section id="dashboard" class="hidden">
+    <div class="grid">
+      <div class="card"><h2>پروفایل جدید</h2>
+        <label for="config-name">نام</label><input id="config-name" placeholder="مثلاً سرور اصلی">
+        <label for="config-protocol">پروتکل</label><select id="config-protocol"><option>vless</option><option>vmess</option><option>trojan</option><option>shadowsocks</option><option>hysteria2</option><option>tuic</option></select>
+        <label for="config-json">اطلاعات پروفایل به شکل JSON</label><textarea id="config-json" spellcheck="false" placeholder='{"server":"example.org","port":443,"credential":"..."}'></textarea>
+        <button id="save-config">ذخیره پروفایل</button></div>
+      <div class="card"><h2>اشتراک</h2><p class="muted">لینک محرمانه است؛ فقط برای کاربر موردنظر ارسالش کنید.</p>
+        <label for="sub-expiry">انقضا (Unix timestamp؛ اختیاری)</label><input id="sub-expiry" inputmode="numeric" placeholder="خالی = بدون انقضای مستقل">
+        <button id="create-sub">ساخت لینک اشتراک</button><div id="sub-result"></div>
+        <p class="muted">این نسخه پاسخ JSON عمومی می‌دهد؛ خروجی اختصاصی کلاینت‌ها هنوز کامل نشده است.</p></div>
+    </div>
+    <div class="card" style="margin-top:14px"><div class="row" style="align-items:center"><h2 style="margin:0">کتابخانه کانفیگ‌ها</h2><button id="refresh" class="secondary" style="flex:0 0 auto">بروزرسانی</button></div><div id="configs"></div></div>
+    <div id="admin-card" class="card hidden" style="margin-top:14px"><h2>مدیریت کاربران (Admin)</h2><div id="users"></div></div>
+  </section>
+  <footer class="muted" style="margin-top:20px">Spd con · این پنل اولیه است. پیش از استفاده عمومی، HTTPS، محدودسازی درخواست‌ها و بررسی امنیتی لازم است.</footer>
+</main>
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  let token = sessionStorage.getItem("spdcon_token") || "";
+  let me = null;
+  const message = (text, error=false) => {
+    $("message").textContent = text;
+    $("message").classList.toggle("hidden", !text);
+    $("message").classList.toggle("error", error);
+  };
+  async function api(path, options={}) {
+    const headers = {"Content-Type":"application/json", ...(options.headers||{})};
+    if (token) headers.Authorization = "Bearer " + token;
+    const response = await fetch(path, {...options, headers});
+    if (response.status === 204) return null;
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(body.detail || ("خطای " + response.status));
+    return body;
+  }
+  function showLoggedIn() {
+    $("auth").classList.toggle("hidden", !!token);
+    $("dashboard").classList.toggle("hidden", !token);
+    $("logout").classList.toggle("hidden", !token);
+  }
+  async function refresh() {
+    me = await api("/users/me");
+    showLoggedIn();
+    $("admin-card").classList.toggle("hidden", me.role !== "admin");
+    const configs = await api("/configs");
+    $("configs").replaceChildren();
+    if (!configs.length) $("configs").textContent = "هنوز کانفیگی ذخیره نشده است.";
+    configs.forEach(item => {
+      const box = document.createElement("div"); box.className = "item";
+      const title = document.createElement("strong"); title.textContent = item.name;
+      const detail = document.createElement("small"); detail.textContent = item.protocol.toUpperCase() + " · " + item.id;
+      const del = document.createElement("button"); del.className = "danger"; del.textContent = "حذف";
+      del.addEventListener("click", async () => { try { await api("/configs/" + encodeURIComponent(item.id), {method:"DELETE"}); await refresh(); message("کانفیگ حذف شد."); } catch(e) { message(e.message,true); } });
+      box.append(title, detail, del); $("configs").append(box);
+    });
+    if (me.role === "admin") {
+      const users = await api("/admin/users"); $("users").replaceChildren();
+      users.forEach(user => {
+        const box = document.createElement("div"); box.className = "item";
+        const title = document.createElement("strong"); title.textContent = user.username + " · " + user.role;
+        const usage = document.createElement("small"); usage.textContent = "مصرف ثبت‌شده: " + user.used_bytes + " بایت";
+        const quota = document.createElement("input"); quota.type = "number"; quota.min = "0"; quota.value = user.quota_bytes;
+        quota.setAttribute("aria-label", "سقف حجم بایت برای " + user.username);
+        const enabled = document.createElement("select"); enabled.innerHTML = '<option value="true">فعال</option><option value="false">غیرفعال</option>'; enabled.value = String(user.enabled);
+        const save = document.createElement("button"); save.textContent = "ذخیره محدودیت";
+        save.addEventListener("click", async () => { try { await api("/admin/users/" + encodeURIComponent(user.id) + "/limits", {method:"PATCH",body:JSON.stringify({quota_bytes:Number(quota.value),expires_at:user.expires_at,enabled:enabled.value==="true"})}); message("محدودیت ذخیره شد."); await refresh(); } catch(e) { message(e.message,true); } });
+        box.append(title, usage, quota, enabled, save); $("users").append(box);
+      });
+    }
+  }
+  $("login").addEventListener("click", async () => { try { const r = await api("/auth/login",{method:"POST",body:JSON.stringify({username:$("login-user").value,password:$("login-pass").value})}); token=r.access_token; sessionStorage.setItem("spdcon_token",token); await refresh(); message("ورود موفق بود."); } catch(e) { message(e.message,true); } });
+  $("register").addEventListener("click", async () => { try { await api("/auth/register",{method:"POST",body:JSON.stringify({username:$("reg-user").value,password:$("reg-pass").value})}); message("حساب ساخته شد؛ حالا وارد شوید."); $("login-user").value=$("reg-user").value; $("login-pass").value=$("reg-pass").value; } catch(e) { message(e.message,true); } });
+  $("logout").addEventListener("click", async () => { try { await api("/auth/logout",{method:"POST"}); } catch(_) {} token=""; sessionStorage.removeItem("spdcon_token"); showLoggedIn(); message("خارج شدید."); });
+  $("save-config").addEventListener("click", async () => { try { const profile=JSON.parse($("config-json").value); await api("/configs",{method:"POST",body:JSON.stringify({name:$("config-name").value,protocol:$("config-protocol").value,profile})}); message("کانفیگ ذخیره شد."); await refresh(); } catch(e) { message(e instanceof SyntaxError ? "JSON پروفایل معتبر نیست." : e.message,true); } });
+  $("create-sub").addEventListener("click", async () => { try { const raw=$("sub-expiry").value.trim(); const payload=raw?{expires_at:Number(raw)}:{}; const result=await api("/subscriptions",{method:"POST",body:JSON.stringify(payload)}); const link=result.url.startsWith("http://")||result.url.startsWith("https://")?result.url:location.origin+result.url; const out=document.createElement("div"); out.className="item"; const val=document.createElement("input"); val.readOnly=true; val.value=link; val.setAttribute("aria-label","لینک اشتراک"); const copy=document.createElement("button"); copy.textContent="کپی لینک"; copy.addEventListener("click",async()=>{await navigator.clipboard.writeText(link);message("لینک کپی شد.");}); out.append(val,copy); $("sub-result").replaceChildren(out); message("لینک ساخته شد؛ آن را محرمانه نگه دارید."); } catch(e) { message(e.message,true); } });
+  $("refresh").addEventListener("click", async () => { try { await refresh(); message("اطلاعات بروزرسانی شد."); } catch(e) { message(e.message,true); } });
+  showLoggedIn();
+  if (token) refresh().catch(e => {token="";sessionStorage.removeItem("spdcon_token");showLoggedIn();message(e.message,true);});
+})();
+</script>
+</body>
+</html>

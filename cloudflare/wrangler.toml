@@ -1,0 +1,14 @@
+name = "spd-con-api"
+main = "src/index.js"
+compatibility_date = "2026-10-13"
+workers_dev = true
+
+[vars]
+PUBLIC_BASE_URL = ""
+ALLOWED_ORIGINS = ""
+
+[[d1_databases]]
+binding = "DB"
+database_name = "spd-con-db"
+database_id = "REPLACE_WITH_D1_DATABASE_ID"
+migrations_dir = "migrations"

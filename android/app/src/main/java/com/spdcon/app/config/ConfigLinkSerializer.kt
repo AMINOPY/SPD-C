@@ -1,0 +1,106 @@
+package com.spdcon.app.config
+
+import java.net.URLEncoder
+import java.nio.charset.StandardCharsets
+import java.util.Base64
+import org.json.JSONObject
+
+object ConfigLinkSerializer {
+    fun serialize(profile: ConfigProfile): Result<String> = runCatching {
+        val errors = profile.validate()
+        require(errors.isEmpty()) { errors.joinToString("; ") }
+        when (profile.protocol) {
+            ConfigProtocol.VLESS -> serializeUriProfile(profile, "vless")
+            ConfigProtocol.TROJAN -> serializeUriProfile(profile, "trojan")
+            ConfigProtocol.SHADOWSOCKS -> serializeShadowsocks(profile)
+            ConfigProtocol.VMESS -> serializeVmess(profile)
+            ConfigProtocol.HYSTERIA2 -> serializeHysteria2(profile)
+            ConfigProtocol.TUIC -> serializeTuic(profile)
+        }
+    }
+
+    private fun serializeUriProfile(profile: ConfigProfile, scheme: String): String {
+        val query = linkedMapOf<String, String>()
+        query["type"] = profile.network
+        query["security"] = profile.security
+        profile.parameters
+            .filterKeys { it !in setOf("type", "network", "security", "country", "blockAdult", "ipVariant", "workerRoute") }
+            .toSortedMap()
+            .forEach { (key, value) -> if (value.isNotBlank() || key == "sid") query[key] = value }
+        val queryText = query.entries.joinToString("&") { (key, value) ->
+            "${encode(key)}=${encode(value)}"
+        }
+        val remark = profile.remark ?: profile.name
+        val host = if (profile.server.contains(":") && !profile.server.startsWith("[")) "[${profile.server}]" else profile.server
+        return "$scheme://${encodeUserInfo(profile.credential)}@$host:${profile.port}?$queryText#${encode(remark)}"
+    }
+
+    private fun serializeShadowsocks(profile: ConfigProfile): String {
+        val method = profile.parameters["method"]
+            ?: throw IllegalArgumentException("Shadowsocks encryption method is required")
+        val host = if (profile.server.contains(":") && !profile.server.startsWith("[")) "[${profile.server}]" else profile.server
+        val userInfo = "$method:${profile.credential}@$host:${profile.port}"
+        val encoded = Base64.getUrlEncoder().withoutPadding()
+            .encodeToString(userInfo.toByteArray(StandardCharsets.UTF_8))
+        val query = profile.parameters.filterKeys { it != "method" }.toSortedMap()
+            .filterValues { it.isNotBlank() }
+            .entries.joinToString("&") { (key, value) -> "${encode(key)}=${encode(value)}" }
+        val querySuffix = if (query.isBlank()) "" else "?$query"
+        val remark = profile.remark ?: profile.name
+        return "ss://$encoded$querySuffix#${encode(remark)}"
+    }
+
+    private fun serializeHysteria2(profile: ConfigProfile): String {
+        val query = profile.parameters
+            .filterKeys { it !in setOf("type", "network", "security", "country", "blockAdult", "method", "password") }
+            .toSortedMap()
+            .filterValues { it.isNotBlank() }
+            .entries.joinToString("&") { (key, value) -> "${encode(key)}=${encode(value)}" }
+        val host = if (profile.server.contains(":") && !profile.server.startsWith("[")) "[${profile.server}]" else profile.server
+        val querySuffix = if (query.isBlank()) "" else "?$query"
+        val remark = profile.remark ?: profile.name
+        return "hysteria2://${encode(profile.credential)}@$host:${profile.port}/$querySuffix#${encode(remark)}"
+    }
+
+    private fun serializeTuic(profile: ConfigProfile): String {
+        val password = profile.parameters["password"]
+            ?: throw IllegalArgumentException("TUIC password is required")
+        val query = profile.parameters
+            .filterKeys { it !in setOf("type", "network", "security", "country", "blockAdult", "password", "method") }
+            .toSortedMap()
+            .filterValues { it.isNotBlank() }
+            .entries.joinToString("&") { (key, value) -> "${encode(key)}=${encode(value)}" }
+        val host = if (profile.server.contains(":") && !profile.server.startsWith("[")) "[${profile.server}]" else profile.server
+        val querySuffix = if (query.isBlank()) "" else "?$query"
+        val remark = profile.remark ?: profile.name
+        return "tuic://${encode(profile.credential)}:${encode(password)}@$host:${profile.port}$querySuffix#${encode(remark)}"
+    }
+
+    private fun serializeVmess(profile: ConfigProfile): String {
+        val json = JSONObject()
+            .put("v", "2")
+            .put("ps", profile.remark ?: profile.name)
+            .put("add", profile.server)
+            .put("port", profile.port.toString())
+            .put("id", profile.credential)
+            .put("aid", profile.parameters["aid"] ?: "0")
+            .put("scy", profile.parameters["scy"] ?: "auto")
+            .put("net", profile.parameters["net"] ?: profile.network)
+            .put("host", profile.parameters["host"] ?: "")
+            .put("path", profile.parameters["path"] ?: "")
+            .put("sni", profile.parameters["sni"] ?: "")
+            .put("alpn", profile.parameters["alpn"] ?: "")
+            .put("fp", profile.parameters["fp"] ?: "")
+            .put("type", profile.parameters["headerType"] ?: profile.parameters["type"] ?: "none")
+            .put("tls", profile.parameters["tls"] ?: if (profile.security == "tls") "tls" else "")
+        val encoded = Base64.getEncoder()
+            .encodeToString(json.toString().toByteArray(StandardCharsets.UTF_8))
+        return "vmess://$encoded"
+    }
+
+    private fun encode(value: String): String =
+        URLEncoder.encode(value, StandardCharsets.UTF_8.name()).replace("+", "%20")
+
+    private fun encodeUserInfo(value: String): String =
+        encode(value).replace("%3A", ":")
+}

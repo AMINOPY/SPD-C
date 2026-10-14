@@ -1,0 +1,1458 @@
+package com.spdcon.app.ui
+
+import android.app.Activity
+import android.content.Context
+import android.content.Intent
+import android.net.VpnService
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.AddCircle
+import androidx.compose.material.icons.filled.Analytics
+import androidx.compose.material.icons.filled.Build
+import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.MoreHoriz
+import androidx.compose.material.icons.filled.QrCodeScanner
+import androidx.compose.material.icons.filled.Security
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.outlined.AddCircle
+import androidx.compose.material.icons.outlined.Build
+import androidx.compose.material.icons.outlined.Folder
+import androidx.compose.material.icons.outlined.Home
+import androidx.compose.material.icons.outlined.MoreHoriz
+import androidx.compose.material.icons.outlined.StarBorder
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.runtime.staticCompositionLocalOf
+import com.spdcon.app.config.ConfigLibraryStore
+import com.spdcon.app.config.ConfigLinkSerializer
+import com.spdcon.app.config.ConfigClientExporters
+import com.spdcon.app.config.ConfigExportTarget
+import com.spdcon.app.config.ConfigProfile
+import com.spdcon.app.config.ConfigProtocol
+import com.spdcon.app.config.OfflineConfigBuilderEngine
+import com.spdcon.app.ui.theme.DeepNavy
+import com.spdcon.app.ui.theme.NeonBlue
+import com.spdcon.app.ui.theme.NeonCyan
+import com.spdcon.app.ui.theme.SpdConTheme
+import com.spdcon.app.ui.theme.SuccessGreen
+import com.spdcon.app.ui.theme.SurfaceGlass
+import com.spdcon.app.ui.theme.SurfaceGlassLight
+import com.spdcon.app.ui.theme.TextSecondary
+import java.util.UUID
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import com.spdcon.app.config.ConnectionDiagnosticRunner
+import com.spdcon.app.config.ConnectionStrategySelector
+import com.spdcon.app.config.TunnelSelectionGoal
+import com.spdcon.app.config.TunnelMethodAdvisor
+import com.spdcon.app.config.AiConEngine
+import com.spdcon.app.vpn.SpdConVpnService
+
+private val screenItems = listOf(
+    Triple("home", "Home", Icons.Outlined.Home to Icons.Filled.Home),
+    Triple("library", "Library", Icons.Outlined.Folder to Icons.Filled.Folder),
+    Triple("ai-con", "AI", Icons.Outlined.AddCircle to Icons.Filled.AddCircle),
+    Triple("tools", "Tools", Icons.Outlined.Build to Icons.Filled.Build),
+    Triple("more", "More", Icons.Outlined.MoreHoriz to Icons.Filled.MoreHoriz)
+)
+
+@Composable
+fun SpdConApp(onOpenAdvancedPanel: () -> Unit = {}) {
+    val context = LocalContext.current
+    val languagePrefs = remember(context) { context.getSharedPreferences("spdcon-language", Context.MODE_PRIVATE) }
+    var appLanguage by remember {
+        mutableStateOf(AppLanguage.fromCode(languagePrefs.getString("language", "en") ?: "en"))
+    }
+    val setAppLanguage: (AppLanguage) -> Unit = { next ->
+        appLanguage = next
+        languagePrefs.edit().putString("language", next.code).apply()
+    }
+    val clipboard = LocalClipboardManager.current
+    val store = remember(context) { ConfigLibraryStore(context) }
+    var profiles by remember { mutableStateOf(store.loadAll()) }
+    var selected by remember { mutableStateOf("home") }
+    var scannerServerIp by remember { mutableStateOf<String?>(null) }
+    var scannerSni by remember { mutableStateOf<String?>(null) }
+    var generatedLink by remember { mutableStateOf<String?>(null) }
+    var generatedServerSetup by remember { mutableStateOf<String?>(null) }
+    var dialogMessage by remember { mutableStateOf<String?>(null) }
+    var selectedProfileName by remember { mutableStateOf<String?>(null) }
+    val generatedQr = remember(generatedLink) {
+        generatedLink?.let { com.spdcon.app.createQrBitmap(it)?.asImageBitmap() }
+    }
+    val bothProtocolsSavedMessage = tr("Both VLESS and Trojan WebSocket profiles were saved. The QR dialog shows the first link; both are available in Library.")
+    var pendingVpnProfile by remember { mutableStateOf<ConfigProfile?>(null) }
+    var pendingVpnFragment by remember { mutableStateOf(true) }
+    var vpnState by remember { mutableStateOf("disconnected") }
+    LaunchedEffect(context) {
+        while (true) {
+            vpnState = context.getSharedPreferences(SpdConVpnService.PREFS, Context.MODE_PRIVATE)
+                .getString("status", "disconnected") ?: "disconnected"
+            delay(1_000)
+        }
+    }
+
+    fun beginVpn(profile: ConfigProfile, useFragment: Boolean = true) {
+        if (profile.protocol == ConfigProtocol.TUIC || profile.protocol == ConfigProtocol.HYSTERIA2) {
+            dialogMessage = "${profile.protocol.name} is not supported by the bundled Xray-core runtime yet. Choose VLESS, VMess, Trojan or Shadowsocks for this VPN engine."
+            return
+        }
+        ConfigLinkSerializer.serialize(profile).fold(
+            onSuccess = { link ->
+                val serviceIntent = Intent(context, SpdConVpnService::class.java)
+                    .setAction(SpdConVpnService.ACTION_START)
+                    .putExtra(SpdConVpnService.EXTRA_LINK, link)
+                    .putExtra(SpdConVpnService.EXTRA_NAME, profile.name)
+                    .putExtra(SpdConVpnService.EXTRA_FRAGMENT_ENABLED, useFragment &&
+                        (profile.security.equals("tls", true) || profile.security.equals("reality", true)) &&
+                        profile.network.lowercase() !in setOf("udp", "quic"))
+                runCatching { context.startForegroundService(serviceIntent) }
+                    .onSuccess { dialogMessage = "VPN startup requested. Android will show the active VPN notification; actual server reachability still needs verification." }
+                    .onFailure { dialogMessage = "Could not start VPN service: ${it.message}" }
+            },
+            onFailure = { dialogMessage = "Invalid config: ${it.message}" }
+        )
+    }
+
+    val vpnPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        val profile = pendingVpnProfile
+        val useFragment = pendingVpnFragment
+        pendingVpnProfile = null
+        if (result.resultCode == Activity.RESULT_OK && profile != null) {
+            beginVpn(profile, useFragment)
+        } else {
+            dialogMessage = "VPN permission was not granted."
+        }
+    }
+
+    fun requestVpn(profile: ConfigProfile, useFragment: Boolean = true) {
+        if (profile.protocol == ConfigProtocol.TUIC || profile.protocol == ConfigProtocol.HYSTERIA2) {
+            dialogMessage = "${profile.protocol.name} needs a compatible sing-box-based runtime; the bundled Xray core cannot run it."
+            return
+        }
+        val permissionIntent = VpnService.prepare(context)
+        if (permissionIntent == null) {
+            beginVpn(profile, useFragment)
+        } else {
+            pendingVpnProfile = profile
+            pendingVpnFragment = useFragment
+            vpnPermissionLauncher.launch(permissionIntent)
+        }
+    }
+
+    fun disconnectVpn() {
+        runCatching {
+            context.startService(Intent(context, SpdConVpnService::class.java).setAction(SpdConVpnService.ACTION_STOP))
+        }.onSuccess {
+            dialogMessage = "Disconnect requested. Check the VPN notification for the final status."
+        }.onFailure {
+            dialogMessage = "Could not request disconnect: ${it.message}"
+        }
+    }
+
+    fun reloadProfiles() { profiles = store.loadAll() }
+    fun openProfile(profile: ConfigProfile) {
+        ConfigLinkSerializer.serialize(profile).fold(
+            onSuccess = { generatedLink = it },
+            onFailure = { dialogMessage = it.message ?: "Could not serialize this configuration." }
+        )
+    }
+
+    androidx.compose.runtime.CompositionLocalProvider(
+        LocalAppLanguage provides appLanguage,
+        LocalSetAppLanguage provides setAppLanguage,
+        androidx.compose.ui.platform.LocalLayoutDirection provides appLanguage.layoutDirection
+    ) {
+    SpdConTheme {
+        Box(
+            modifier = Modifier.fillMaxSize().background(
+                Brush.verticalGradient(listOf(Color(0xFF071226), DeepNavy, Color(0xFF020611)))
+            )
+        ) {
+            Column(modifier = Modifier.fillMaxSize()) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 22.dp, vertical = 18.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Column {
+                        Text("SPD-C", fontSize = 25.sp, fontWeight = FontWeight.ExtraBold, color = Color.White)
+                        Text(tr("Secure • Private • Connected"), fontSize = 12.sp, color = TextSecondary)
+                    }
+                    Row(
+                        modifier = Modifier.clip(CircleShape).background(Color(0xFF0C2A2B)).padding(horizontal = 12.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(Modifier.size(7.dp).clip(CircleShape)
+                            .background(if (vpnState == "connected") SuccessGreen else TextSecondary))
+                        Spacer(Modifier.width(7.dp))
+                        Text(
+                            tr(when (vpnState) {
+                                "connected" -> "VPN connected"
+                                "connecting" -> "Connecting…"
+                                "disconnecting" -> "Disconnecting…"
+                                "running-unverified" -> "VPN needs check"
+                                "error" -> "VPN error"
+                                else -> "VPN off"
+                            }),
+                            color = if (vpnState == "connected") SuccessGreen else TextSecondary,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                }
+
+                Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
+                    when (selected) {
+                        "home" -> HomePage(
+                            configCount = profiles.size,
+                            favoriteCount = profiles.count { it.favorite },
+                            onCreate = { selected = "ai-con" },
+                            onAiCon = { selected = "ai-con" },
+                            onLibrary = { selected = "library" },
+                            onScan = onOpenAdvancedPanel,
+                            onTools = { selected = "tools" }
+                        )
+                        "ai-con" -> AiConPage(
+                            profiles = profiles,
+                            onBack = { selected = "home" },
+                            onOpenCreate = { selected = "create" },
+                            onBuild = { aiProfile ->
+                                store.save(aiProfile).fold(
+                                    onSuccess = {
+                                        reloadProfiles()
+                                        selected = "library"
+                                        requestVpn(aiProfile, true)
+                                    },
+                                    onFailure = {
+                                        dialogMessage = "AI_CON ساخته شد، اما ذخیره نشد: ${it.message}"
+                                    }
+                                )
+                            }
+                        )
+                        "library" -> LibraryPage(
+                            profiles = profiles,
+                            onFavorite = { profile ->
+                                store.setFavorite(profile, !profile.favorite)
+                                reloadProfiles()
+                            },
+                            onOpen = ::openProfile,
+                            onConnect = ::requestVpn,
+                            onDisconnect = ::disconnectVpn,
+                            onDelete = { profile ->
+                                store.delete(profile)
+                                reloadProfiles()
+                            }
+                        )
+                        "create" -> CreatePage(
+                            existingProfiles = profiles,
+                            scannerServerIp = scannerServerIp,
+                            scannerSni = scannerSni,
+                            onGenerateOfflineReality = { link, serverSetup, error ->
+                                if (error != null) {
+                                    dialogMessage = error
+                                } else {
+                                    generatedLink = link
+                                    generatedServerSetup = serverSetup
+                                }
+                            },
+                            onGenerate = { generatedProfiles ->
+                                val errors = generatedProfiles.flatMap { profile ->
+                                    profile.validate().map { "${profile.name}: $it" }
+                                }
+                                if (errors.isNotEmpty()) {
+                                    dialogMessage = errors.joinToString("\n")
+                                } else {
+                                    val links = generatedProfiles.map { profile ->
+                                        ConfigLinkSerializer.serialize(profile).map { profile to it }
+                                    }
+                                    val failure = links.firstOrNull { it.isFailure }
+                                    if (failure != null) {
+                                        dialogMessage = failure.exceptionOrNull()?.message ?: "Could not generate the link."
+                                    } else {
+                                        val pairs = links.map { it.getOrThrow() }
+                                        val saveFailure = pairs.firstOrNull { (profile, _) -> store.save(profile).isFailure }
+                                        if (saveFailure != null) {
+                                            dialogMessage = store.save(saveFailure.first).exceptionOrNull()?.message ?: "Could not save configuration."
+                                        } else {
+                                            reloadProfiles()
+                                            generatedLink = pairs.first().second
+                                            selected = "library"
+                                            if (pairs.size > 1) {
+                                                dialogMessage = bothProtocolsSavedMessage
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        )
+                        "tools" -> ToolsPage(onOpenAdvancedPanel, onOpenScanner = { selected = "scanner" })
+                        "scanner" -> CleanIpScannerPage(
+                            onBack = { selected = "tools" },
+                            profiles = profiles,
+                            onUseIp = { ip, domain ->
+                                scannerServerIp = ip
+                                scannerSni = domain
+                                selected = "create"
+                            }
+                        )
+                        else -> MorePage(onOpenAdvancedPanel)
+                    }
+                }
+            }
+
+            Row(
+                modifier = Modifier.align(Alignment.BottomCenter)
+                    .padding(horizontal = 18.dp, vertical = 18.dp)
+                    .fillMaxWidth()
+                    .height(72.dp)
+                    .shadow(20.dp, RoundedCornerShape(27.dp), ambientColor = NeonBlue.copy(alpha = 0.25f))
+                    .clip(RoundedCornerShape(27.dp))
+                    .background(Brush.verticalGradient(listOf(SurfaceGlassLight, SurfaceGlass)))
+                    .border(1.dp, NeonCyan.copy(alpha = 0.24f), RoundedCornerShape(27.dp))
+                    .padding(horizontal = 5.dp),
+                horizontalArrangement = Arrangement.SpaceEvenly,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                screenItems.forEach { (route, label, icons) ->
+                    val localizedLabel = tr(label)
+                    val active = selected == route
+                    Column(
+                        modifier = Modifier.clip(RoundedCornerShape(17.dp))
+                            .background(if (active) NeonBlue.copy(alpha = 0.20f) else Color.Transparent)
+                            .clickable { selected = route }
+                            .padding(horizontal = 13.dp, vertical = 8.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        Icon(if (active) icons.second else icons.first, contentDescription = localizedLabel,
+                            tint = if (active) NeonCyan else TextSecondary, modifier = Modifier.size(22.dp))
+                        Text(localizedLabel, color = if (active) NeonCyan else TextSecondary, fontSize = 10.sp)
+                    }
+                }
+            }
+        }
+    }
+
+    }
+    if (generatedLink != null) {
+        AlertDialog(
+            onDismissRequest = { generatedLink = null },
+            title = { Text(tr("Configuration ready")) },
+            text = {
+                Column(
+                    modifier = Modifier.fillMaxWidth().height(170.dp).verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        tr(if (generatedServerSetup == null) "Temporary link created in memory. Scan the QR code or copy it into your VPN client:" else "Temporary output created in memory. The link is below; server-side material is shown after it."),
+                        color = TextSecondary
+                    )
+                    generatedQr?.let { bitmap ->
+                        Image(
+                            bitmap = bitmap,
+                            contentDescription = "Configuration QR code",
+                            modifier = Modifier.fillMaxWidth().height(150.dp),
+                            contentScale = ContentScale.Fit
+                        )
+                    }
+                    Text(generatedLink.orEmpty(), fontSize = 12.sp)
+                    if (generatedServerSetup != null) {
+                        Text(tr("Server setup material (private key — keep secret)"), fontWeight = FontWeight.SemiBold)
+                        Text(generatedServerSetup.orEmpty(), fontSize = 11.sp)
+                    }
+                }
+            },
+            confirmButton = {
+                Button(onClick = {
+                    clipboard.setText(AnnotatedString(generatedLink.orEmpty()))
+                    generatedLink = null
+                }) {
+                    Icon(Icons.Filled.ContentCopy, contentDescription = null)
+                    Spacer(Modifier.width(7.dp))
+                    Text(tr("Copy link"))
+                }
+            },
+            dismissButton = {
+                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    if (generatedServerSetup != null) {
+                        TextButton(onClick = {
+                            clipboard.setText(AnnotatedString(generatedServerSetup.orEmpty()))
+                            generatedServerSetup = null
+                            generatedLink = null
+                        }) { Text(tr("Copy server setup")) }
+                    }
+                    TextButton(onClick = {
+                        generatedServerSetup = null
+                        generatedLink = null
+                    }) { Text(tr("Close")) }
+                }
+            }
+        )
+    }
+    if (dialogMessage != null) {
+        AlertDialog(
+            onDismissRequest = { dialogMessage = null },
+            title = { Text("Spd con") },
+            text = { Text(dialogMessage.orEmpty()) },
+            confirmButton = { TextButton(onClick = { dialogMessage = null }) { Text("OK") } }
+        )
+    }
+    if (selectedProfileName != null) {
+        AlertDialog(
+            onDismissRequest = { selectedProfileName = null },
+            title = { Text(selectedProfileName.orEmpty()) },
+            text = { Text(tr("Configuration details")) },
+            confirmButton = { TextButton(onClick = { selectedProfileName = null }) { Text(tr("Close")) } }
+        )
+    }
+}
+
+
+@Composable
+private fun AiConPage(
+    profiles: List<ConfigProfile>,
+    onBack: () -> Unit,
+    onOpenCreate: () -> Unit,
+    onBuild: (ConfigProfile) -> Unit
+) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var snapshot by remember { mutableStateOf<com.spdcon.app.config.AiConNetworkSnapshot?>(null) }
+    var downloadMbps by remember { mutableStateOf<Double?>(null) }
+    var running by remember { mutableStateOf(false) }
+    var progress by remember { mutableStateOf<String?>(null) }
+    var result by remember { mutableStateOf<String?>(null) }
+
+    val startBuild: () -> Unit = {
+        if (!running) {
+            running = true
+            result = null
+            scope.launch {
+                try {
+                    val network = withContext(Dispatchers.IO) { AiConEngine.inspectNetwork(context) }
+                    snapshot = network
+                    progress = "در حال اندازه‌گیری کوتاه سرعت اینترنت…"
+                    downloadMbps = withContext(Dispatchers.IO) { AiConEngine.measureDownloadMbps() }
+                    val candidates = ConnectionStrategySelector.rankForLiveTesting(
+                        profiles,
+                        goal = if (network.transport == "cellular") TunnelSelectionGoal.RESTRICTED_NETWORK else TunnelSelectionGoal.STANDARD,
+                        limit = 5
+                    )
+                    if (candidates.isEmpty()) {
+                        result = "هیچ نود سازگار با هستهٔ داخلی پیدا نشد. ابتدا یک پروفایل با اطلاعات واقعی و کامل سرور تنظیم کن."
+                    } else {
+                        val reports = linkedMapOf<String, com.spdcon.app.config.ConnectionDiagnosticReport>()
+                        candidates.forEachIndexed { index, candidate ->
+                            progress = "آزمایش تونل واقعی ${index + 1}/${candidates.size}: ${candidate.name}"
+                            val report = withContext(Dispatchers.IO) {
+                                runCatching { ConnectionDiagnosticRunner.run(candidate) }.getOrNull()
+                            }
+                            if (report != null) reports[candidate.name] = report
+                        }
+                        val best = AiConEngine.rankCandidates(profiles, reports, network, downloadMbps).firstOrNull()
+                        if (best == null) {
+                            result = "هیچ تونلی در این بررسی تأیید نشد؛ برای جلوگیری از ساخت کانفیگِ ظاهراً آماده اما خراب، AI_CON چیزی را به‌عنوان کانفیگِ کارا ذخیره نکرد."
+                        } else {
+                            val generated = AiConEngine.createAiProfile(best.sourceProfile)
+                            progress = "اتصال تأیید شد؛ در حال ذخیرهٔ AI_CON و رفتن به اتصال…"
+                            onBuild(generated)
+                        }
+                    }
+                } catch (error: Throwable) {
+                    result = "بررسی AI_CON کامل نشد: ${error.message ?: error.javaClass.simpleName}"
+                } finally {
+                    progress = null
+                    running = false
+                }
+            }
+        }
+    }
+    LaunchedEffect(Unit) {
+        snapshot = withContext(Dispatchers.IO) { AiConEngine.inspectNetwork(context) }
+    }
+
+    Column(
+        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState())
+            .padding(horizontal = 20.dp).padding(top = 8.dp, bottom = 112.dp),
+        verticalArrangement = Arrangement.spacedBy(13.dp)
+    ) {
+        Text("AI_CON", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.ExtraBold, color = NeonCyan)
+        Text("ساخت محلی و خودکار؛ بدون دانلود یا واردکردن کانفیگ آماده", color = TextSecondary, fontSize = 13.sp)
+        GlassCard(modifier = Modifier.fillMaxWidth(), cornerRadius = 18.dp) {
+            Text("وضعیت اینترنت کاربر", fontWeight = FontWeight.SemiBold)
+            Text(snapshot?.detailFa ?: "در حال خواندن اطلاعات شبکه…", color = TextSecondary, fontSize = 12.sp)
+            if (snapshot?.radioBand == null) {
+                Text("برای حفظ حریم خصوصی، باند دقیق سیم‌کارت خوانده نمی‌شود؛ انتخاب بر اساس شبکه، سرعت و آزمایش واقعی اتصال انجام می‌شود.",
+                    color = TextSecondary, fontSize = 11.sp)
+            }
+            Spacer(Modifier.height(5.dp))
+            Text(
+                downloadMbps?.let { "سرعت دانلود اندازه‌گیری‌شده: ${"%.2f".format(it)} Mbps" }
+                    ?: "سرعت واقعی هنگام شروع بررسی کوتاه اندازه‌گیری می‌شود؛ پهنای‌باند اعلام‌شدهٔ گوشی فقط تخمینی است.",
+                color = TextSecondary, fontSize = 11.sp
+            )
+        }
+        GlassCard(modifier = Modifier.fillMaxWidth(), cornerRadius = 18.dp) {
+            Text("AI چه‌کار می‌کند؟", fontWeight = FontWeight.SemiBold)
+            Text("• بدون دسترسی مکان، تماس‌ها یا مجوز سیم‌کارت؛ نوع شبکه، DNS، سرعت و تونل‌های ذخیره‌شده را بررسی می‌کند.", color = TextSecondary, fontSize = 12.sp)
+            Text("• تا ۵ کانفیگِ متصل به نودهای واقعیِ از قبل تنظیم‌شده را با تونل واقعی آزمایش می‌کند.", color = TextSecondary, fontSize = 12.sp)
+            Text("• بر اساس موفقیت تونل، تأخیر و سازگاری هسته، گزینهٔ مناسب را انتخاب می‌کند.", color = TextSecondary, fontSize = 12.sp)
+            Text("• پروفایل محلی را با نام AI_CON ذخیره می‌کند و سپس درخواست اتصال می‌دهد.", color = TextSecondary, fontSize = 12.sp)
+        }
+        if (profiles.isEmpty()) {
+            GlassCard(modifier = Modifier.fillMaxWidth(), cornerRadius = 18.dp) {
+                Text("فقط یک‌بار سرور را تنظیم کن", fontWeight = FontWeight.SemiBold)
+                Text("بعد از ثبت یک سرور واقعی، AI_CON خودش گزینه‌ها را آزمایش می‌کند، بهترین پروفایل سازگار را با نام AI_CON ذخیره می‌کند و صفحه اتصال را باز می‌کند. لازم نیست هر بار مشخصات را وارد کنی.",
+                    color = TextSecondary, fontSize = 12.sp)
+                Spacer(Modifier.height(8.dp))
+                OutlinedButton(onClick = onOpenCreate, modifier = Modifier.fillMaxWidth()) {
+                    Text("تنظیم سرور یک‌بار")
+                }
+            }
+        }
+        progress?.let { Text(it, color = NeonCyan, fontSize = 12.sp) }
+        result?.let { Text(it, color = TextSecondary, fontSize = 12.sp) }
+        Button(
+            onClick = { if (profiles.isEmpty()) onOpenCreate() else startBuild() },
+            enabled = !running,
+            modifier = Modifier.fillMaxWidth(),
+            colors = ButtonDefaults.buttonColors(containerColor = NeonBlue)
+        ) {
+            Text(if (running) "در حال بررسی…" else if (profiles.isEmpty()) "تنظیم سرور یک‌بار" else "ساخت و اتصال خودکار AI_CON")
+        }
+        OutlinedButton(onClick = onBack, enabled = !running, modifier = Modifier.fillMaxWidth()) {
+            Text("بازگشت")
+        }
+        Text("نکته: پینگ پایین به‌تنهایی تضمین سرعت دانلود، پایداری یا عبور از DPI نیست. تشخیص مرکز دادهٔ مسیر اینترنت از روی سیم‌کارت به‌تنهایی قابل‌اعتماد نیست؛ AI_CON فقط سرورهایی را می‌تواند انتخاب کند که واقعاً در برنامه تعریف و آزمایش شده‌اند.",
+            color = TextSecondary, fontSize = 11.sp)
+    }
+}
+
+@Composable
+private fun HomePage(
+    configCount: Int,
+    favoriteCount: Int,
+    onCreate: () -> Unit,
+    onAiCon: () -> Unit,
+    onLibrary: () -> Unit,
+    onScan: () -> Unit,
+    onTools: () -> Unit
+) {
+    Column(
+        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState())
+            .padding(horizontal = 20.dp).padding(bottom = 112.dp),
+        verticalArrangement = Arrangement.spacedBy(17.dp)
+    ) {
+        GlassCard(modifier = Modifier.fillMaxWidth()) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
+                Box(Modifier.size(78.dp).clip(CircleShape).background(Color(0xFF0C2743)), contentAlignment = Alignment.Center) {
+                    Icon(Icons.Filled.Security, contentDescription = null, tint = NeonCyan, modifier = Modifier.size(43.dp))
+                }
+                Spacer(Modifier.height(12.dp))
+                Text(tr("VPN not connected"), fontSize = 21.sp, fontWeight = FontWeight.Bold)
+                Text(tr("Your configurations stay on this device until you export or sync them."),
+                    color = TextSecondary, fontSize = 12.sp)
+                Spacer(Modifier.height(18.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(24.dp)) {
+                    MiniStat(tr("Local"), tr("Storage"), Icons.Filled.Folder)
+                    MiniStat(tr("Ready"), tr("Builder"), Icons.Filled.AddCircle)
+                    MiniStat(tr("Private"), tr("By default"), Icons.Filled.Security)
+                }
+            }
+        }
+
+        Text(tr("Quick Actions"), color = TextSecondary, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+        GlassCard(modifier = Modifier.fillMaxWidth(), cornerRadius = 20.dp) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.size(48.dp).clip(RoundedCornerShape(14.dp)).background(Color(0xFF123D4B)),
+                    contentAlignment = Alignment.Center) {
+                    Icon(Icons.Filled.Star, contentDescription = null, tint = NeonCyan, modifier = Modifier.size(27.dp))
+                }
+                Spacer(Modifier.width(12.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("AI_CON", fontWeight = FontWeight.ExtraBold, fontSize = 18.sp, color = NeonCyan)
+                    Text("شبکه را بررسی می‌کند، نودهای واقعی را آزمایش می‌کند و بهترین اتصال تأییدشده را می‌سازد.",
+                        color = TextSecondary, fontSize = 12.sp)
+                }
+            }
+            Spacer(Modifier.height(10.dp))
+            Button(onClick = onAiCon, modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(containerColor = NeonBlue)) {
+                Text("ساخت خودکار با AI_CON")
+            }
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
+            ActionCard(tr("New Config"), Icons.Filled.Add, Modifier.weight(1f), onCreate)
+            ActionCard(tr("Library"), Icons.Filled.Folder, Modifier.weight(1f), onLibrary)
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
+            ActionCard(tr("QR / Import"), Icons.Filled.QrCodeScanner, Modifier.weight(1f), onScan)
+            ActionCard(tr("Diagnostics"), Icons.Filled.Analytics, Modifier.weight(1f), onTools)
+        }
+
+        Text(tr("Overview"), color = TextSecondary, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+            StatCard("$configCount", tr("Configs"), Modifier.weight(1f))
+            StatCard("$favoriteCount", tr("Favorites"), Modifier.weight(1f))
+            StatCard(tr("Local"), tr("Sync"), Modifier.weight(1f))
+        }
+    }
+}
+
+@Composable
+private fun CreatePage(
+    existingProfiles: List<ConfigProfile>,
+    scannerServerIp: String?,
+    scannerSni: String?,
+    onGenerateOfflineReality: (String?, String?, String?) -> Unit,
+    onGenerate: (List<ConfigProfile>) -> Unit
+) {
+    val template = existingProfiles.firstOrNull()
+    var step by remember { mutableStateOf(1) }
+    var selectedProtocol by remember(template) {
+        mutableStateOf(when {
+            template != null && template.protocol == ConfigProtocol.TROJAN && template.network.equals("ws", true) && template.security.equals("tls", true) -> "Trojan + WS + TLS"
+            template != null && template.protocol == ConfigProtocol.VLESS && template.network.equals("ws", true) && template.security.equals("tls", true) -> "VLESS + WS + TLS"
+            template != null && template.protocol == ConfigProtocol.VLESS && template.security.equals("reality", true) -> "VLESS + Reality"
+            template?.protocol == ConfigProtocol.TROJAN -> "Trojan"
+            template?.protocol == ConfigProtocol.SHADOWSOCKS -> "Shadowsocks"
+            else -> "VLESS + WS + TLS"
+        })
+    }
+    var name by remember { mutableStateOf("") }
+    var server by remember(scannerServerIp, template) { mutableStateOf(scannerServerIp ?: template?.server.orEmpty()) }
+    var port by remember(template) { mutableStateOf(template?.port?.toString() ?: "443") }
+    var credential by remember { mutableStateOf("") }
+    var sni by remember(scannerSni, template) { mutableStateOf(scannerSni ?: template?.parameters?.get("sni").orEmpty()) }
+    var host by remember(template) { mutableStateOf(template?.parameters?.get("host").orEmpty()) }
+    var wsPath by remember(template) { mutableStateOf(template?.parameters?.get("path") ?: "/ws") }
+    var generateBothWebSocket by remember { mutableStateOf(true) }
+    var publicKey by remember(template) { mutableStateOf(template?.parameters?.get("pbk").orEmpty()) }
+    var shortId by remember(template) { mutableStateOf(template?.parameters?.get("sid").orEmpty()) }
+    var editServerSettings by remember(template) { mutableStateOf(template == null) }
+
+    var builderMessage by remember { mutableStateOf<String?>(null) }
+
+    fun quickGenerateFromTemplate() {
+        val desiredProtocol = when {
+            selectedProtocol.startsWith("Trojan") -> ConfigProtocol.TROJAN
+            selectedProtocol == "Shadowsocks" -> ConfigProtocol.SHADOWSOCKS
+            selectedProtocol == "Hysteria2" -> ConfigProtocol.HYSTERIA2
+            selectedProtocol == "TUIC" -> ConfigProtocol.TUIC
+            else -> ConfigProtocol.VLESS
+        }
+        val desiredNetwork = when {
+            selectedProtocol.contains("+ WS") -> "ws"
+            selectedProtocol in listOf("Shadowsocks", "Hysteria2", "TUIC") -> ""
+            else -> "tcp"
+        }
+        val desiredSecurity = when {
+            selectedProtocol == "VLESS + Reality" -> "reality"
+            selectedProtocol.contains("+ TLS") || selectedProtocol == "VLESS + TLS" -> "tls"
+            selectedProtocol == "Trojan" -> null
+            selectedProtocol == "Shadowsocks" || selectedProtocol == "Hysteria2" || selectedProtocol == "TUIC" -> null
+            else -> "tls"
+        }
+        val wantedServer = server.trim()
+        val wantedPort = port.toIntOrNull()
+        val sourceProfile = existingProfiles.firstOrNull { profile ->
+            profile.server.equals(wantedServer, ignoreCase = true) &&
+                (wantedPort == null || profile.port == wantedPort) &&
+                profile.protocol == desiredProtocol &&
+                (desiredNetwork.isBlank() || profile.network.equals(desiredNetwork, ignoreCase = true)) &&
+                (desiredSecurity == null || profile.security.equals(desiredSecurity, ignoreCase = true))
+        }
+        if (sourceProfile == null) {
+            builderMessage = "برای این روش، پروفایل واقعیِ ذخیره‌شده‌ای با همین سرور و پروتکل پیدا نشد. ساختن UUID یا عوض‌کردن پروتکل فقط داخل گوشی، کاربر را روی سرور ایجاد نمی‌کند؛ اول یک پروفایل/نود واقعی و سازگار وارد کن."
+            return
+        }
+        val profileName = name.trim().ifBlank { "Spd con config" }
+        // Duplicate only a known profile that has already been configured on the server.
+        // Never invent a new UUID/password or silently change transport/protocol locally.
+        val generated = sourceProfile.copy(
+            name = profileName,
+            remark = profileName,
+            tags = (sourceProfile.tags + "local-copy").distinct().take(12),
+            favorite = false
+        )
+        builderMessage = null
+        onGenerate(listOf(generated))
+    }
+
+    Column(
+        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState())
+            .padding(horizontal = 20.dp).padding(top = 8.dp, bottom = 112.dp),
+        verticalArrangement = Arrangement.spacedBy(13.dp)
+    ) {
+        Text(tr("Create Config"), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+        Text(tr("Build a valid share link and save it to your local library."), color = TextSecondary, fontSize = 13.sp)
+        Text("ساخت لینک به‌تنهایی روی سرور کاربر جدید نمی‌سازد؛ برای اتصال، اطلاعات ورود باید از قبل روی سرور تنظیم شده باشد.", color = TextSecondary, fontSize = 12.sp)
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            (1..3).forEach { n ->
+                Box(Modifier.weight(1f).height(4.dp).clip(CircleShape)
+                    .background(if (n <= step) NeonCyan else Color(0xFF203149)))
+            }
+        }
+        Text(tr("Step {step} of 3").replace("{step}", step.toString()), color = TextSecondary, fontSize = 12.sp)
+
+        when (step) {
+            1 -> {
+                Text(tr("Choose protocol"), style = MaterialTheme.typography.titleMedium)
+                listOf("VLESS + WS + TLS", "Trojan + WS + TLS", "VLESS + TLS", "VLESS + Reality", "Trojan", "Shadowsocks", "Hysteria2", "TUIC").forEach { option ->
+                    GlassCard(
+                        modifier = Modifier.fillMaxWidth(),
+                        onClick = { selectedProtocol = option },
+                        cornerRadius = 16.dp
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween,
+                            modifier = Modifier.fillMaxWidth()) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(option, fontWeight = FontWeight.SemiBold)
+                                Text(tr(protocolHint(option)), color = TextSecondary, fontSize = 12.sp)
+                            }
+                            if (selectedProtocol == option) Text(tr("SELECTED"), color = NeonCyan, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+                NeonButton(tr("Continue"), { step = 2 }, Modifier.fillMaxWidth())
+            }
+            2 -> {
+                GlassField(name, { name = it }, tr("Configuration name"))
+                if (server.isNotBlank() && !editServerSettings) {
+                    GlassCard(modifier = Modifier.fillMaxWidth(), cornerRadius = 16.dp) {
+                        Text(tr("Using saved server template"), fontWeight = FontWeight.SemiBold)
+                        Text("${server}:${port}", color = TextSecondary, fontSize = 12.sp)
+                        TextButton(onClick = { editServerSettings = true }) { Text(tr("Change server settings")) }
+                    }
+                    Text(tr("Only the name and protocol are needed when reusing this saved server template."),
+                        color = TextSecondary, fontSize = 12.sp)
+                }
+                if (editServerSettings || server.isBlank() || (selectedProtocol == "VLESS + Reality" && sni.isBlank())) {
+                    GlassField(server, { server = it }, tr("Server hostname / IP"))
+                    GlassField(port, { port = it.filter(Char::isDigit).take(5) }, tr("Port"), numeric = true)
+                    GlassField(credential, { credential = it }, tr("Credential (leave blank to generate)"))
+                    if (selectedProtocol != "Shadowsocks") {
+                        GlassField(sni, { sni = it }, if (selectedProtocol == "VLESS + Reality") tr("REALITY SNI / serverName") else tr("TLS SNI (optional)"))
+                    }
+                }
+                if (selectedProtocol.contains("+ WS") && (editServerSettings || template == null)) {
+                    GlassField(host, { host = it }, tr("WebSocket Host header (optional)"))
+                    GlassField(wsPath, { wsPath = it }, tr("WebSocket path"))
+                    androidx.compose.material3.Checkbox(
+                        checked = generateBothWebSocket,
+                        onCheckedChange = { generateBothWebSocket = it }
+                    )
+                    Text(tr("Generate VLESS and Trojan together"), color = TextSecondary, fontSize = 12.sp)
+                    Text(tr("Use the same deployed WebSocket route and TLS domain for both protocols."),
+                        color = TextSecondary, fontSize = 12.sp)
+                }
+                if (selectedProtocol == "VLESS + Reality") {
+                    if (editServerSettings || publicKey.isBlank()) {
+                        GlassField(publicKey, { publicKey = it }, tr("REALITY public key (pbk)"))
+                        GlassField(shortId, { shortId = it }, tr("REALITY short ID (0–16 hex chars; may be empty)"))
+                    } else {
+                        Text(tr("REALITY keys reused from the saved server template."), color = TextSecondary, fontSize = 12.sp)
+                    }
+                    Text(tr("Use the public key and short ID configured on your server. They cannot be guessed by the app."),
+                        color = TextSecondary, fontSize = 12.sp)
+                    NeonButton(
+                        tr("Generate offline REALITY keys + link"),
+                        {
+                            runCatching {
+                                val portNumber = port.toIntOrNull()
+                                    ?: throw IllegalArgumentException("Enter a valid server port first.")
+                                val material = OfflineConfigBuilderEngine.generateMaterial()
+                                val link = OfflineConfigBuilderEngine.buildVlessRealityLink(
+                                    server = server.trim(),
+                                    port = portNumber,
+                                    uuid = material.clientUuid,
+                                    serverName = sni.trim(),
+                                    publicKey = material.realityKeyPair.publicKey,
+                                    shortId = material.realityShortId,
+                                    name = name.trim().ifBlank { "Spd con offline REALITY" }
+                                )
+                                val serverSetup = org.json.JSONObject()
+                                    .put("clientUuid", material.clientUuid)
+                                    .put("realityPrivateKey", material.realityKeyPair.privateKey)
+                                    .put("realityPublicKey", material.realityKeyPair.publicKey)
+                                    .put("shortId", material.realityShortId)
+                                    .put("serverName", sni.trim())
+                                    .put("note", "Merge these values into the existing server inbound. Configure a real dest separately; this output does not provision the server.")
+                                    .toString(2)
+                                onGenerateOfflineReality(link, serverSetup, null)
+                            }.onFailure { failure ->
+                                onGenerateOfflineReality(null, null, failure.message ?: "Offline key generation failed.")
+                            }
+                        },
+                        Modifier.fillMaxWidth()
+                    )
+                    Text(
+                        tr("Runs locally without internet or saving to the config library. The server must be configured with the generated UUID/private key and a real destination before this link can connect."),
+                        color = TextSecondary, fontSize = 12.sp
+                    )
+                }
+                builderMessage?.let { Text(it, color = Color(0xFFFFB4A9), fontSize = 12.sp) }
+                if (template != null && !editServerSettings &&
+                    selectedProtocol in listOf("VLESS + WS + TLS", "Trojan + WS + TLS", "VLESS + TLS", "VLESS + Reality", "Trojan", "Shadowsocks")) {
+                    NeonButton(tr("Quick Generate & Save"), { quickGenerateFromTemplate() }, Modifier.fillMaxWidth())
+                    Text("تنظیمات و اعتبارنامهٔ پروفایل واقعی را بدون تغییر حفظ می‌کند؛ فقط نام جدید ذخیره می‌شود تا اتصال از کار نیفتد.",
+                        color = TextSecondary, fontSize = 12.sp)
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+                    OutlinedButton(onClick = { step = 1 }, modifier = Modifier.weight(1f)) { Text(tr("Back")) }
+                    NeonButton(tr("Review"), { step = 3 }, Modifier.weight(1f))
+                }
+            }
+            else -> {
+                GlassCard(modifier = Modifier.fillMaxWidth()) {
+                    ReviewLine(tr("Protocol"), tr(selectedProtocol))
+                    ReviewLine(tr("Name"), name.ifBlank { tr("Spd con config") })
+                    ReviewLine(tr("Server"), "${server.ifBlank { "—" }}:${port.ifBlank { "443" }}")
+                    ReviewLine(tr("Credential"), tr(if (credential.isBlank()) "Generated automatically" else "Provided manually"))
+                    if (selectedProtocol == "VLESS + Reality") {
+                        ReviewLine(tr("SNI"), sni)
+                        ReviewLine(tr("Public key"), tr(if (publicKey.isBlank()) "Required" else "Provided"))
+                        ReviewLine(tr("Short ID"), if (shortId.isBlank()) tr("(empty)") else shortId)
+                    }
+                    if (selectedProtocol.contains("+ WS")) {
+                        ReviewLine(tr("WebSocket path"), wsPath)
+                        ReviewLine(tr("WebSocket Host header"), host.ifBlank { tr("Optional") })
+                        ReviewLine(tr("Dual protocol"), tr(if (generateBothWebSocket) "VLESS and Trojan" else "Single protocol"))
+                    }
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+                    OutlinedButton(onClick = { step = 2 }, modifier = Modifier.weight(1f)) { Text(tr("Back")) }
+                    NeonButton(tr("Generate & Save"), {
+                        val protocol = when {
+                            selectedProtocol.startsWith("Trojan") -> ConfigProtocol.TROJAN
+                            selectedProtocol == "Shadowsocks" -> ConfigProtocol.SHADOWSOCKS
+                            selectedProtocol == "Hysteria2" -> ConfigProtocol.HYSTERIA2
+                            selectedProtocol == "TUIC" -> ConfigProtocol.TUIC
+                            else -> ConfigProtocol.VLESS
+                        }
+                        val generatedCredential = credential.trim().ifBlank {
+                            if (protocol == ConfigProtocol.VLESS || protocol == ConfigProtocol.VMESS || protocol == ConfigProtocol.TUIC) {
+                                UUID.randomUUID().toString()
+                            } else UUID.randomUUID().toString().replace("-", "")
+                        }
+                        val reality = selectedProtocol == "VLESS + Reality"
+                        val websocket = selectedProtocol.contains("+ WS")
+                        val security = when {
+                            selectedProtocol == "Shadowsocks" -> "none"
+                            selectedProtocol == "Hysteria2" || selectedProtocol == "TUIC" -> "tls"
+                            reality -> "reality"
+                            else -> "tls"
+                        }
+                        val parameters = buildMap {
+                            if (selectedProtocol != "Shadowsocks" && sni.isNotBlank()) put("sni", sni.trim())
+                            if (reality) {
+                                put("sni", sni.trim())
+                                put("pbk", publicKey.trim())
+                                put("sid", shortId.trim())
+                            }
+                            if (websocket) {
+                                put("path", wsPath.trim())
+                                if (host.isNotBlank()) put("host", host.trim())
+                            }
+                            if (protocol == ConfigProtocol.SHADOWSOCKS) put("method", "chacha20-ietf-poly1305")
+                            if (protocol == ConfigProtocol.TUIC) put("password", generatedCredential)
+                        }
+                        val profileName = name.trim().ifBlank { "Spd con config" }
+                        val baseProfile = ConfigProfile(
+                            name = profileName,
+                            protocol = protocol,
+                            server = server.trim(),
+                            port = port.toIntOrNull() ?: 0,
+                            credential = generatedCredential,
+                            network = when {
+                                protocol == ConfigProtocol.HYSTERIA2 || protocol == ConfigProtocol.TUIC -> "udp"
+                                websocket -> "ws"
+                                else -> "tcp"
+                            },
+                            security = security,
+                            parameters = parameters,
+                            remark = profileName
+                        )
+                        val profiles = mutableListOf(baseProfile)
+                        if (websocket && generateBothWebSocket) {
+                            val otherProtocol = if (protocol == ConfigProtocol.VLESS) ConfigProtocol.TROJAN else ConfigProtocol.VLESS
+                            val otherCredential = if (otherProtocol == ConfigProtocol.VLESS) UUID.randomUUID().toString()
+                                else UUID.randomUUID().toString().replace("-", "")
+                            profiles += baseProfile.copy(
+                                name = "$profileName (${otherProtocol.name})",
+                                protocol = otherProtocol,
+                                credential = otherCredential,
+                                remark = "$profileName (${otherProtocol.name})"
+                            )
+                        }
+                        onGenerate(profiles)
+                    }, Modifier.weight(1f))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun LibraryPage(
+    profiles: List<ConfigProfile>,
+    onFavorite: (ConfigProfile) -> Unit,
+    onOpen: (ConfigProfile) -> Unit,
+    onConnect: (ConfigProfile, Boolean) -> Unit,
+    onDisconnect: () -> Unit,
+    onDelete: (ConfigProfile) -> Unit
+) {
+    var search by remember { mutableStateOf("") }
+    var testingProfileName by remember { mutableStateOf<String?>(null) }
+    var useTlsFragment by remember { mutableStateOf(true) }
+    var testMessage by remember { mutableStateOf<String?>(null) }
+    var autoSelecting by remember { mutableStateOf(false) }
+    var autoSelectionProgress by remember { mutableStateOf<String?>(null) }
+    var selectionStatus by remember { mutableStateOf<String?>(null) }
+    var recommendedProfile by remember { mutableStateOf<ConfigProfile?>(null) }
+    var recommendedAssessment by remember { mutableStateOf<com.spdcon.app.config.TunnelMethodAssessment?>(null) }
+    var exportProfile by remember { mutableStateOf<ConfigProfile?>(null) }
+    var exportError by remember { mutableStateOf<String?>(null) }
+    val clipboard = LocalClipboardManager.current
+    val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+    var vpnStatus by remember { mutableStateOf("disconnected • VPN is off") }
+    LaunchedEffect(Unit) {
+        while (true) {
+            val prefs = context.getSharedPreferences(SpdConVpnService.PREFS, Context.MODE_PRIVATE)
+            val state = prefs.getString("status", "disconnected") ?: "disconnected"
+            val detail = prefs.getString("detail", "") ?: ""
+            vpnStatus = if (detail.isBlank()) state else "$state • $detail"
+            delay(1_000)
+        }
+    }
+    val filtered = profiles.filter { profile ->
+        search.isBlank() || profile.name.contains(search, true) ||
+            profile.server.contains(search, true) || profile.protocol.name.contains(search, true) ||
+            profile.tags.any { it.contains(search, true) }
+    }
+    val noCompatibleProfileMessage = tr("No saved profile is compatible with the bundled Xray core.")
+    val noCompatibleProfileSelectedMessage = tr("No compatible profile could be selected.")
+    val verifiedOnCurrentNetworkTemplate = tr("Verified on this network: {name}. DPI resistance is not proven.")
+    val unverifiedRecommendationTemplate = tr("No tunnel was verified. Suggested compatible profile: {name}; test result is unverified.")
+    Column(modifier = Modifier.fillMaxSize().padding(horizontal = 20.dp).padding(top = 8.dp, bottom = 112.dp)) {
+        Text(tr("Library"), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+        Text(tr("Saved configurations on this device"), color = TextSecondary, fontSize = 13.sp)
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedButton(onClick = onDisconnect, modifier = Modifier.weight(1f)) { Text(tr("Disconnect VPN")) }
+        }
+        FilterChip(
+            selected = useTlsFragment,
+            onClick = { useTlsFragment = !useTlsFragment },
+            label = { Text(tr(if (useTlsFragment) "TLS Fragment: on" else "TLS Fragment: off")) }
+        )
+        Text(tr("Fragment is an experimental TCP/TLS handshake technique; turn it off if a server fails to connect."),
+            color = TextSecondary, fontSize = 11.sp)
+        GlassCard(modifier = Modifier.fillMaxWidth(), cornerRadius = 16.dp) {
+            Text(tr("VPN status"), fontWeight = FontWeight.SemiBold)
+            Text(vpnStatus, color = if (vpnStatus.startsWith("connected")) NeonCyan else TextSecondary, fontSize = 12.sp)
+        }
+        Spacer(Modifier.height(8.dp))
+        GlassCard(modifier = Modifier.fillMaxWidth(), cornerRadius = 16.dp) {
+            Text(tr("Smart connection selection"), fontWeight = FontWeight.SemiBold)
+            Text(
+                tr("Tests up to five saved profiles with the bundled Xray core and ranks real tunnel success above ping or TLS-only results."),
+                color = TextSecondary, fontSize = 11.sp
+            )
+            OutlinedButton(
+                onClick = {
+                    if (!autoSelecting) {
+                        autoSelecting = true
+                        recommendedProfile = null
+                        recommendedAssessment = null
+                        selectionStatus = null
+                        val candidates = ConnectionStrategySelector.rankForLiveTesting(
+                            profiles, goal = TunnelSelectionGoal.STANDARD, limit = 5
+                        )
+                        scope.launch {
+                            val reports = linkedMapOf<String, com.spdcon.app.config.ConnectionDiagnosticReport>()
+                            if (candidates.isEmpty()) {
+                                selectionStatus = noCompatibleProfileMessage
+                            } else {
+                                candidates.forEachIndexed { index, candidate ->
+                                    autoSelectionProgress = "${index + 1}/${candidates.size} • ${candidate.name}"
+                                    val result = withContext(Dispatchers.IO) {
+                                        runCatching { ConnectionDiagnosticRunner.run(candidate) }
+                                    }
+                                    result.getOrNull()?.let { reports[candidate.name] = it }
+                                }
+                                val best = TunnelMethodAdvisor.rankSavedProfiles(
+                                    candidates, TunnelSelectionGoal.STANDARD, reports
+                                ).firstOrNull { it.selectableInBundledApp }
+                                recommendedAssessment = best
+                                recommendedProfile = best?.let { candidate ->
+                                    candidates.firstOrNull { it.name == candidate.profileName }
+                                }
+                                selectionStatus = when {
+                                    best == null -> noCompatibleProfileSelectedMessage
+                                    best.confidence == com.spdcon.app.config.TunnelSelectionConfidence.LIVE_VERIFIED ->
+                                        verifiedOnCurrentNetworkTemplate.replace("{name}", best.profileName)
+                                    else ->
+                                        unverifiedRecommendationTemplate.replace("{name}", best.profileName)
+                                }
+                            }
+                            autoSelectionProgress = null
+                            autoSelecting = false
+                        }
+                    }
+                },
+                enabled = !autoSelecting && profiles.isNotEmpty(),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(if (autoSelecting) tr("Testing saved profiles…") else tr("Find best working config"))
+            }
+            autoSelectionProgress?.let { Text(it, color = TextSecondary, fontSize = 11.sp) }
+            selectionStatus?.let { Text(it, color = if (it.contains("Verified on this network")) NeonCyan else TextSecondary, fontSize = 12.sp) }
+            recommendedProfile?.let { candidate ->
+                Text(
+                    "${candidate.name} • ${candidate.server}:${candidate.port} • ${candidate.protocol.name}/${candidate.network.uppercase()}/${candidate.security.uppercase()}",
+                    color = NeonCyan, fontSize = 11.sp
+                )
+                recommendedAssessment?.let { assessment ->
+                    Text(assessment.summaryFa, color = TextSecondary, fontSize = 11.sp)
+                    assessment.requirementsFa.forEach { requirement ->
+                        Text("• $requirement", color = TextSecondary, fontSize = 11.sp)
+                    }
+                }
+                OutlinedButton(
+                    onClick = { onConnect(candidate, useTlsFragment) },
+                    modifier = Modifier.fillMaxWidth()
+                ) { Text(tr("Connect recommended profile")) }
+            }
+        }
+        Spacer(Modifier.height(12.dp))
+        GlassField(search, { search = it }, tr("Search configs, servers, tags"))
+        Spacer(Modifier.height(8.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            OutlinedButton(
+                onClick = {
+                    exportError = null
+                    ConfigClientExporters.export(ConfigExportTarget.V2RAYNG, profiles).fold(
+                        onSuccess = { clipboard.setText(AnnotatedString(it.text)) },
+                        onFailure = { exportError = it.message ?: "Could not export configurations for v2rayNG." }
+                    )
+                },
+                enabled = profiles.isNotEmpty(),
+                modifier = Modifier.weight(1f)
+            ) { Text(tr("Copy all for v2rayNG"), fontSize = 11.sp) }
+            OutlinedButton(
+                onClick = {
+                    exportError = null
+                    ConfigClientExporters.export(ConfigExportTarget.HIDDIFY, profiles).fold(
+                        onSuccess = { clipboard.setText(AnnotatedString(it.text)) },
+                        onFailure = { exportError = it.message ?: "Could not export configurations for Hiddify." }
+                    )
+                },
+                enabled = profiles.isNotEmpty(),
+                modifier = Modifier.weight(1f)
+            ) { Text(tr("Copy all for Hiddify"), fontSize = 11.sp) }
+        }
+        Text(
+            tr("Copies all saved profiles as newline-separated client links. Unsupported profiles are reported instead of silently skipped."),
+            color = TextSecondary,
+            fontSize = 11.sp
+        )
+        Spacer(Modifier.height(10.dp))
+        if (filtered.isEmpty()) {
+            GlassCard(modifier = Modifier.fillMaxWidth()) {
+                Text(tr(if (profiles.isEmpty()) "No configurations yet" else "No matches found"),
+                    fontWeight = FontWeight.SemiBold)
+                Text(tr("Create a config to see it here. Nothing is prefilled with fake servers."),
+                    color = TextSecondary, fontSize = 12.sp)
+            }
+        } else {
+            LazyColumn(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(11.dp)) {
+                items(filtered, key = { profileId(it) }) { profile ->
+                    GlassCard(modifier = Modifier.fillMaxWidth(), cornerRadius = 19.dp) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Column(modifier = Modifier.weight(1f).clickable { onOpen(profile) }) {
+                                Text(profile.name, fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
+                                Spacer(Modifier.height(3.dp))
+                                Text("${profile.server}:${profile.port}", color = TextSecondary, fontSize = 12.sp)
+                                Spacer(Modifier.height(5.dp))
+                                Text("${profile.protocol.name} • ${profile.network.uppercase()} • ${profile.security.uppercase()}",
+                                    color = NeonCyan, fontSize = 11.sp)
+                            }
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                androidx.compose.material3.IconButton(onClick = { onFavorite(profile) }) {
+                                    Icon(if (profile.favorite) Icons.Filled.Star else Icons.Outlined.StarBorder,
+                                        contentDescription = tr("Toggle favorite"),
+                                        tint = if (profile.favorite) NeonCyan else TextSecondary)
+                                }
+                                TextButton(onClick = { onDelete(profile) }) { Text(tr("Delete"), color = Color(0xFFFF6C82), fontSize = 11.sp) }
+                            }
+                        }
+                        Spacer(Modifier.height(8.dp))
+                        OutlinedButton(
+                            onClick = { onConnect(profile, useTlsFragment) },
+                            enabled = profile.protocol != ConfigProtocol.TUIC && profile.protocol != ConfigProtocol.HYSTERIA2 && testingProfileName == null,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(if (profile.protocol == ConfigProtocol.TUIC || profile.protocol == ConfigProtocol.HYSTERIA2) tr("Needs a compatible core") else tr("Connect through Android VPN"))
+                        }
+                        OutlinedButton(
+                            onClick = {
+                                if (testingProfileName == null) {
+                                    testingProfileName = profile.name
+                                    testMessage = null
+                                    scope.launch {
+                                        val result = withContext(Dispatchers.IO) {
+                                            runCatching { ConnectionDiagnosticRunner.run(profile) }
+                                        }
+                                        testingProfileName = null
+                                        testMessage = result.fold(
+                                            onSuccess = { report ->
+                                                val stages = report.stages.joinToString("\n") { stage ->
+                                                    val label = when (stage.name) {
+                                                        "dns" -> "DNS"
+                                                        "tcp" -> "TCP / پورت"
+                                                        "tls" -> "TLS"
+                                                        "tunnel" -> "تونل واقعی"
+                                                        else -> stage.name
+                                                    }
+                                                    val state = when (stage.state) {
+                                                        com.spdcon.app.config.DiagnosticStageState.PASS -> "✓"
+                                                        com.spdcon.app.config.DiagnosticStageState.FAIL -> "✗"
+                                                        com.spdcon.app.config.DiagnosticStageState.SKIPPED -> "—"
+                                                        com.spdcon.app.config.DiagnosticStageState.UNKNOWN -> "?"
+                                                    }
+                                                    val time = stage.latencyMs?.let { " • ${it} ms" }.orEmpty()
+                                                    "$state $label$time: ${stage.detail}"
+                                                }
+                                                val dpi = report.dpiAssessment
+                                                if (report.tunnelConnected) {
+                                                    "تونل واقعی تأیید شد • ${report.coreVersion.orEmpty()}\nوضعیت DPI: ${dpi.titleFa}\n${dpi.explanationFa}\nگام بعدی: ${dpi.nextStepFa}\n$stages"
+                                                } else {
+                                                    val diagnosis = report.diagnosis
+                                                    "${diagnosis?.titleFa ?: "اتصال تأیید نشد"}\nوضعیت DPI: ${dpi.titleFa}\n${dpi.explanationFa}\nگام بعدی: ${dpi.nextStepFa}\n$stages"
+                                                }
+                                            },
+                                            onFailure = { failure ->
+                                                val detail = failure.message ?: failure.javaClass.simpleName
+                                                "آزمایش تشخیصی اجرا نشد\nجزئیات: $detail"
+                                            }
+                                        )
+                                    }
+                                }
+                            },
+                            enabled = testingProfileName == null &&
+                                profile.protocol != ConfigProtocol.HYSTERIA2 &&
+                                profile.protocol != ConfigProtocol.TUIC,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(
+                                when {
+                                    testingProfileName == profile.name -> tr("Testing with Xray-core…")
+                                    profile.protocol == ConfigProtocol.HYSTERIA2 || profile.protocol == ConfigProtocol.TUIC -> tr("Needs a compatible core")
+                                    else -> tr("Test with real Xray-core")
+                                }
+                            )
+                        }
+                        TextButton(
+                            onClick = { exportError = null; exportProfile = profile },
+                            modifier = Modifier.fillMaxWidth()
+                        ) { Text(tr("Export for client…")) }
+                    }
+                }
+            }
+        }
+    }
+    if (exportProfile != null) {
+        val profileToExport = exportProfile!!
+        AlertDialog(
+            onDismissRequest = { exportProfile = null },
+            title = { Text(tr("Export configuration")) },
+            text = { Text(tr("Choose a compatible client format. The exported link contains your configuration credentials.")) },
+            confirmButton = {
+                TextButton(
+                    enabled = ConfigClientExporters.supports(ConfigExportTarget.V2RAYNG, profileToExport),
+                    onClick = {
+                        ConfigClientExporters.exportSingle(ConfigExportTarget.V2RAYNG, profileToExport).fold(
+                            onSuccess = { clipboard.setText(AnnotatedString(it.text)) },
+                            onFailure = { exportError = it.message ?: "Could not export this configuration." }
+                        )
+                        exportProfile = null
+                    }
+                ) { Text(tr("Copy v2rayNG link")) }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    ConfigClientExporters.exportSingle(ConfigExportTarget.HIDDIFY, profileToExport).fold(
+                        onSuccess = { clipboard.setText(AnnotatedString(it.text)) },
+                        onFailure = { exportError = it.message ?: "Could not export this configuration." }
+                    )
+                    if (exportError == null) exportProfile = null
+                }) { Text(tr("Copy Hiddify link")) }
+            }
+        )
+    }
+    if (exportError != null) {
+        AlertDialog(
+            onDismissRequest = { exportError = null },
+            title = { Text(tr("Export failed")) },
+            text = { Text(exportError.orEmpty()) },
+            confirmButton = { TextButton(onClick = { exportError = null }) { Text(tr("OK")) } }
+        )
+    }
+    if (testMessage != null) {
+        AlertDialog(
+            onDismissRequest = { testMessage = null },
+            title = { Text(tr("Xray-core test result")) },
+            text = { Text(testMessage.orEmpty()) },
+            confirmButton = { TextButton(onClick = { testMessage = null }) { Text(tr("Close")) } }
+        )
+    }
+}
+
+@Composable
+private fun ToolsPage(onOpenAdvancedPanel: () -> Unit, onOpenScanner: () -> Unit) {
+    Column(
+        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState())
+            .padding(horizontal = 20.dp).padding(top = 8.dp, bottom = 112.dp),
+        verticalArrangement = Arrangement.spacedBy(13.dp)
+    ) {
+        Text(tr("Tools"), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+        Text(tr("Advanced utilities and server-side helpers"), color = TextSecondary, fontSize = 13.sp)
+        ToolCard(tr("Clean IP Scanner"), tr("Find responsive TLS edge IPs for your domain"), Icons.Filled.Analytics, onOpenScanner)
+        ToolCard(tr("Backhaul Generator"), tr("Build tunnel server / client configuration"), Icons.Filled.Build, onOpenAdvancedPanel)
+        ToolCard(tr("REALITY & node settings"), tr("Open the full configuration panel"), Icons.Filled.Security, onOpenAdvancedPanel)
+        ToolCard(tr("Cloudflare / Telegram proxy"), tr("Open existing proxy tools"), Icons.Filled.Settings, onOpenAdvancedPanel)
+        ToolCard(tr("QR import & diagnostics"), tr("Use the full import and diagnostic panel"), Icons.Filled.QrCodeScanner, onOpenAdvancedPanel)
+    }
+}
+
+@Composable
+private fun MorePage(onOpenAdvancedPanel: () -> Unit) {
+    val language = LocalAppLanguage.current
+    val setLanguage = LocalSetAppLanguage.current
+    Column(
+        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState())
+            .padding(horizontal = 20.dp).padding(top = 8.dp, bottom = 112.dp),
+        verticalArrangement = Arrangement.spacedBy(13.dp)
+    ) {
+        Text(tr("More"), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+        Text(tr("Settings and advanced features"), color = TextSecondary, fontSize = 13.sp)
+        GlassCard(modifier = Modifier.fillMaxWidth()) {
+            Text(tr("Local-first storage"), fontWeight = FontWeight.SemiBold)
+            Text(tr("Credentials are stored by the existing encrypted local library. Cloud sync remains optional."),
+                color = TextSecondary, fontSize = 12.sp)
+        }
+        GlassCard(modifier = Modifier.fillMaxWidth()) {
+            Text(tr("Language"), fontWeight = FontWeight.SemiBold)
+            Text(tr("Choose the app language. Persian and Arabic use right-to-left layout."),
+                color = TextSecondary, fontSize = 12.sp)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                AppLanguage.entries.forEach { option ->
+                    FilterChip(
+                        selected = language == option,
+                        onClick = { setLanguage(option) },
+                        label = { Text(option.nativeLabel) }
+                    )
+                }
+            }
+        }
+        GlassCard(modifier = Modifier.fillMaxWidth()) {
+            Text(tr("Appearance"), fontWeight = FontWeight.SemiBold)
+            Text(tr("SPD-C Neon Glass • dark navy • cyan glow"), color = TextSecondary, fontSize = 12.sp)
+        }
+        GlassCard(modifier = Modifier.fillMaxWidth(), onClick = onOpenAdvancedPanel) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Filled.Settings, contentDescription = null, tint = NeonCyan, modifier = Modifier.size(26.dp))
+                Spacer(Modifier.width(12.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(tr("Advanced / legacy panel"), fontWeight = FontWeight.SemiBold)
+                    Text(tr("Nodes, Cloud sync, Backhaul, Telegram proxy and extended settings"),
+                        color = TextSecondary, fontSize = 12.sp)
+                }
+            }
+        }
+        Text("SPD-C 0.2.0", color = TextSecondary, fontSize = 12.sp)
+    }
+}
+
+@Composable
+private fun MiniStat(value: String, label: String, icon: ImageVector) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Icon(icon, contentDescription = null, tint = NeonCyan, modifier = Modifier.size(18.dp))
+        Spacer(Modifier.height(4.dp))
+        Text(value, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+        Text(label, color = TextSecondary, fontSize = 11.sp)
+    }
+}
+
+@Composable
+private fun ActionCard(title: String, icon: ImageVector, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    GlassCard(modifier = modifier.height(96.dp), cornerRadius = 20.dp, onClick = onClick) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center,
+            modifier = Modifier.fillMaxSize()) {
+            Icon(icon, contentDescription = null, tint = NeonCyan, modifier = Modifier.size(26.dp))
+            Spacer(Modifier.height(8.dp))
+            Text(title, fontWeight = FontWeight.Medium, fontSize = 13.sp)
+        }
+    }
+}
+
+@Composable
+private fun StatCard(value: String, label: String, modifier: Modifier = Modifier) {
+    GlassCard(modifier = modifier, cornerRadius = 18.dp) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(value, fontWeight = FontWeight.Bold, fontSize = 18.sp, color = NeonCyan)
+            Text(label, color = TextSecondary, fontSize = 12.sp)
+        }
+    }
+}
+
+@Composable
+private fun ToolCard(title: String, subtitle: String, icon: ImageVector, onClick: () -> Unit) {
+    GlassCard(modifier = Modifier.fillMaxWidth(), cornerRadius = 20.dp, onClick = onClick) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(icon, contentDescription = null, tint = NeonCyan, modifier = Modifier.size(30.dp))
+            Spacer(Modifier.width(14.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(title, fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
+                Text(subtitle, color = TextSecondary, fontSize = 12.sp)
+            }
+        }
+    }
+}
+
+@Composable
+private fun GlassField(value: String, onValueChange: (String) -> Unit, label: String, numeric: Boolean = false) {
+    OutlinedTextField(
+        value = value, onValueChange = onValueChange, label = { Text(label) },
+        modifier = Modifier.fillMaxWidth(), singleLine = true, shape = RoundedCornerShape(14.dp),
+        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+            keyboardType = if (numeric) androidx.compose.ui.text.input.KeyboardType.Number else androidx.compose.ui.text.input.KeyboardType.Text
+        ),
+        colors = OutlinedTextFieldDefaults.colors(
+            focusedBorderColor = NeonCyan, unfocusedBorderColor = Color(0x5900B4FF),
+            focusedContainerColor = SurfaceGlass, unfocusedContainerColor = SurfaceGlass,
+            cursorColor = NeonCyan
+        )
+    )
+}
+
+@Composable
+private fun ReviewLine(label: String, value: String) {
+    Column(verticalArrangement = Arrangement.spacedBy(2.dp), modifier = Modifier.padding(bottom = 8.dp)) {
+        Text(label, color = TextSecondary, fontSize = 11.sp)
+        Text(value.ifBlank { "—" }, fontWeight = FontWeight.Medium, fontSize = 14.sp)
+    }
+}
+
+@Composable
+private fun GlassCard(
+    modifier: Modifier = Modifier,
+    cornerRadius: androidx.compose.ui.unit.Dp = 24.dp,
+    onClick: (() -> Unit)? = null,
+    content: @Composable androidx.compose.foundation.layout.ColumnScope.() -> Unit
+) {
+    val shape = RoundedCornerShape(cornerRadius)
+    Column(
+        modifier = modifier.shadow(17.dp, shape, ambientColor = NeonBlue.copy(alpha = 0.16f), spotColor = NeonBlue.copy(alpha = 0.28f))
+            .clip(shape)
+            .background(Brush.verticalGradient(listOf(SurfaceGlassLight, SurfaceGlass)))
+            .border(1.dp, Brush.linearGradient(listOf(NeonCyan.copy(alpha = 0.35f), NeonBlue.copy(alpha = 0.12f), Color.Transparent)), shape)
+            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
+            .padding(17.dp),
+        content = content
+    )
+}
+
+@Composable
+private fun NeonButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true) {
+    Button(
+        onClick = onClick, enabled = enabled, modifier = modifier.height(52.dp)
+            .shadow(if (enabled) 12.dp else 0.dp, RoundedCornerShape(16.dp), ambientColor = NeonBlue.copy(alpha = 0.3f)),
+        shape = RoundedCornerShape(16.dp),
+        colors = ButtonDefaults.buttonColors(containerColor = NeonBlue, contentColor = Color.Black)
+    ) { Text(text, fontWeight = FontWeight.Bold, fontSize = 14.sp) }
+}
+
+@Composable
+private fun protocolHint(protocol: String): String = tr(when (protocol) {
+    "VLESS + WS + TLS" -> "VLESS over WebSocket with TLS; requires a matching server/Worker route"
+    "Trojan + WS + TLS" -> "Trojan over WebSocket with TLS; requires a matching server/Worker route"
+    "VLESS + TLS" -> "TLS transport security"
+    "VLESS + Reality" -> "Requires the server public key and SNI"
+    "Trojan" -> "Password-based TLS proxy"
+    "Shadowsocks" -> "Encrypted proxy with a cipher method"
+    "Hysteria2" -> "QUIC-based UDP transport"
+    "TUIC" -> "QUIC transport with a separate password"
+    else -> "VPN configuration"
+})
+
+private fun profileId(profile: ConfigProfile): String =
+    "${profile.protocol.name}|${profile.server}|${profile.port}|${profile.name}"

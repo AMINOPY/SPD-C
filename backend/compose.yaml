@@ -1,0 +1,17 @@
+services:
+  api:
+    build:
+      context: .
+    env_file:
+      - .env
+    environment:
+      APP_ENV: development
+      DATABASE_PATH: /data/spdcon.db
+    ports:
+      - "127.0.0.1:8000:8000"
+    volumes:
+      - api_data:/data
+    restart: unless-stopped
+
+volumes:
+  api_data:

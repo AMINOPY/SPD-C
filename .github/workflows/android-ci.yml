@@ -1,0 +1,123 @@
+name: Spd con CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "android/**"
+      - "backend/**"
+      - "node-agent/**"
+      - "tests/fixtures/xray/**"
+      - "tools/xray-core-check.sh"
+      - "docs/**"
+      - "cloudflare/**"
+      - ".github/workflows/android-ci.yml"
+  pull_request:
+    paths:
+      - "android/**"
+      - "backend/**"
+      - "node-agent/**"
+      - "tests/fixtures/xray/**"
+      - "tools/xray-core-check.sh"
+      - "docs/**"
+      - "cloudflare/**"
+      - ".github/workflows/android-ci.yml"
+  workflow_dispatch:
+
+# Keep the active validation run alive while newer commits wait.
+# With cancel-in-progress=true, every push to the PR cancels Android/Xray checks,
+# producing misleading 'operation was canceled' annotations instead of results.
+concurrency:
+  group: spd-con-ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  cloudflare-worker-check:
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: cloudflare
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+      - name: Check Worker JavaScript syntax
+        run: npm run check
+      - name: Run Worker API tests
+        run: npm test
+
+  backend-tests:
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt
+      - name: Run API tests
+        run: python -m unittest discover -s tests -v
+
+  node-agent-tests:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - name: Compile node agent
+        run: python -m py_compile node-agent/*.py
+      - name: Run node agent tests
+        run: python -m unittest discover -s node-agent -p 'test_*.py' -v
+
+  xray-core-config-check:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+      - name: Validate exported-config fixtures against pinned Xray-core
+        run: bash tools/xray-core-check.sh
+
+  android-build:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+      - name: Set up JDK 17
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+        with:
+          gradle-version: "9.6.0"
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v4
+      - name: Install required SDK packages
+        run: sdkmanager "platforms;android-37.0"
+      - name: Run unit tests
+        working-directory: android
+        run: gradle testDebugUnitTest
+      - name: Build debug APK
+        working-directory: android
+        run: gradle assembleDebug
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v6
+        with:
+          name: spd-con-debug-apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 14

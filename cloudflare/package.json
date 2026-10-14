@@ -1,0 +1,12 @@
+{
+  "name": "spd-con-cloudflare-api",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "check": "node --check src/index.js",
+    "test": "node --test test/*.test.js"
+  },
+  "devDependencies": {
+    "wrangler": "4.150.0"
+  }
+}
